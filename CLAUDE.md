@@ -17,7 +17,7 @@ program kodda sabit değil — kurulum sihirbazında kullanıcıdan alınıp cih
 
 ```
 index.html      iskelet — sadece <head> ve script/style etiketleri
-stil.css        tüm görünüm; renkler :root içinde CSS değişkeni
+stil.css        tüm görünüm; renkler :root içinde anlam taşıyan değişkenler
 veri.js         plan içeriği: sporlar, takviye kütüphanesi, öğün şablonları, rehber
 besinler.js     besin veritabanı (539 kalem, gruplu)
 app.js          durum, ekranlar, olaylar — uygulamanın mantığı
@@ -48,7 +48,7 @@ sabitleri kullanıyor.
    ekranların hiçbiri depolamayı tanımamalı. Bu ayrımı bozma.
 6. **`ANAHTAR` sabitini keyfî değiştirme** (`"fitplan-v2"`). Şema gerçekten kırılacaksa
    önce geçiş kodu yaz, sonra sürümü artır — `goc()` fonksiyonu buna örnek.
-7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v4` → `plan-v5`).
+7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v5` → `plan-v6`).
    Artırmazsan kullanıcı eski sürümde takılı kalır — iOS önbelleği inatçıdır.
    Yeni bir dosya eklersen `DOSYALAR` listesine de eklemeyi unutma.
 8. **Türkçe karakterler.** Dosyalar UTF-8. `charset` meta etiketini silme.
@@ -60,6 +60,10 @@ sabitleri kullanıyor.
 11. **Cinsiyete göre vücut yağ formülü.** Navy yöntemi kadınlarda farklı katsayılar
     kullanır ve **kalça ölçüsü** ister. `navy()` içindeki bu ayrımı tek formüle indirgeme —
     indirgersen kadın kullanıcılarda sessizce yanlış sonuç üretirsin.
+12. **`input` olayında `ciz()` çağırma.** Tüm ekranı yeniden basmak yazarken odağı
+    kaybettirir; `input type="number"` üzerinde `setSelectionRange` da çalışmadığı için
+    imleç başa düşer ve kullanıcı "40" yazarken "04" görür. Canlı hesap gerekiyorsa
+    `canliGuncelle()` gibi yalnız ilgili düğümü tazeleyen bir yol yaz.
 
 ---
 
@@ -160,6 +164,27 @@ ekle, başka yeri güncelleme gerekmez. `BESIN_LISTE` düzleştirilmiş, aranabi
 Değerler yaklaşık referans değerlerdir. **Uydurma sayı ekleme** — emin değilsen kalemi
 hiç ekleme, kullanıcı zaten elle girebiliyor.
 
+### `stil.css` — renk sistemi
+
+Renkler yalnız `:root` içinde tanımlı ve **anlam taşıyor**; yeni renk uydurma, mevcut
+değişkenlerden birini kullan:
+
+| Değişken | Kullanım |
+|---|---|
+| `--zemin` / `--yuzey` / `--yuzey2` / `--yuzey3` | sayfa, kart, yükseltilmiş yüzeyler |
+| `--cizgi` / `--cizgi-parlak` | ayraç ve kenarlıklar |
+| `--metin` / `--soluk` / `--sonuk` | metin hiyerarşisi |
+| `--vurgu` | birincil eylem, ilerleme, kalori (asit yeşili) |
+| `--su` | hidrasyon |
+| `--iyi` | tamamlandı / hedefte |
+| `--uyari` | dikkat — kafein, tok karın, slot aşımı |
+| `--kotu` | hedef aşıldı / tehlike |
+
+Tasarım yönü "ölçüm aleti": grafit zemin, ince ayraçlar, geniş harf aralıklı mono
+mikro-etiketler, kahraman rakamlar. Doku (`body::after` grain) ve üstteki vurgu ışığı
+(`body::before`) düz koyu yüzeylerin plastik durmasını engelliyor. Dış font yok —
+ayrım paletten, tipografi ölçeğinden ve kompozisyondan geliyor.
+
 ### `app.js`
 
 | Bölüm | İçerik |
@@ -167,7 +192,7 @@ hiç ekleme, kullanıcı zaten elle girebiliyor.
 | `DEPO` | `Depo.oku/yaz/eskiOku`. Depolamaya tek erişim noktası. |
 | `YARDIMCILAR` | `iso`, `trT`, `haftaBasi`, `esc`, `sayi`, `navy`, `bmr`, `hedefHesapla`, `gunProgram`, `aliskanlikDurum`, `besinAra`, `gunToplam`, `haftaButce`, `butceMesaj`, `uyarilar` |
 | `DURUM` | `varsayilan()`, `S`, `KALICI`, `yukle()`, `duzelt()`, `goc()`, `kaydet()`, `kaydetGecikmeli()`, `kurulumGerek()`, `gun()`, `toast()` |
-| `PARÇALAR` | `kart()`, `satir()`, `alan()`, `secOp()`, `uyariKutu()`, `tally()`, `ilerleme()`, `grafik()` |
+| `PARÇALAR` | `kart()`, `satir()`, `alan()`, `secOp()`, `uyariKutu()`, `tally()`, `ilerleme()`, `halka()`, `grafik()` |
 | `KURULUM` | `vKurulum()` + `kAdim0…kAdim7`, `adimGecerli()`, `adimUygula()` |
 | `SEKMELER` | `vBugun`, `vYemek`, `vAntrenman`, `vIlerleme`, `vDaha` (+ `dMarket`, `dRehber`, `dTakviye`, `dAyar`, `dYedek`) |
 | `ÇİZ` | `ciz()` — kurulum gerekiyorsa alt menüsüz sihirbazı basar ve çıkar |
@@ -176,11 +201,11 @@ hiç ekleme, kullanıcı zaten elle girebiliyor.
 Mimari kasten basit: **durum değişir → `kaydet()` → `ciz()`**. Sanal DOM yok, framework
 yok. Yeni etkileşim eklerken `data-act="…"` koy ve click dinleyicisine bir dal ekle.
 
-**Yeniden çizim ve odak:** `ciz()` tüm ekranı yeniden basar, bu da yazarken odağı
-kaybettirir. Bu yüzden `input` olayında yalnızca `YENIDEN_CIZ` listesindeki alanlar için
-çiziyoruz (canlı hesap gösterenler) ve `yenidenCiz()` odağı imleç konumuyla geri koyuyor.
-Diğer alanlar sadece duruma yazıp `kaydetGecikmeli()` çağırıyor. Yeni bir alan eklerken
-canlı hesap göstermiyorsa listeye **ekleme**.
+**Yeniden çizim ve odak:** `ciz()` tüm ekranı yeniden basar. `input` olayında bunu
+**asla** çağırmıyoruz (12. kural). Canlı hesap gösteren yerler `canliGuncelle()` ile
+yalnız ilgili düğümü tazeliyor: ölçüm ekranındaki `#on-yag`, gramaj kartındaki
+`#bg-kcal` / `#bg-p` / `#bg-ky`. Besin araması da aynı mantıkla yalnız `#ara-liste`
+kabının içeriğini değiştiriyor. Diğer alanlar duruma yazıp `kaydetGecikmeli()` çağırıyor.
 
 Kullanıcı girdisi ekrana basılıyorsa `esc()` ile kaçır.
 
@@ -249,6 +274,7 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] `sw.js` içindeki `CACHE` adı artırıldı, yeni dosyalar `DOSYALAR` listesinde
 - [ ] 390 px genişlikte taşma yok, alt menü içeriği kapatmıyor
 - [ ] Koyu tema kontrastı bozulmadı
+- [ ] Sayı alanlarına **tuş tuş** yazılıyor (page.fill() bu hatayı yakalamaz)
 - [ ] Kurulum sihirbazı baştan sona geçiliyor (erkek ve kadın akışı ayrı ayrı)
 - [ ] Yedekle → sil → geri yükle turu çalışıyor
 - [ ] Türkçe karakterler bozulmadı

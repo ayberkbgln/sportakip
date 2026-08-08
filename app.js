@@ -181,13 +181,13 @@ function haftaButce(k) {
 function butceMesaj(hb) {
   const hedef = S.profil.kcal;
   if (!hb.kayitliGun)
-    return `Bu haftanın ilk kaydı. Günlük hedefin <strong style="color:var(--gold)">${hedef} kcal</strong>.`;
+    return `Bu haftanın ilk kaydı. Günlük hedefin <strong style="color:var(--vurgu)">${hedef} kcal</strong>.`;
   const atlandi = hb.atlanan ? ` ${hb.atlanan} gün kayıt girmemişsin, o günler hesaba katılmadı.` : "";
   if (hb.gunlukOneri < hedef * 0.85)
-    return `Bu hafta fazladan yemişsin. Kalan ${hb.kalanGun} güne yayılınca günde <strong style="color:var(--gold)">${hb.gunlukOneri} kcal</strong> kalıyor — aç kalman gerekmiyor, sadece toparla.${atlandi}`;
+    return `Bu hafta fazladan yemişsin. Kalan ${hb.kalanGun} güne yayılınca günde <strong style="color:var(--vurgu)">${hb.gunlukOneri} kcal</strong> kalıyor — aç kalman gerekmiyor, sadece toparla.${atlandi}`;
   if (hb.gunlukOneri > hedef * 1.15)
-    return `Bu hafta hedefinin altında kalmışsın. Kalan ${hb.kalanGun} günde günde <strong style="color:var(--gold)">${hb.gunlukOneri} kcal</strong> yiyebilirsin.${atlandi}`;
-  return `Yolunda gidiyor. Kalan ${hb.kalanGun} gün için günde <strong style="color:var(--gold)">${hb.gunlukOneri} kcal</strong>.${atlandi}`;
+    return `Bu hafta hedefinin altında kalmışsın. Kalan ${hb.kalanGun} günde günde <strong style="color:var(--vurgu)">${hb.gunlukOneri} kcal</strong> yiyebilirsin.${atlandi}`;
+  return `Yolunda gidiyor. Kalan ${hb.kalanGun} gün için günde <strong style="color:var(--vurgu)">${hb.gunlukOneri} kcal</strong>.${atlandi}`;
 }
 
 /* ---- Uyarı motoru ----
@@ -263,6 +263,13 @@ function duzelt() {
   ["sporlar","ogunler","takviyeler","olcumler","ozelBesinler"].forEach(a => { if (!Array.isArray(S[a])) S[a] = []; });
   if (!S.gunler || typeof S.gunler !== "object") S.gunler = {};
   if (!S.market || typeof S.market !== "object") S.market = {};
+
+  /* Ölçümler günde tek kayıt. Yedekten dönen ya da göçle gelen veri bu
+     kuralı bozabiliyor; aynı tarihten birden fazlası varsa sonuncusu kalır.
+     Tarihe göre sıralı tutuyoruz ki grafik ve "başlangıca göre" doğru olsun. */
+  const tek = new Map();
+  S.olcumler.filter(o => o && o.tarih).forEach(o => tek.set(o.tarih, o));
+  S.olcumler = [...tek.values()].sort((a, b) => a.tarih < b.tarih ? -1 : 1);
 }
 
 /* İlk sürümden (ayberk-plan-v1) göç. Su, takviye, antrenman ve ice tea
@@ -335,7 +342,7 @@ const alan = (k, l, tip) => `<div class="alan"><label class="lbl" for="in-${k}">
 const secOp = (act, on, ad, d) => `<button class="sec-op ${on ? "on" : ""}" data-act="${esc(act)}">
  <span class="tik">${TIK_S}</span><span class="ib"><span class="name">${esc(ad)}</span>${d ? `<span class="desc">${esc(d)}</span>` : ""}</span></button>`;
 
-const uyariKutu = u => `<div class="uyari ${u.tip === "kirmizi" ? "kirmizi" : ""}" style="color:${u.tip === "kirmizi" ? "var(--ember)" : "var(--gold)"}">${UNLEM}<p>${esc(u.m)}</p></div>`;
+const uyariKutu = u => `<div class="uyari ${u.tip === "kirmizi" ? "kirmizi" : ""}" style="color:${u.tip === "kirmizi" ? "var(--kotu)" : "var(--vurgu)"}">${UNLEM}<p>${esc(u.m)}</p></div>`;
 
 function tally(n, hedef) {
   let g = [], kal = hedef; while (kal > 0) { g.push(Math.min(5, kal)); kal -= 5; }
@@ -348,7 +355,35 @@ function tally(n, hedef) {
 
 function ilerleme(oran, renk) {
   const y = kis(Math.round(oran * 100), 0, 100);
-  return `<div class="bar"><div class="fill" style="width:${y}%;background:${renk || (y >= 85 ? "var(--mint)" : "var(--gold)")}"></div></div>`;
+  return `<div class="bar"><div class="fill" style="width:${y}%;background:${renk || (y >= 85 ? "var(--iyi)" : "var(--vurgu)")}"></div></div>`;
+}
+
+/* Günün kalorisi ve proteini için iç içe iki yay. Rakam kahraman olsun diye
+   çubuk yerine halka: tek bakışta "ne kadarını yedim" okunuyor.
+   SVG sunum özniteliklerinde var() çalışmaz — renkleri style ile veriyoruz. */
+function halka(kcal, hedefKcal, protein, hedefProtein) {
+  const R1 = 60, R2 = 45, C1 = 2 * Math.PI * R1, C2 = 2 * Math.PI * R2;
+  const o1 = kis(hedefKcal ? kcal / hedefKcal : 0, 0, 1);
+  const o2 = kis(hedefProtein ? protein / hedefProtein : 0, 0, 1);
+  const asti = hedefKcal && kcal > hedefKcal;
+  const renk = asti ? "var(--kotu)" : "var(--vurgu)";
+  return `<div class="halka">
+    <svg viewBox="0 0 150 150" aria-hidden="true">
+      <circle class="iz" cx="75" cy="75" r="${R1}"/>
+      <circle class="yay" cx="75" cy="75" r="${R1}" style="stroke:${renk}"
+        stroke-dasharray="${C1.toFixed(1)}" stroke-dashoffset="${(C1 * (1 - o1)).toFixed(1)}"/>
+      <circle class="iz ince" cx="75" cy="75" r="${R2}"/>
+      <circle class="yay ince" cx="75" cy="75" r="${R2}" style="stroke:var(--iyi)"
+        stroke-dasharray="${C2.toFixed(1)}" stroke-dashoffset="${(C2 * (1 - o2)).toFixed(1)}"/>
+    </svg>
+    <div class="halka-ic">
+      <div class="halka-n" style="color:${renk}">${kcal}</div>
+      <div class="halka-l">/ ${hedefKcal || "—"} kcal</div>
+    </div></div>
+   <div class="halka-alt">
+     <span><i style="background:${renk}"></i>Kalori</span>
+     <span><i style="background:var(--iyi)"></i>Protein ${Math.round(protein)} / ${hedefProtein || "—"} g</span>
+   </div>`;
 }
 
 /* Basit çizgi grafiği — dış kütüphane yok */
@@ -362,15 +397,19 @@ function grafik(noktalar, birim) {
   const x = i => sol + i * (W - sol - sag) / (noktalar.length - 1);
   const y = v => ust + (max - v) / (max - min) * (H - ust - alt);
   const d = noktalar.map((n, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(n.deger).toFixed(1)}`).join(" ");
+  const dolgu = `${d} L${x(noktalar.length - 1).toFixed(1)} ${H - alt} L${sol} ${H - alt} Z`;
   const kilavuz = [max - pay, (max + min) / 2, min + pay].map(v =>
     `<line class="kilavuz" x1="${sol}" y1="${y(v).toFixed(1)}" x2="${W - sag}" y2="${y(v).toFixed(1)}"/>
      <text class="etiket" x="0" y="${(y(v) + 3).toFixed(1)}">${v.toFixed(1)}</text>`).join("");
-  const noktaG = noktalar.map((n, i) => `<circle class="nokta" cx="${x(i).toFixed(1)}" cy="${y(n.deger).toFixed(1)}" r="3"/>`).join("");
+  const noktaG = noktalar.map((n, i) => `<circle class="nokta" cx="${x(i).toFixed(1)}" cy="${y(n.deger).toFixed(1)}" r="3.2"/>`).join("");
   const ilkSon = `<text class="etiket" x="${sol}" y="${H - 4}">${esc(trKisa(noktalar[0].tarih))}</text>
     <text class="etiket" x="${W - sag}" y="${H - 4}" text-anchor="end">${esc(trKisa(noktalar[noktalar.length - 1].tarih))}</text>`;
-  return `<svg class="grafik" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
+  return `<svg class="grafik" viewBox="0 0 ${W} ${H}" role="img"
     aria-label="${esc(noktalar[0].deger + " " + birim + " değerinden " + noktalar[noktalar.length - 1].deger + " " + birim + " değerine değişim")}">
-    ${kilavuz}<path class="cizgi" d="${d}"/>${noktaG}${ilkSon}</svg>`;
+    <defs><linearGradient id="gr-dolgu" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D2FF3E" stop-opacity=".22"/>
+      <stop offset="100%" stop-color="#D2FF3E" stop-opacity="0"/></linearGradient></defs>
+    ${kilavuz}<path class="alan-dolgu" d="${dolgu}"/><path class="cizgi" d="${d}"/>${noktaG}${ilkSon}</svg>`;
 }
 
 /* =================== KURULUM =================== */
@@ -427,7 +466,7 @@ function kAdim2() {
        ${AKTIVITE.map(x => secOp("k-akt:" + x.id, p.aktivite === x.id, x.ad, x.d)).join("")}</div>
      <label class="lbl sol">Antrenmanın genelde saat kaçta</label>
      <input type="time" data-fld="antrSaat" value="${esc(p.antrSaat || "18:00")}" style="margin-bottom:11px">
-     ${h ? `<div class="stat"><div class="sc"><div class="sn" style="color:var(--gold)">${h.kcal}</div><div class="sl">kcal / gün</div></div>
+     ${h ? `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${h.kcal}</div><div class="sl">kcal / gün</div></div>
        <div class="sc"><div class="sn">${h.protein}</div><div class="sl">g protein</div></div>
        <div class="sc"><div class="sn">${h.su}</div><div class="sl">bardak su</div></div></div>
        <p class="note" style="margin-top:10px">Günlük harcaman yaklaşık ${h.tdee} kcal. Bu hedefleri sonradan Ayarlar'dan değiştirebilirsin.</p>`
@@ -505,17 +544,15 @@ function vBugun() {
   uyarilar(k).forEach(u => { h += uyariKutu(u); });
 
   /* Kalori ve protein */
-  h += kart("Bugün", `${top.kcal} / ${p.kcal || "—"} kcal<br>${Math.round(top.p)} / ${p.protein || "—"} g protein`,
-    `<p class="card-t" style="margin-bottom:0">Kalori</p>` +
-    ilerleme(p.kcal ? top.kcal / p.kcal : 0, top.kcal > p.kcal ? "var(--ember)" : "var(--gold)") +
-    `<p class="card-t" style="margin:14px 0 0">Protein</p>` +
-    ilerleme(p.protein ? top.p / p.protein : 0, "var(--mint)") +
+  h += kart("Bugün yenen", g.yenen.length ? g.yenen.length + " kayıt" : "",
+    halka(top.kcal, p.kcal, top.p, p.protein) +
     (hb ? `<hr><p class="note">${butceMesaj(hb)}</p>` : "") +
-    `<button class="btn gold blok" data-act="tab:yemek" style="margin-top:12px">Yemek ekle</button>`);
+    `<button class="btn gold blok" data-act="tab:yemek" style="margin-top:14px">Yemek ekle</button>`);
 
   /* Su */
   h += kart("Su", `${g.su * 250} / ${p.suHedef * 250} ml`,
-    tally(g.su, p.suHedef) + `<div class="row"><button class="btn gold" data-act="su+">+ 1 bardak (250 ml)</button>
+    tally(g.su, p.suHedef) + `<div class="row">
+     <button class="btn" data-act="su+" style="color:var(--su);border-color:rgba(79,214,232,.4)">+ 1 bardak (250 ml)</button>
      <button class="btn ghost sm" data-act="su-" aria-label="azalt">−</button></div>`);
 
   /* Takviye */
@@ -536,7 +573,7 @@ function vBugun() {
     h += kart(esc(S.aliskanlik.ad), ad.ad,
       `<div class="stat" style="margin-bottom:12px">
         <div class="sc"><div class="sn">${g.aliskanlik}</div><div class="sl">Bugün</div></div>
-        <div class="sc"><div class="sn" style="color:${asti ? "var(--ember)" : "var(--mint)"}">${hafta}</div><div class="sl">7 günde</div></div>
+        <div class="sc"><div class="sn" style="color:${asti ? "var(--kotu)" : "var(--iyi)"}">${hafta}</div><div class="sl">7 günde</div></div>
         <div class="sc"><div class="sn">${ad.limit}</div><div class="sl">Sınır</div></div></div>
        <p class="note" style="margin-bottom:12px">Bu hafta en fazla ${ad.limit} ${esc(S.aliskanlik.birim)}${asti ? " — sınırı aştın, gelecek hafta sıfırdan başlıyorsun." : "."}</p>
        <div class="row"><button class="btn" data-act="alis+">+ 1 ${esc(S.aliskanlik.birim)}</button>
@@ -551,12 +588,12 @@ function vYemek() {
 
   let h = `<header class="top"><p class="eyebrow">${trT(k)}</p><h1>Yemek</h1>
    <p class="sub">${top.kcal} / ${p.kcal || "—"} kcal · ${Math.round(top.p)} / ${p.protein || "—"} g protein</p>
-   ${ilerleme(p.kcal ? top.kcal / p.kcal : 0, top.kcal > p.kcal ? "var(--ember)" : "var(--gold)")}</header>`;
+   ${ilerleme(p.kcal ? top.kcal / p.kcal : 0, top.kcal > p.kcal ? "var(--kotu)" : "var(--vurgu)")}</header>`;
 
   if (hb)
     h += kart("Haftalık bütçe", `${hb.kalanGun} gün kaldı`,
       `<div class="stat"><div class="sc"><div class="sn">${(hb.oncekiler / 1000).toFixed(1)}k</div><div class="sl">Yenen</div></div>
-        <div class="sc"><div class="sn" style="color:var(--gold)">${hb.gunlukOneri}</div><div class="sl">Günlük öneri</div></div>
+        <div class="sc"><div class="sn" style="color:var(--vurgu)">${hb.gunlukOneri}</div><div class="sl">Günlük öneri</div></div>
         <div class="sc"><div class="sn">${(hb.haftaHedef / 1000).toFixed(1)}k</div><div class="sl">Hafta bütçesi</div></div></div>
        <p class="note" style="margin-top:11px">${butceMesaj(hb)}</p>
        <p class="note" style="margin-top:8px">Bir gün taştıysan uygulama seni sıfırlamaz — kalan bütçeyi kalan günlere böler. Haftalık toplam, günlük mükemmellikten daha çok işe yarar.</p>`);
@@ -567,8 +604,10 @@ function vYemek() {
     const kalemler = g.yenen.filter(y => y.ogun === o.id);
     const sK = kalemler.reduce((a, y) => a + y.kcal, 0), sP = kalemler.reduce((a, y) => a + y.p, 0);
     const hedefK = p.kcal ? Math.round(p.kcal * o.p) : null;
+    /* Slot hedefini belirgin biçimde aşınca sayıyı boya — yoksa fark edilmiyor */
+    const slotAsti = hedefK && sK > hedefK * 1.15;
     h += kart(esc(o.ad) + (o.saat ? " · " + esc(o.saat) : ""),
-      hedefK ? `${sK} / ${hedefK} kcal` : `${sK} kcal`,
+      hedefK ? `<span${slotAsti ? ' style="color:var(--uyari)"' : ""}>${sK}</span> / ${hedefK} kcal` : `${sK} kcal`,
       (kalemler.length
         ? kalemler.map(y => `<div class="item">
             <div class="ib"><div class="it"><span class="name">${esc(y.ad)}</span><span class="time">${y.gram} g</span></div>
@@ -579,22 +618,13 @@ function vYemek() {
        <button class="btn ghost blok" data-act="yem-ac:${esc(o.id)}">Yemek ekle</button>`);
   });
 
-  /* Arama paneli */
+  /* Arama paneli. Sonuç listesi ayrı bir kapta: yazarken tüm ekranı değil
+     yalnızca o kabı tazeliyoruz (bkz. canliGuncelle). */
   if (S.araHedef) {
     const hedefAd = (slotlar.find(o => o.id === S.araHedef) || {}).ad || "";
-    const sonuc = besinAra(S.ara);
-    const son = S.ara.length < 2 ? sonBesinler(8) : [];
     h += kart("Ekle → " + esc(hedefAd), "",
       `<input type="text" data-ara="1" value="${esc(S.ara)}" placeholder="Besin ara — örn. tavuk, pilav, muz" style="text-align:left">
-       ${sonuc.length ? `<div class="ara-sonuc">${sonuc.map((b, i) =>
-          `<button class="ara-op" data-act="bes-sec:${i}"><span class="ib"><span class="name">${esc(b.ad)}</span>
-            <span class="macro">${b.grup} · ${b.pAd} ${b.pGram} g</span></span>
-           <span class="ara-sag">${Math.round(b.kcal * b.pGram / 100)} kcal</span></button>`).join("")}</div>` : ""}
-       ${(S.ara.length >= 2 && !sonuc.length) ? `<p class="bos">Bulunamadı. Aşağıdan elle ekleyebilirsin.</p>` : ""}
-       ${son.length ? `<p class="sec" style="margin:16px 0 4px">Son eklediklerin</p>
-         <div class="ara-sonuc">${son.map((b, i) => `<button class="ara-op" data-act="bes-son:${i}">
-           <span class="ib"><span class="name">${esc(b.ad)}</span><span class="macro">${b.gram} g</span></span>
-           <span class="ara-sag">${b.kcal} kcal</span></button>`).join("")}</div>` : ""}
+       <div id="ara-liste">${araListeHtml()}</div>
        <hr><p class="sec" style="margin:0 0 8px">Elle ekle</p>
        <div class="row" style="margin-bottom:9px">${alan("elAd", "Ne yedin", "text")}</div>
        <div class="row" style="margin-bottom:11px">${alan("elKcal", "kcal")}${alan("elP", "Protein g")}</div>
@@ -604,18 +634,47 @@ function vYemek() {
 
   /* Seçilen besin için gramaj */
   if (S.f.besin) {
-    const b = S.f.besin;
-    const gr = sayi(S.f.besinGram) || b.pGram;
-    h += kart("Miktar", esc(b.ad),
+    const c = besinHesap();
+    h += kart("Miktar", esc(S.f.besin.ad),
       `<div class="row" style="margin-bottom:11px">${alan("besinGram", "Gram")}</div>
        <div class="stat" style="margin-bottom:12px">
-         <div class="sc"><div class="sn" style="color:var(--gold)">${Math.round(b.kcal * gr / 100)}</div><div class="sl">kcal</div></div>
-         <div class="sc"><div class="sn">${(b.p * gr / 100).toFixed(1)}</div><div class="sl">Protein g</div></div>
-         <div class="sc"><div class="sn">${(b.k * gr / 100).toFixed(0)} / ${(b.y * gr / 100).toFixed(0)}</div><div class="sl">Karb / Yağ</div></div></div>
+         <div class="sc"><div class="sn" id="bg-kcal" style="color:var(--vurgu)">${c.kcal}</div><div class="sl">kcal</div></div>
+         <div class="sc"><div class="sn" id="bg-p">${c.p}</div><div class="sl">Protein g</div></div>
+         <div class="sc"><div class="sn" id="bg-ky">${c.ky}</div><div class="sl">Karb / Yağ</div></div></div>
        <div class="row"><button class="btn gold" data-act="besin-ekle">Ekle</button>
         <button class="btn ghost" data-act="besin-iptal">Vazgeç</button></div>`);
   }
   return h;
+}
+
+function araListeHtml() {
+  const sonuc = besinAra(S.ara);
+  const son = S.ara.length < 2 ? sonBesinler(8) : [];
+  return `${sonuc.length ? `<div class="ara-sonuc">${sonuc.map((b, i) =>
+      `<button class="ara-op" data-act="bes-sec:${i}"><span class="ib"><span class="name">${esc(b.ad)}</span>
+        <span class="macro">${esc(b.grup)} · ${esc(b.pAd)} ${b.pGram} g</span></span>
+       <span class="ara-sag">${Math.round(b.kcal * b.pGram / 100)} kcal</span></button>`).join("")}</div>` : ""}
+    ${(S.ara.length >= 2 && !sonuc.length) ? `<p class="bos">Bulunamadı. Aşağıdan elle ekleyebilirsin.</p>` : ""}
+    ${son.length ? `<p class="sec" style="margin:16px 0 4px">Son eklediklerin</p>
+      <div class="ara-sonuc">${son.map((b, i) => `<button class="ara-op" data-act="bes-son:${i}">
+        <span class="ib"><span class="name">${esc(b.ad)}</span><span class="macro">${b.gram} g</span></span>
+        <span class="ara-sag">${b.kcal} kcal</span></button>`).join("")}</div>` : ""}`;
+}
+
+function besinHesap() {
+  const b = S.f.besin;
+  if (!b) return { kcal: 0, p: "0.0", ky: "0 / 0" };
+  const gr = sayi(S.f.besinGram);
+  const g = gr > 0 ? gr : 0;
+  return { kcal: Math.round(b.kcal * g / 100), p: (b.p * g / 100).toFixed(1),
+           ky: `${(b.k * g / 100).toFixed(0)} / ${(b.y * g / 100).toFixed(0)}` };
+}
+
+/* Ölçüm ekranındaki canlı yağ oranı satırı */
+function onizlemeYag() {
+  const o = { bel: sayi(S.f.bel), boyun: sayi(S.f.boyun), kalca: sayi(S.f.kalca) };
+  const v = navy(o);
+  return v == null ? "" : `Hesaplanan yağ oranı: <strong style="color:var(--vurgu)">%${v.toFixed(1)}</strong>`;
 }
 
 /* =================== SEKME: ANTRENMAN =================== */
@@ -725,7 +784,7 @@ function vIlerleme() {
     if (p.kcal && gunToplam(k).kcal > 0 && gunToplam(k).kcal <= p.kcal) kcalGun++;
   }
   h += kart("Bu hafta", gecen + " gün geçti",
-    `<div class="stat"><div class="sc"><div class="sn" style="color:var(--gold)">${antrSayi}</div><div class="sl">Antrenman</div></div>
+    `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${antrSayi}</div><div class="sl">Antrenman</div></div>
       <div class="sc"><div class="sn">${suGun}</div><div class="sl">Su tuttu</div></div>
       <div class="sc"><div class="sn">${kcalGun}</div><div class="sl">Kalori tuttu</div></div></div>`);
 
@@ -737,26 +796,24 @@ function vIlerleme() {
         (son.bel && ilk.bel) ? ` · bel ${(son.bel - ilk.bel).toFixed(1)} cm` : ""}${
         (fSon != null && fIlk != null) ? ` · yağ ${(fSon - fIlk).toFixed(1)} puan` : ""}</p>`;
     h += kart("Son ölçüm", trT(son.tarih),
-      `<div class="stat"><div class="sc"><div class="sn" style="color:var(--gold)">${navyStr(son)}</div><div class="sl">Yağ %</div></div>
+      `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${navyStr(son)}</div><div class="sl">Yağ %</div></div>
         <div class="sc"><div class="sn">${son.bel || "—"}</div><div class="sl">Bel cm</div></div>
         <div class="sc"><div class="sn">${son.kilo}</div><div class="sl">Kilo kg</div></div></div>${fark}`);
     h += kart("Kilo eğrisi", artan.length + " ölçüm", grafik(artan.map(o => ({ tarih: o.tarih, deger: o.kilo })), "kg"));
   }
 
-  const onIzle = { bel: sayi(S.f.bel), boyun: sayi(S.f.boyun), kalca: sayi(S.f.kalca) };
-  const on = (S.f.bel && S.f.boyun) ? navy(onIzle) : null;
   h += kart("Yeni ölçüm gir", "",
     `<div class="row" style="margin-bottom:11px">${alan("kilo", "Kilo kg")}${alan("bel", "Bel cm")}${alan("boyun", "Boyun cm")}</div>
      ${kadin ? `<div class="row" style="margin-bottom:11px">${alan("kalca", "Kalça cm")}</div>` : ""}
      <button class="btn gold blok" data-act="olcum">Bugünün ölçümünü kaydet</button>
-     ${on != null ? `<p class="note" style="margin-top:10px;text-align:center">Hesaplanan yağ oranı: <strong style="color:var(--gold)">%${on.toFixed(1)}</strong></p>` : ""}
+     <p class="note" id="on-yag" style="margin-top:10px;text-align:center">${onizlemeYag()}</p>
      <p class="note" style="margin-top:10px">Sadece kilo da girebilirsin — bel ve boyun boş kalırsa yağ oranı hesaplanmaz, kilo yine kaydedilir.</p>`);
 
   if (artan.length)
     h += kart("Geçmiş", "",
       `<div class="kaydir"><table><thead><tr><th>Tarih</th><th>Kilo</th><th>Bel</th><th>Boyun</th>${kadin ? "<th>Kalça</th>" : ""}<th>Yağ %</th></tr></thead>
        <tbody>${[...artan].reverse().map(o => `<tr><td>${trKisa(o.tarih)}</td><td>${o.kilo}</td><td>${o.bel || "—"}</td><td>${o.boyun || "—"}</td>
-       ${kadin ? `<td>${o.kalca || "—"}</td>` : ""}<td style="color:var(--gold)">${navyStr(o)}</td></tr>`).join("")}</tbody></table></div>`);
+       ${kadin ? `<td>${o.kalca || "—"}</td>` : ""}<td style="color:var(--vurgu)">${navyStr(o)}</td></tr>`).join("")}</tbody></table></div>`);
   return h;
 }
 
@@ -1231,9 +1288,23 @@ function yedekJson(guzel) {
   return JSON.stringify(d, null, guzel ? 2 : 0);
 }
 
-/* Alan yazımları. Yalnızca canlı hesap gösteren alanlarda yeniden çizeriz;
-   diğerlerinde odak kaybolmasın diye sadece duruma yazıp gecikmeli kaydederiz. */
-const YENIDEN_CIZ = ["bel", "boyun", "kalca", "besinGram"];
+/* Alan yazımları.
+
+   BURADA ciz() ÇAĞIRMA. Tüm ekranı yeniden basmak yazarken odağı kaybettirir;
+   odağı geri koysan bile `input type="number"` üzerinde setSelectionRange
+   çalışmadığı için imleç başa düşer ve kullanıcı "40" yazarken "04" görür.
+   Onun yerine yalnızca hesaplanan düğümleri güncelliyoruz. */
+function canliGuncelle() {
+  const yag = document.getElementById("on-yag");
+  if (yag) yag.innerHTML = onizlemeYag();
+  const kcal = document.getElementById("bg-kcal");
+  if (kcal) {
+    const c = besinHesap();
+    kcal.textContent = c.kcal;
+    document.getElementById("bg-p").textContent = c.p;
+    document.getElementById("bg-ky").textContent = c.ky;
+  }
+}
 
 document.addEventListener("input", e => {
   const t = e.target;
@@ -1241,10 +1312,15 @@ document.addEventListener("input", e => {
   if (t.dataset.fld) {
     S.f[t.dataset.fld] = t.value;
     if (t.dataset.fld === "antrSaat") S.profil.antrSaat = t.value;
-    if (YENIDEN_CIZ.indexOf(t.dataset.fld) !== -1) return yenidenCiz(t, '[data-fld="' + t.dataset.fld + '"]');
+    canliGuncelle();
+    return kaydetGecikmeli();
+  }
+  if (t.dataset.ara != null) {
+    S.ara = t.value;
+    const liste = document.getElementById("ara-liste");
+    if (liste) liste.innerHTML = araListeHtml();
     return;
   }
-  if (t.dataset.ara != null) { S.ara = t.value; return yenidenCiz(t, "[data-ara]"); }
   if (t.dataset.log) { gun().antrenman[t.dataset.log] = t.value; return kaydetGecikmeli(); }
   if (t.dataset.set) {
     const [i, alan] = t.dataset.set.split(":");
@@ -1272,15 +1348,6 @@ document.addEventListener("change", e => {
     kaydet(); return ciz();
   }
 });
-
-/* Yeniden çizip odağı ve imleç konumunu geri koyar */
-function yenidenCiz(t, secici) {
-  const p = t.selectionStart;
-  ciz();
-  const n = document.querySelector(secici);
-  if (n) { n.focus(); try { n.setSelectionRange(p, p); } catch (x) {} }
-  kaydetGecikmeli();
-}
 
 /* =================== BAŞLAT =================== */
 yukle();
