@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Plan</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#17111C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Plan">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --ring:#17111C; --canvas:#221A29; --rope:#382B42; --raised:#2B2033;
+  --bone:#EDE6E0; --ash:#9E92A8; --gold:#E8B33C; --mint:#63D2A4; --ember:#E2574A;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--ring);}
+body{
+  color:var(--bone);font-family:var(--sans);min-height:100vh;
+  -webkit-font-smoothing:antialiased;overscroll-behavior-y:contain;
+  padding-top:env(safe-area-inset-top);
+}
+.wrap{max-width:520px;margin:0 auto;padding:0 16px 122px;}
+
+.top{padding:22px 0 14px;border-bottom:1px solid var(--rope);margin-bottom:18px;}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin:0 0 6px;}
+h1{font-size:25px;font-weight:750;letter-spacing:-.022em;margin:0;line-height:1.15;}
+.sub{font-family:var(--mono);font-size:11.5px;color:var(--ash);margin:7px 0 0;letter-spacing:.02em;}
+
+.card{background:var(--canvas);border:1px solid var(--rope);border-radius:16px;padding:16px;margin-bottom:12px;}
+.card-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:13px;}
+.card-t{font-size:11px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ash);margin:0;}
+.card-v{font-family:var(--mono);font-size:12.5px;color:var(--bone);font-variant-numeric:tabular-nums;text-align:right;}
+
+.tally{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin:4px 0 14px;}
+.grp{display:flex;gap:6px;align-items:center;position:relative;padding:2px 3px;}
+.mark{width:3px;height:34px;border-radius:2px;background:var(--rope);transition:background .18s;}
+.mark.on{background:var(--gold);}
+.slash{position:absolute;left:-3px;right:-3px;top:16px;height:3px;border-radius:2px;background:var(--rope);transform:rotate(-19deg);transition:background .18s;}
+.slash.on{background:var(--gold);}
+
+.row{display:flex;gap:9px;}
+.btn{flex:1;border:1px solid var(--rope);background:var(--raised);color:var(--bone);font-family:var(--sans);
+  font-size:14px;font-weight:600;padding:12px;border-radius:11px;cursor:pointer;transition:transform .1s;}
+.btn:active{transform:scale(.97);}
+.btn.gold{background:var(--gold);color:#241A06;border-color:var(--gold);}
+.btn.ghost{background:transparent;color:var(--ash);}
+.btn.sm{flex:0 0 62px;}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+.item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--rope);cursor:pointer;}
+.item:first-of-type{border-top:none;}
+.box{flex:none;width:23px;height:23px;border-radius:7px;border:1.5px solid var(--rope);background:var(--raised);
+  display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .16s;}
+.box.on{background:var(--mint);border-color:var(--mint);}
+.box svg{opacity:0;transform:scale(.6);transition:all .16s;}
+.box.on svg{opacity:1;transform:scale(1);}
+.ib{flex:1;min-width:0;}
+.it{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;}
+.name{font-size:14.5px;font-weight:650;letter-spacing:-.01em;}
+.time{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:.04em;}
+.desc{font-size:12.5px;color:var(--ash);line-height:1.5;margin-top:3px;}
+.macro{font-family:var(--mono);font-size:10.5px;color:var(--ash);margin-top:5px;letter-spacing:.03em;font-variant-numeric:tabular-nums;}
+.done .name,.done .desc{opacity:.42;text-decoration:line-through;text-decoration-thickness:1px;}
+
+.bar{height:5px;border-radius:3px;background:var(--rope);overflow:hidden;margin-top:9px;}
+.fill{height:100%;border-radius:3px;transition:width .3s;}
+
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+.sc{background:var(--raised);border:1px solid var(--rope);border-radius:12px;padding:11px 10px;text-align:center;}
+.sn{font-family:var(--mono);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+.sl{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ash);margin-top:4px;}
+
+input,textarea{width:100%;background:var(--ring);border:1px solid var(--rope);border-radius:10px;color:var(--bone);
+  font-family:var(--mono);font-size:16px;padding:11px;font-variant-numeric:tabular-nums;}
+input{text-align:center;}
+textarea{text-align:left;font-size:12px;min-height:90px;resize:vertical;}
+input:focus,textarea:focus{outline:none;border-color:var(--gold);}
+.lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ash);display:block;margin-bottom:5px;text-align:center;}
+
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;}
+th{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ash);font-weight:500;text-align:right;padding:0 0 8px;}
+th:first-child{text-align:left;}
+td{padding:9px 0;border-top:1px solid var(--rope);text-align:right;}
+td:first-child{text-align:left;color:var(--ash);font-size:11px;}
+
+.gr{padding:11px 0;border-top:1px solid var(--rope);}
+.gr:first-of-type{border-top:none;}
+.gk{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;margin-bottom:4px;color:var(--gold);}
+.gv{font-size:13.5px;line-height:1.55;}
+
+.chip{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 9px;border-radius:20px;border:1px solid var(--rope);color:var(--ash);}
+.chip.gold{color:var(--gold);border-color:var(--gold);}
+.chip.mint{color:var(--mint);border-color:var(--mint);}
+
+.note{font-size:12px;color:var(--ash);line-height:1.55;}
+hr{height:1px;background:var(--rope);margin:16px 0;border:none;}
+.sec{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin:22px 0 10px;}
+
+nav{position:fixed;left:0;right:0;bottom:0;background:rgba(23,17,28,.94);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--rope);
+  padding-bottom:env(safe-area-inset-bottom);z-index:40;}
+.nav-in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);}
+.tab{background:none;border:none;padding:11px 2px 13px;cursor:pointer;color:var(--ash);
+  display:flex;flex-direction:column;align-items:center;gap:5px;font-family:var(--mono);}
+.tab.on{color:var(--gold);}
+.tab span{font-size:9px;letter-spacing:.08em;text-transform:uppercase;}
+
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--mint);color:#0C2019;
+  font-family:var(--mono);font-size:12px;padding:10px 18px;border-radius:22px;z-index:60;font-weight:600;
+  opacity:0;pointer-events:none;transition:opacity .25s;}
+.toast.on{opacity:1;}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =================== SABİTLER =================== */
+const BARDAK_ML=250, BARDAK_HEDEF=14, TEA_BASLA="2026-08-10";
+const ANAHTAR="ayberk-plan-v1";
+
+const OGUN={
+ antrenman:[
+  {id:"t1",saat:"08:00",ad:"Kahvaltı",kcal:514,p:36,ic:"3 tam yumurta · 40 g beyaz peynir · 30 g proteinli granola (TART) · domates, salatalık, yeşillik · 1 tk zeytinyağı"},
+  {id:"t2",saat:"11:00",ad:"Ara öğün",kcal:318,p:24,ic:"200 g süzme yoğurt (light) · 1 elma · 20 g badem"},
+  {id:"t3",saat:"13:30",ad:"Öğle",kcal:535,p:53,ic:"150 g ızgara tavuk göğsü · 150 g bulgur pilavı · bol salata + 1 yk zeytinyağı"},
+  {id:"t4",saat:"18:00",ad:"Antrenman öncesi",kcal:425,p:16,ic:"1 kase mercimek çorbası · 2 dilim tam buğday ekmek · 1 muz"},
+  {id:"t5",saat:"22:00",ad:"Antrenman sonrası",kcal:185,p:26,ic:"1 ölçek whey izolat (su ile) · 3 adet hurma"},
+  {id:"t6",saat:"22:45",ad:"İsteğe bağlı",kcal:90,p:15,ic:"150 g süzme yoğurt — sadece açsan"}],
+ normal:[
+  {id:"r1",saat:"08:00",ad:"Kahvaltı",kcal:514,p:36,ic:"3 tam yumurta · 40 g beyaz peynir · 30 g proteinli granola (TART) · domates, salatalık · 1 tk zeytinyağı"},
+  {id:"r2",saat:"11:00",ad:"Ara öğün",kcal:198,p:20,ic:"200 g süzme yoğurt (light) · 1 elma"},
+  {id:"r3",saat:"13:30",ad:"Öğle",kcal:475,p:51,ic:"150 g ızgara tavuk göğsü · 100 g bulgur pilavı · bol salata + 1 yk zeytinyağı"},
+  {id:"r4",saat:"17:00",ad:"Ara öğün",kcal:225,p:5,ic:"20 g badem · 1 muz"},
+  {id:"r5",saat:"20:00",ad:"Akşam",kcal:435,p:36,ic:"120 g ızgara köfte / hindi / balık · 200 g sebze yemeği · 1 dilim tam buğday ekmek"},
+  {id:"r6",saat:"22:00",ad:"Gece",kcal:115,p:26,ic:"1 ölçek whey izolat (su ile)"}]};
+
+const TAK_GUNLUK=[
+ {id:"kreatin",ad:"Kreatin",saat:"08:00",doz:"1 ölçek (5 g) · suyla",not:"Her gün — antrenman olmayan günler dahil"},
+ {id:"cla1",ad:"CLA (Tonalin)",saat:"08:00",doz:"1 kapsül · kahvaltıyla",not:"Yağda çözünür, aç karnına alma"},
+ {id:"cla2",ad:"CLA (Tonalin)",saat:"13:30",doz:"1 kapsül · öğle yemeğiyle",not:""},
+ {id:"cla3",ad:"CLA (Tonalin)",saat:"akşam",doz:"1 kapsül · akşam öğünüyle",not:"Günde toplam 3 kapsül = 3000 mg CLA"},
+ {id:"whey",ad:"Whey protein",saat:"22:00",doz:"1 ölçek (30 g) · 300 ml su",not:"23 g protein · shaker'da 15-20 sn çalkala"},
+ {id:"glutamin",ad:"Glutamin",saat:"23:00",doz:"1 ölçek (5 g) · suyla",not:"Yatmadan önce · yanına 150 g süzme yoğurt iyi gider"}];
+const TAK_KICKBOX=[
+ {id:"amino",ad:"Loaded Ultra Amino",saat:"18:00",doz:"1 ölçek (15 g)",not:"Antrenman öncesi öğünle · 100 mg kafein — 20:30'da ALMA"}];
+const TAK_AGIRLIK=[
+ {id:"karnitin",ad:"Thermo Carnitine",saat:"gündüz",doz:"1 kapak (25 ml)",not:"Antrenmandan 10 dk önce · 100 mg kafein — sadece gündüz seansı"}];
+
+const HAFTA=[
+ {g:0,ad:"Pazar",tip:"dinlenme",an:"Tam dinlenme",d:"Hiçbir şey yapma. Toparlanma antrenmanın parçası."},
+ {g:1,ad:"Pazartesi",tip:"kickbox",an:"Kickbox — ders",d:"20:30 · 75 dk"},
+ {g:2,ad:"Salı",tip:"agirlik",an:"Ağırlık — Tüm vücut A",d:"45 dk · Squat, şınav/bench, lat çekiş, plank · 3 set x 8-12"},
+ {g:3,ad:"Çarşamba",tip:"kickbox",an:"Kickbox — ders",d:"20:30 · 75 dk"},
+ {g:4,ad:"Perşembe",tip:"hafif",an:"Aktif dinlenme",d:"20-30 dk yürüyüş + esneme"},
+ {g:5,ad:"Cuma",tip:"kickbox",an:"Kickbox — ders",d:"20:30 · 75 dk"},
+ {g:6,ad:"Cumartesi",tip:"agirlik",an:"Ağırlık — Tüm vücut B",d:"45 dk · Romen deadlift, omuz press, kürek çekiş, karın · İstersen ekstra kickbox burada"}];
+
+const MARKET=[
+ {k:"Protein",i:["Yumurta — 30 adet","Tavuk göğsü — 1,5 kg","Hindi / az yağlı kıyma — 500 g","Balık (somon, uskumru, hamsi) — 400 g","Ton balığı, suda — 4 kutu"]},
+ {k:"Süt ürünü",i:["Süzme yoğurt, light — 2 kg","Beyaz peynir, az yağlı — 400 g"]},
+ {k:"Karbonhidrat",i:["Tam buğday ekmek — 2 somun","Bulgur — 1 kg","Mercimek — 1 kg","Yulaf — 500 g","Proteinli granola — bitti mi?"]},
+ {k:"Meyve",i:["Muz — 7 adet","Elma — 7 adet","Hurma — 250 g"]},
+ {k:"Sebze",i:["Domates, salatalık, biber, yeşillik","Mevsim sebzesi — 2 kg","Soğan, sarımsak, limon"]},
+ {k:"Yağ",i:["Zeytinyağı — 1 şişe","Badem / ceviz — 300 g"]},
+ {k:"İçecek",i:["Maden suyu — 12-18 şişe","Çay, soğuk demleme için — 1 paket","1 litrelik su şişesi (tek seferlik)"]},
+ {k:"Takviye stoğu",i:["Whey protein — bitmek üzere mi? (~2 ay)","CLA — 40 günde biter","Kreatin (~200 gün)","Glutamin (~5 ay)","Amino / Karnitin (~5 ay)"]}];
+
+/* Hedefler başlangıç ölçümünden türer — kodda sabit vücut ölçüsü tutulmaz */
+const HEDEF={ara:{bel:7,kilo:7},ana:{bel:13,kilo:11}};
+
+const REHBER=[
+ {b:"Kreatin — kaç kaşık, nasıl?",s:[
+  ["Ne kadar","Günde 5 gram. Her gün, antrenman olsun olmasın."],
+  ["Kaç ölçek","Kutundaki ölçek TAM 5 g (etikette doğrulandı). Bir ölçek, hesap yok. Kutu 200 porsiyon = 200 gün."],
+  ["Hassasiyet","4 g da olur 6 g da. Milimetrik olmak gerekmiyor, düzenli olmak gerekiyor."],
+  ["Nasıl içilir","200-300 ml suya at, karıştır, hemen iç. Tamamen çözünmez, dibe çöker — normal. Bardağı bir kez daha suyla çalkala, onu da iç."],
+  ["Ne zaman","Saat fark etmez. Kahvaltıya bağla ki unutma."],
+  ["Yükleme","Gerek yok. 3-4 haftada kasların doygunluğa ulaşır."],
+  ["Atlarsan","Hiçbir şey olmaz. Ertesi gün normal doza devam et, çift alma."],
+  ["Mide rahatsız ederse","2,5 g sabah + 2,5 g akşam diye böl."],
+  ["Su","Kreatin suyu kasa çeker. 3,5 litre hedefi bu yüzden daha önemli."],
+  ["Kutu ömrü","500 g = 100 gün."]]},
+ {b:"Protein tozu — kaç ölçek, nasıl?",s:[
+  ["Kaç ölçek","Günde 1 ölçek. Yemekten yeterli protein alamadıysan 2 ölçek de olur."],
+  ["1 ölçek kaç gram","Senin üründe 1 ölçek 30 g ve içinde 23 g protein var. 2000 g kutu = 66 porsiyon ≈ 2 ay."],
+  ["Ölçek kaybolduysa","30 g ≈ 3 tepeleme yemek kaşığı. Kaba ölçü — mutfak tartın varsa onu kullan."],
+  ["Nasıl hazırlanır","250-300 ml SU ile. Süt kullanma, laktoz var. Shaker'da 15-20 saniye çalkala."],
+  ["Ne zaman","Antrenman sonrası pratik olduğu için orada. 'Anabolik pencere' abartılmış — önemli olan günün toplam proteini."],
+  ["Şunu net anla","Protein tozu ilaç değil, yiyecek. Yiyemediğin bir tavuk göğsünün yerine geçiyor, o kadar."],
+  ["Kutu ömrü","1 kg ≈ 33 servis ≈ 1 ay."],
+  ["Laktoz","Sende laktoz kısıtı yok, konsantre whey sorunsuz. Yine de şişkinlik olursa sebebi tatlandırıcı olabilir, laktoz değil."]]},
+ {b:"Diğer takviyeler — ne, ne zaman",s:[
+  ["CLA (Tonalin)","Tonalin, CLA'nın tescilli hammadde markası — kreatindeki Creapure gibi. Etken madde konjuge linoleik asit. Günde 3 kapsül, ÖĞÜNLERLE: kahvaltı, öğle, akşam. Yağ asidi olduğu için aç karnına emilimi düşer. 120 kapsül = 40 gün."],
+  ["Glutamin","Yatmadan önce 1 ölçek (5 g), suyla. Aromasız. 750 g kutu = 150 porsiyon ≈ 5 ay. Yanına 150 g süzme yoğurt eklersen gece boyu protein salınımı için daha iyi."],
+  ["Loaded Ultra Amino","Sadece kickbox günleri (Pzt/Çar/Cum), 18:00'de antrenman öncesi öğünle. 1 ölçek 15 g."],
+  ["Thermo Carnitine","Sadece gündüz ağırlık antrenmanı günleri (Sal/Cmt), antrenmandan 10 dk önce 1 kapak (25 ml)."],
+  ["KAFEİN KURALI","Loaded Amino ve Thermo Carnitine'in HER İKİSİNDE de porsiyon başına 100 mg kafein var. Aynı gün ikisini birden alma. 20:30 antrenmanından hemen önce alma — kafeinin yarılanma ömrü 5-6 saat, gece 2'de hâlâ yarısı kanında olur ve uykunu bozar. Uyku bozulunca yağ kaybı yavaşlar."],
+  ["Granola","30 g = 134 kcal ve 9 g protein. Ama 100 g = 448 kcal. MUTLAKA TART. Bir kez 30 gramı ölç, hangi kaşığa denk geldiğini not et."],
+  ["Sıra","Etkisi en net olan ikisi kreatin ve whey. Diğerleri yanında gider, ama onlar aksarsa fark orada hissedilir."]]},
+ {b:"Ölçüm — hep aynı şekilde",s:[
+  ["Ne zaman","Sabah, aç karnına, tuvaletten sonra, antrenmandan önce."],
+  ["Bel","Göbek deliği hizasından. Mezura yere paralel, karnı İÇE ÇEKMEDEN, normal nefes verdikten sonra."],
+  ["Boyun","Adem elmasının hemen altından. Mezura önde hafif aşağı eğimli, sıkmadan."],
+  ["Kaç kez","İkisini de 2 kez ölç, ortalamasını gir. 1 cm hata ~1 puan kaydırır."],
+  ["Yorumlama","4 haftada bel 2-3 cm inmişse doğru yoldasın — tartı ne derse desin."],
+  ["Kreatin uyarısı","İlk hafta tartı 1-2 kg artabilir. Kas içi su, yağ değil."],
+  ["Hata payı","Navy yöntemi ±3-4 puan sapabilir. Trende bak."]]},
+ {b:"Sırayı bozma",s:[
+  ["1. hafta","Sadece ice tea'yı azalt ve suyu tuttur. Başka hiçbir şeye dokunma."],
+  ["2. hafta","Öğün planına geç."],
+  ["3. hafta","Ağırlık antrenmanlarını ekle."],
+  ["Bugün","Kreatin ve protein tozunu sipariş et."],
+  ["Neden","Yirmi maddeyi aynı anda uygularsan iki haftada bırakırsın."],
+  ["Sağlık notu","Bu plan tıbbi tavsiye değil. Bel çevren yüksek ve uzun süredir yüksek şeker alıyorsun — aile hekiminden bir kez açlık kan şekeri, HbA1c, karaciğer enzimleri ve lipid paneli istemekte fayda var."]]}];
+
+/* =================== YARDIMCILAR =================== */
+const AYLAR=["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const bugun=()=>iso(new Date());
+const trT=s=>{const d=new Date(s+"T00:00:00");return d.getDate()+" "+AYLAR[d.getMonth()]+" "+d.getFullYear();};
+const gunBilgi=k=>HAFTA.find(h=>h.g===new Date(k+"T00:00:00").getDay());
+const ogunler=k=>gunBilgi(k).tip==="kickbox"?OGUN.antrenman:OGUN.normal;
+const takviyeler=k=>{const t=gunBilgi(k).tip;
+  return TAK_GUNLUK.concat(t==="kickbox"?TAK_KICKBOX:t==="agirlik"?TAK_AGIRLIK:[]);};
+const navy=(bel,boyun)=>(!S.boy||!bel||!boyun||bel<=boyun)?null:495/(1.0324-0.19077*Math.log10(bel-boyun)+0.15456*Math.log10(S.boy))-450;
+const navyStr=(bel,boyun)=>{const v=navy(bel,boyun);return v==null?"—":v.toFixed(1);};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sayi=v=>{const n=parseFloat(String(v).replace(",","."));return isFinite(n)?n:NaN;};
+
+function hedefler(ilk,son){
+  if(!ilk)return "";
+  const sat=(ad,d)=>{const b=ilk.bel-d.bel,k=ilk.kilo-d.kilo,y=navy(b,son.boyun);
+    return `${ad}: ${b.toFixed(0)} cm bel · ${k.toFixed(0)} kg${y!=null?` (~%${y.toFixed(0)})`:""}`;};
+  return sat("Ara hedef",HEDEF.ara)+"<br>"+sat("Ana hedef",HEDEF.ana);
+}
+
+function teaFaz(k){
+  const f=Math.floor((new Date(k+"T00:00:00")-new Date(TEA_BASLA+"T00:00:00"))/864e5);
+  if(f<0)return{ad:"Başlamadan önce",hf:21,kural:"Plan 10 Ağustos'ta başlıyor"};
+  const h=Math.floor(f/7)+1;
+  if(h===1)return{ad:"1. hafta",hf:21,kural:"Günde en fazla 1 litre (3 kutu)"};
+  if(h===2)return{ad:"2. hafta",hf:7,kural:"Günde en fazla 1 kutu"};
+  if(h===3)return{ad:"3. hafta",hf:3,kural:"Haftada 3 kutu"};
+  return{ad:h+". hafta",hf:2,kural:"Haftada 1-2 kutu — artık alışkanlık değil tercih"};
+}
+
+/* =================== DURUM =================== */
+let S={tab:"bugun",boy:null,gunler:{},olcumler:[],market:{},sonYedek:null,form:{boy:"",kilo:"",bel:"",boyun:""},yedekMetin:""};
+
+function yukle(){
+  try{
+    const ham=localStorage.getItem(ANAHTAR);
+    if(ham){const d=JSON.parse(ham);
+      S.boy=d.boy||null;
+      S.gunler=d.gunler||{};
+      S.olcumler=Array.isArray(d.olcumler)?d.olcumler:[];
+      S.market=d.market||{};
+      S.sonYedek=d.sonYedek||null;}
+  }catch(e){}
+  S.form.boy=S.boy?String(S.boy):"";
+}
+function kaydet(){
+  try{localStorage.setItem(ANAHTAR,JSON.stringify({boy:S.boy,gunler:S.gunler,olcumler:S.olcumler,market:S.market,sonYedek:S.sonYedek}));}
+  catch(e){toast("Kaydedilemedi — depolama dolu olabilir");}
+}
+/* Boy yoksa ya da hiç ölçüm yoksa önce kurulum ekranı çıkar */
+const kurulumGerek=()=>!S.boy||S.olcumler.length===0;
+function gun(){const k=bugun();if(!S.gunler[k])S.gunler[k]={su:0,ogun:{},takviye:{},antrenman:false,tea:0};return S.gunler[k];}
+
+let toastT;
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("on"),1900);}
+
+/* =================== PARÇALAR =================== */
+const TIK='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#17111C" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+
+const kart=(t,v,ic)=>`<div class="card">${(t||v)?`<div class="card-h"><p class="card-t">${t||""}</p><span class="card-v">${v||""}</span></div>`:""}${ic}</div>`;
+
+const satir=(o)=>`<div class="item ${o.on?"done":""}" data-act="${esc(o.act)}"><div class="box ${o.on?"on":""}">${TIK}</div>
+ <div class="ib"><div class="it"><span class="name">${esc(o.ad)}</span>${o.saat?`<span class="time">${esc(o.saat)}</span>`:""}</div>
+ ${o.desc?`<div class="desc">${esc(o.desc)}</div>`:""}${o.macro?`<div class="macro">${esc(o.macro)}</div>`:""}</div></div>`;
+
+const alan=(k,l)=>`<div style="flex:1"><label class="lbl" for="in-${k}">${l}</label>
+ <input id="in-${k}" type="number" inputmode="decimal" data-fld="${k}" value="${esc(S.form[k])}" placeholder="—"></div>`;
+
+function tally(n,hedef){
+  let g=[],kal=hedef;while(kal>0){g.push(Math.min(5,kal));kal-=5;}
+  let s=0,h="";
+  g.forEach(c=>{const bas=s;s+=c;const tam=c===5;h+='<div class="grp">';
+    for(let i=0;i<(tam?4:c);i++)h+=`<div class="mark ${bas+i<n?"on":""}"></div>`;
+    if(tam)h+=`<div class="slash ${bas+4<n?"on":""}"></div>`;h+="</div>";});
+  return `<div class="tally">${h}</div>`;
+}
+
+/* =================== SEKMELER =================== */
+function vKurulum(){
+  const ilk=S.olcumler.length===0;
+  let h=`<header class="top"><p class="eyebrow">Kurulum</p>
+   <h1>${ilk?"Başlangıç ölçüleri":"Boyunu gir"}</h1>
+   <p class="sub">${ilk?"Bir kez gir — veriler yalnız bu telefonda kalır":"Yağ oranı hesabı için boy gerekli"}</p></header>`;
+  h+=kart("Ölçüler","",
+   `<div class="row" style="margin-bottom:11px">${alan("boy","Boy cm")}</div>`+
+   (ilk?`<div class="row" style="margin-bottom:11px">${alan("kilo","Kilo kg")}${alan("bel","Bel cm")}${alan("boyun","Boyun cm")}</div>`:"")+
+   `<button class="btn gold" data-act="kurulum">${ilk?"Kaydet ve başla":"Kaydet"}</button>
+    <p class="note" style="margin-top:12px">Bel: göbek deliği hizasından, karnı içe çekmeden. Boyun: adem elmasının hemen altından.
+    Ölçümü sabah, aç karnına, tuvaletten sonra al. Boyu sonradan Ölçüm sekmesinden değiştirebilirsin.</p>`);
+  return h;
+}
+
+function vBugun(){
+  const k=bugun(),g=gun(),bil=gunBilgi(k),og=ogunler(k),fz=teaFaz(k),tk=takviyeler(k);
+  let hafta=0;for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()-i);hafta+=(S.gunler[iso(d)]||{}).tea||0;}
+  const hK=og.reduce((a,o)=>a+o.kcal,0),hP=og.reduce((a,o)=>a+o.p,0);
+  const aK=og.reduce((a,o)=>a+(g.ogun[o.id]?o.kcal:0),0),aP=og.reduce((a,o)=>a+(g.ogun[o.id]?o.p:0),0);
+  const toplam=og.length+tk.length+BARDAK_HEDEF+(bil.tip==="dinlenme"?0:1);
+  const biten=og.filter(o=>g.ogun[o.id]).length+tk.filter(t=>g.takviye[t.id]).length+Math.min(g.su,BARDAK_HEDEF)+(bil.tip!=="dinlenme"&&g.antrenman?1:0);
+  const yz=Math.round(biten/toplam*100);
+
+  let h=`<header class="top"><p class="eyebrow">${bil.ad} · ${trT(k)}</p><h1>${bil.an}</h1>
+   <p class="sub">${bil.d}</p><div class="bar"><div class="fill" style="width:${yz}%;background:${yz>=85?"var(--mint)":"var(--gold)"}"></div></div>
+   <p class="sub">Gün %${yz} tamam</p></header>`;
+
+  h+=kart("Su",`${g.su*BARDAK_ML} / ${BARDAK_HEDEF*BARDAK_ML} ml`,
+   tally(g.su,BARDAK_HEDEF)+`<div class="row"><button class="btn gold" data-act="su+">+ 1 bardak (250 ml)</button>
+   <button class="btn ghost sm" data-act="su-" aria-label="azalt">−</button></div>`);
+
+  h+=kart("Takviye",tk.length+" kalem",tk.map(t=>satir({ad:t.ad,saat:t.saat,desc:t.doz,macro:t.not,on:!!g.takviye[t.id],act:"tak:"+t.id})).join(""));
+
+  h+=kart("Öğünler",`${aK} / ${hK} kcal<br>${aP} / ${hP} g protein`,
+   og.map(o=>satir({ad:o.ad,saat:o.saat,desc:o.ic,macro:o.kcal+" kcal · "+o.p+" g protein",on:!!g.ogun[o.id],act:"og:"+o.id})).join(""));
+
+  if(bil.tip!=="dinlenme")
+   h+=kart("Antrenman","",satir({ad:bil.an,saat:bil.tip==="kickbox"?"20:30":"",desc:bil.d,on:!!g.antrenman,act:"antr"}));
+
+  h+=kart("Ice tea",fz.ad,
+   `<div class="stat" style="margin-bottom:12px">
+     <div class="sc"><div class="sn">${g.tea}</div><div class="sl">Bugün</div></div>
+     <div class="sc"><div class="sn" style="color:${hafta>fz.hf?"var(--ember)":"var(--mint)"}">${hafta}</div><div class="sl">7 günde</div></div>
+     <div class="sc"><div class="sn">${fz.hf}</div><div class="sl">Sınır</div></div></div>
+    <p class="note" style="margin-bottom:12px">${fz.kural} · 1 kutu = 330 ml ≈ 27 g şeker</p>
+    <div class="row"><button class="btn" data-act="tea+">+ 1 kutu içtim</button>
+    <button class="btn ghost sm" data-act="tea-" aria-label="azalt">−</button></div>`);
+  return h;
+}
+
+function vPlan(){
+  const blok=(l)=>l.map(o=>`<div class="gr"><div class="gk">${o.saat} · ${esc(o.ad)}</div>
+    <div class="gv">${esc(o.ic)}</div><div class="macro">${o.kcal} kcal · ${o.p} g protein</div></div>`).join("");
+  const t=(l,f)=>l.reduce((a,o)=>a+o[f],0);
+  let h=`<header class="top"><p class="eyebrow">Referans</p><h1>Plan</h1>
+   <p class="sub">2100 kcal · 165 g protein · 3500 ml su</p></header>`;
+  h+=`<p class="sec">Antrenman günü — Pzt / Çar / Cum</p>`;
+  h+=kart("",`${t(OGUN.antrenman,"kcal")} kcal · ${t(OGUN.antrenman,"p")} g protein`,blok(OGUN.antrenman));
+  h+=`<p class="sec">Diğer günler</p>`;
+  h+=kart("",`${t(OGUN.normal,"kcal")} kcal · ${t(OGUN.normal,"p")} g protein`,blok(OGUN.normal));
+  h+=`<p class="sec">Haftalık antrenman</p>`;
+  h+=kart("","",HAFTA.slice(1).concat(HAFTA[0]).map(x=>`<div class="gr">
+    <div class="it" style="margin-bottom:3px"><span class="name">${x.ad}</span>
+    <span class="chip ${x.tip==="kickbox"?"gold":x.tip==="agirlik"?"mint":""}">${esc(x.an)}</span></div>
+    <div class="desc">${esc(x.d)}</div></div>`).join(""));
+  h+=kart("Değiştirirken","",`<p class="note">Tavuk yerine hindi, balık, ton balığı; bulgur yerine esmer pirinç, makarna, patates — gramaj benzer kalsın. Tek kural: protein toplamı düşmesin. Haftada 1 serbest öğün planın parçası — öğün, gün değil.</p>`);
+  return h;
+}
+
+function vOlcum(){
+  const sirali=[...S.olcumler].sort((a,b)=>a.tarih<b.tarih?1:-1);
+  const son=sirali[0],ilk=[...S.olcumler].sort((a,b)=>a.tarih<b.tarih?-1:1)[0];
+  let h=`<header class="top"><p class="eyebrow">Navy yöntemi · boy ${S.boy} cm</p><h1>Ölçüm</h1>
+   <p class="sub">4 haftada bir · sabah · aç karnına</p></header>`;
+
+  if(son){
+    let fark="";
+    const fSon=navy(son.bel,son.boyun),fIlk=ilk?navy(ilk.bel,ilk.boyun):null;
+    if(ilk&&ilk.tarih!==son.tarih)
+      fark=`<p class="note" style="margin-top:12px">Başlangıca göre: bel ${(son.bel-ilk.bel).toFixed(1)} cm · kilo ${(son.kilo-ilk.kilo).toFixed(1)} kg${(fSon!=null&&fIlk!=null)?` · yağ ${(fSon-fIlk).toFixed(1)} puan`:""}</p>`;
+    h+=kart("Son ölçüm",trT(son.tarih),
+     `<div class="stat">
+       <div class="sc"><div class="sn" style="color:var(--gold)">${navyStr(son.bel,son.boyun)}</div><div class="sl">Yağ %</div></div>
+       <div class="sc"><div class="sn">${son.bel}</div><div class="sl">Bel cm</div></div>
+       <div class="sc"><div class="sn">${son.kilo}</div><div class="sl">Kilo kg</div></div></div>${fark}
+      <hr><p class="note">${hedefler(ilk,son)}</p>`);
+  }
+
+  const on=(S.form.bel&&S.form.boyun)?navy(sayi(S.form.bel),sayi(S.form.boyun)):null;
+  h+=kart("Yeni ölçüm gir","",
+   `<div class="row" style="margin-bottom:11px">${alan("kilo","Kilo kg")}${alan("bel","Bel cm")}${alan("boyun","Boyun cm")}</div>
+    <button class="btn gold" data-act="olcum">Bugünün ölçümünü kaydet</button>
+    ${on!=null?`<p class="note" style="margin-top:10px;text-align:center">Hesaplanan yağ oranı: <strong style="color:var(--gold)">%${on.toFixed(1)}</strong></p>`:""}`);
+
+  h+=kart("Geçmiş","",`<table><thead><tr><th>Tarih</th><th>Kilo</th><th>Bel</th><th>Boyun</th><th>Yağ %</th></tr></thead>
+   <tbody>${sirali.map(o=>`<tr><td>${trT(o.tarih)}</td><td>${o.kilo}</td><td>${o.bel}</td><td>${o.boyun}</td>
+   <td style="color:var(--gold)">${navyStr(o.bel,o.boyun)}</td></tr>`).join("")}</tbody></table>`);
+
+  h+=kart("Boy",`${S.boy} cm`,
+   `<div class="row" style="margin-bottom:11px">${alan("boy","Boy cm")}</div>
+    <button class="btn ghost" data-act="boy-kaydet">Boyu güncelle</button>`);
+  return h;
+}
+
+function vMarket(){
+  const tum=MARKET.reduce((a,g)=>a+g.i.length,0),alinan=Object.values(S.market).filter(Boolean).length;
+  let h=`<header class="top"><p class="eyebrow">1 kişi · 7 gün</p><h1>Alışveriş</h1>
+   <p class="sub">${alinan} / ${tum} alındı</p></header>`;
+  MARKET.forEach(g=>{h+=`<p class="sec">${g.k}</p>`+
+    kart("","",g.i.map(x=>satir({ad:x,on:!!S.market[x],act:"mk:"+x})).join(""));});
+  h+=kart("Eve girmeyecek","",`<p class="note">Ice tea. Buzdolabında yoksa içemezsin — irade meselesi değil, ortam meselesi.</p>`);
+  h+=`<button class="btn ghost" data-act="mk-sifirla">Listeyi sıfırla (yeni hafta)</button>`;
+  return h;
+}
+
+function vRehber(){
+  let h=`<header class="top"><p class="eyebrow">Nasıl kullanılır</p><h1>Rehber</h1>
+   <p class="sub">Kafan karıştığında buraya bak</p></header>`;
+  REHBER.forEach(b=>{h+=`<p class="sec">${b.b}</p>`+
+    kart("","",b.s.map(([k,v])=>`<div class="gr"><div class="gk">${esc(k)}</div><div class="gv">${esc(v)}</div></div>`).join(""));});
+
+  const gunSayi=S.sonYedek?Math.floor((new Date()-new Date(S.sonYedek))/864e5):null;
+  h+=`<p class="sec">Yedek</p>`;
+  h+=kart("Verilerini koru",S.sonYedek?`Son yedek: ${gunSayi} gün önce`:"Henüz yedek almadın",
+   `<p class="note" style="margin-bottom:12px">Veriler telefonunda saklanıyor. Ayda bir yedek al — telefon değiştirirsen ya da bir aksilik olursa buradan geri yüklersin.</p>
+    <div class="row" style="margin-bottom:9px">
+      <button class="btn gold" data-act="yedek-kopyala">Yedeği kopyala</button>
+      <button class="btn" data-act="yedek-indir">Dosya indir</button></div>
+    <label class="lbl" style="text-align:left;margin-top:12px">Geri yükle — yedek metnini yapıştır</label>
+    <textarea id="yedek-in" placeholder='{"gunler":…}'>${esc(S.yedekMetin)}</textarea>
+    <button class="btn ghost" data-act="yedek-yukle" style="margin-top:9px">Yedekten geri yükle</button>`);
+  return h;
+}
+
+/* =================== ÇİZ =================== */
+const IKON={
+ bugun:"M12 2v4M5 5l2.5 2.5M2 12h4M19 5l-2.5 2.5M22 12h-4M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z",
+ plan:"M4 4h16v16H4zM8 9h8M8 13h8M8 17h5",
+ olcum:"M3 8h18v8H3zM7 8v4M11 8v6M15 8v4M19 8v6",
+ market:"M3 5h2l2 11h11l2-8H7M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2m8 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2",
+ rehber:"M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3zM18 7h2v13H7"};
+const ADLAR={bugun:"Bugün",plan:"Plan",olcum:"Ölçüm",market:"Market",rehber:"Rehber"};
+
+function ciz(){
+  if(kurulumGerek()){
+    document.getElementById("app").innerHTML=`<div class="wrap" style="padding-bottom:32px">${vKurulum()}</div>`;
+    return;
+  }
+  const v={bugun:vBugun,plan:vPlan,olcum:vOlcum,market:vMarket,rehber:vRehber}[S.tab]();
+  document.getElementById("app").innerHTML=`<div class="wrap">${v}</div>
+   <nav><div class="nav-in">${Object.keys(ADLAR).map(id=>
+     `<button class="tab ${S.tab===id?"on":""}" data-act="tab:${id}" aria-label="${ADLAR[id]}">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+       stroke-linecap="round" stroke-linejoin="round"><path d="${IKON[id]}"/></svg><span>${ADLAR[id]}</span></button>`).join("")}
+   </div></nav>`;
+}
+
+/* =================== OLAYLAR =================== */
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-act]");if(!el)return;
+  const a=el.dataset.act,g=gun();
+
+  if(a.startsWith("tab:")){S.tab=a.slice(4);window.scrollTo(0,0);return ciz();}
+  if(a==="su+"){g.su=Math.min(g.su+1,24);}
+  else if(a==="su-"){g.su=Math.max(0,g.su-1);}
+  else if(a==="tea+"){g.tea++;}
+  else if(a==="tea-"){g.tea=Math.max(0,g.tea-1);}
+  else if(a==="antr"){g.antrenman=!g.antrenman;}
+  else if(a.startsWith("og:")){const k=a.slice(3);g.ogun[k]=!g.ogun[k];}
+  else if(a.startsWith("tak:")){const k=a.slice(4);g.takviye[k]=!g.takviye[k];}
+  else if(a.startsWith("mk:")){const k=a.slice(3);S.market[k]=!S.market[k];}
+  else if(a==="mk-sifirla"){S.market={};toast("Liste sıfırlandı");}
+  else if(a==="kurulum"){
+    const boy=sayi(S.form.boy);
+    if(!(boy>=100&&boy<=250)){toast("Boyu cm olarak gir (100-250)");return;}
+    if(S.olcumler.length===0){
+      const kilo=sayi(S.form.kilo),bel=sayi(S.form.bel),boyun=sayi(S.form.boyun);
+      if(!kilo||!bel||!boyun){toast("Tüm alanları doldur");return;}
+      if(bel<=boyun){toast("Bel, boyundan büyük olmalı");return;}
+      S.olcumler=[{tarih:bugun(),kilo,bel,boyun}];}
+    S.boy=boy;S.form={boy:String(boy),kilo:"",bel:"",boyun:""};toast("Kaydedildi");}
+  else if(a==="boy-kaydet"){
+    const boy=sayi(S.form.boy);
+    if(!(boy>=100&&boy<=250)){toast("Boyu cm olarak gir (100-250)");return;}
+    S.boy=boy;S.form.boy=String(boy);toast("Boy güncellendi");}
+  else if(a==="olcum"){
+    const f=S.form,kilo=sayi(f.kilo),bel=sayi(f.bel),boyun=sayi(f.boyun);
+    if(!kilo||!bel||!boyun){toast("Üç alanı da doldur");return;}
+    if(bel<=boyun){toast("Bel, boyundan büyük olmalı");return;}
+    S.olcumler=[...S.olcumler.filter(o=>o.tarih!==bugun()),{tarih:bugun(),kilo,bel,boyun}];
+    S.form={boy:S.form.boy,kilo:"",bel:"",boyun:""};toast("Ölçüm kaydedildi");}
+  else if(a==="yedek-kopyala"){
+    const j=JSON.stringify({boy:S.boy,gunler:S.gunler,olcumler:S.olcumler,market:S.market});
+    S.sonYedek=bugun();
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(j).then(()=>toast("Yedek kopyalandı"),()=>toast("Kopyalanamadı"));}
+    else{S.yedekMetin=j;toast("Aşağıdaki kutudan kopyala");}
+  }
+  else if(a==="yedek-indir"){
+    const j=JSON.stringify({boy:S.boy,gunler:S.gunler,olcumler:S.olcumler,market:S.market},null,2);
+    const url=URL.createObjectURL(new Blob([j],{type:"application/json"}));
+    const link=document.createElement("a");link.href=url;link.download="plan-yedek-"+bugun()+".json";
+    document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+    S.sonYedek=bugun();toast("Dosya indirildi");}
+  else if(a==="yedek-yukle"){
+    const ta=document.getElementById("yedek-in");
+    try{const d=JSON.parse(ta.value);
+      if(!d||typeof d!=="object")throw 0;
+      if(d.boy)S.boy=d.boy;
+      S.gunler=d.gunler||{};S.olcumler=Array.isArray(d.olcumler)?d.olcumler:[];S.market=d.market||{};
+      S.form.boy=S.boy?String(S.boy):"";
+      S.yedekMetin="";toast("Yedek geri yüklendi");}
+    catch(err){toast("Geçersiz yedek metni");return;}}
+  else return;
+
+  kaydet();ciz();
+});
+
+document.addEventListener("input",e=>{
+  if(e.target.dataset.fld){const f=e.target.dataset.fld;S.form[f]=e.target.value;
+    if(f==="bel"||f==="boyun"){const p=e.target.selectionStart;ciz();
+      const n=document.querySelector('[data-fld="'+f+'"]');
+      if(n){n.focus();try{n.setSelectionRange(p,p);}catch(x){}}}}
+  if(e.target.id==="yedek-in")S.yedekMetin=e.target.value;
+});
+
+/* =================== BAŞLAT =================== */
+yukle();ciz();
+if("serviceWorker" in navigator)
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+</script>
+</body>
+</html>
