@@ -1,181 +1,186 @@
-# Plan — kişisel takip PWA'sı
+# Plan — beslenme ve antrenman takibi
 
-Bu depo, tek kişilik bir beslenme/antrenman takip uygulaması. iPhone'da ana ekrana
-eklenip tam ekran çalışacak. Sunucu yok, hesap yok, build adımı yok — statik dosyalar.
+Herkesin kendi telefonuna kurup kullanabileceği bir takip uygulaması. Sunucu yok, hesap
+yok, build adımı yok — statik dosyalar. Kullanıcının verisi yalnızca kendi cihazında.
 
-Kullanıcı: Ayberk. Kickbox'a yeni başladı, yağ kaybı hedefliyor, Türkçe konuşuyor.
-Arayüz metinleri Türkçe olacak.
+Arayüz metinleri Türkçe. Uygulama kickboksa değil, **her spora** göre kuruluyor: dövüş
+sporları, ağırlık, kardiyo, takım sporları, esneklik. Öğün planı, takviyeler ve haftalık
+program kodda sabit değil — kurulum sihirbazında kullanıcıdan alınıp cihaza yazılıyor.
 
----
-
-## Görev 1 — Depoyu kur ve yayına al ✅ (kod tarafı tamam)
-
-**Mevcut durum:** kod `ayberkbgln/sportakip` deposunda, dosyalar kökte. Depo **public**
-olduğu için Görev 2 uygulandı — kodda artık sabit vücut ölçüsü yok. Geriye yalnızca
-kullanıcının tarayıcıdan yapacağı yayın adımı kaldı.
-
-### Seçenek A — GitHub Pages (public depo, en kısa yol)
-
-Depo zaten public, ek bir şey gerekmiyor:
-
-`Settings` → `Pages` → Source: **Deploy from a branch** → Branch: `main` / `(root)` → Save
-
-1-2 dakika sonra adres: `https://ayberkbgln.github.io/sportakip/`
-
-`gh` CLI ile de açılabilir:
-
-```bash
-gh api --method POST repos/ayberkbgln/sportakip/pages \
-  -f "source[branch]=main" -f "source[path]=/"
-```
-
-`gh` kurulu değilse veya oturum açılmamışsa **kullanıcıdan `gh auth login` çalıştırmasını
-iste.** Kimlik bilgisi girme, token oluşturma, parola yazma işlerini sen yapma.
-
-### Seçenek B — Private depo + Cloudflare Pages
-
-Depoyu private'a çevirmek istenirse: `Settings` → `General` → `Danger Zone` →
-`Change repository visibility` → Private. Sonra `dash.cloudflare.com` → Workers & Pages →
-Create → Pages → Connect to Git → `sportakip` deposunu seç. Build ayarları:
-
-| Alan | Değer |
-|---|---|
-| Framework preset | None |
-| Build command | *(boş bırak)* |
-| Build output directory | `/` |
-
-Netlify de aynı işi görür (Base directory boş, Publish directory `.`).
-Her ikisi de ücretsiz planda private depodan yayın yapar ve HTTPS verir.
-
-### Yayından sonra doğrula
-
-- [ ] Adres tarayıcıda açılıyor, konsol hatası yok
-- [ ] `manifest.json` ve `sw.js` 200 dönüyor (404 ise Pages yolu yanlış)
-- [ ] Service worker kaydoldu (DevTools → Application → Service Workers)
-- [ ] Uçak modunda sayfa hâlâ açılıyor
-- [ ] iPhone Safari'de aç → Paylaş → **Ana Ekrana Ekle** → ikon çıkıyor,
-      açılışta Safari çubuğu görünmüyor
-
----
-
-## Görev 2 — Kişisel veriyi koddan çıkar ✅ TAMAMLANDI
-
-Depo public olduğu için zorunluydu. `BOY` ve `ILK_OLCUM` sabitleri kaldırıldı;
-vücut ölçüleri artık **yalnızca cihazdaki localStorage'da** tutuluyor. Sonuçta oluşan
-tasarım:
-
-1. `S.boy` durumda tutulur, `yukle()` / `kaydet()` ve yedek JSON'u içine dahildir.
-2. `S.olcumler` boş dizi olarak başlar — kodda başlangıç ölçümü yoktur.
-3. `kurulumGerek()` doğruysa (`!S.boy || S.olcumler.length === 0`) `ciz()` normal
-   ekran yerine `vKurulum()`'u basar; alt menü çizilmez.
-   - **İlk kurulum** (hiç ölçüm yok): boy + kilo + bel + boyun sorar.
-   - **Göç** (eski veri var, `boy` yok): yalnızca boyu sorar, birikmiş veriyi korur.
-4. `navy()` `S.boy` kullanır ve boy yoksa `null` döner. Tabloda/kartta `navyStr()`
-   sarmalayıcısı `null` gelince `—` basar, çökmez.
-5. "Ölçüm" sekmesinin altındaki **Boy** kartından boy sonradan güncellenebilir
-   (`data-act="boy-kaydet"`, 100-250 cm doğrulaması).
-
-Ayrıca aynı gerekçeyle: Ölçüm sekmesindeki ara/ana hedefler artık kodda sabit değil,
-kullanıcının **kendi ilk ölçümünden** türüyor (`HEDEF` sabiti + `hedefler()`), ve
-Rehber'deki sağlık notundan somut bel ölçüsü çıkarıldı — not ve tıbbi uyarı yerinde duruyor.
-
-Kurulum ekranı mevcut tasarım dilini kullanır: aynı CSS değişkenleri, aynı `.card`,
-`.lbl`, `input`, `.btn.gold` sınıfları. Yeni stil sınıfı eklenmedi.
+> Bu depo daha önce tek kişilik bir plandı. Genelleştirildi: kişiye özel hiçbir ölçü,
+> öğün, takviye ya da alışkanlık kodda kalmadı. **Bu durumu koru** — aşağıdaki
+> "Gizlilik" bölümüne bak.
 
 ---
 
 ## Dosya yapısı
 
 ```
-index.html      Uygulamanın tamamı — HTML + CSS + JS tek dosyada
-manifest.json   Ana ekran uygulaması tanımı
-sw.js           Çevrimdışı önbellek (service worker)
-icon-180.png    apple-touch-icon (iOS ana ekran)
-icon-192.png    manifest ikonu
-icon-512.png    manifest ikonu
-OKU-BENI.txt    Kullanıcı için kurulum notu
-CLAUDE.md       Bu dosya
+index.html      iskelet — sadece <head> ve script/style etiketleri
+stil.css        tüm görünüm; renkler :root içinde CSS değişkeni
+veri.js         plan içeriği: sporlar, takviye kütüphanesi, öğün şablonları, rehber
+besinler.js     besin veritabanı (539 kalem, gruplu)
+app.js          durum, ekranlar, olaylar — uygulamanın mantığı
+sw.js           çevrimdışı önbellek (service worker)
+manifest.json   ana ekran uygulaması tanımı
+icon-*.png      ikonlar (180 apple-touch, 192/512 manifest + maskable)
+OKU-BENI.txt    kullanıcı için kurulum notu
+CLAUDE.md       bu dosya
 ```
+
+Yükleme sırası önemli: `veri.js` → `besinler.js` → `app.js`. `app.js` diğer ikisindeki
+sabitleri kullanıyor.
 
 ---
 
 ## Kesin kurallar — bunları bozma
 
-1. **Build adımı ekleme.** npm yok, bundler yok, `package.json` yok.
-   Dosyalar bir statik sunucuya konduğu gibi çalışmalı.
-2. **Dış bağımlılık ekleme.** CDN'den React, Tailwind, font, ikon kütüphanesi çekme.
-   Uygulama uçak modunda çalışmak zorunda. İkonlar satır içi SVG, fontlar sistem fontu.
-3. **Tek dosya kalsın.** `index.html` bölünmesin. CSS `<style>`, JS `<script>` içinde.
+1. **Build adımı ekleme.** npm yok, bundler yok, `package.json` yok. Dosyalar bir statik
+   sunucuya konduğu gibi çalışmalı.
+2. **Dış bağımlılık ekleme.** CDN'den kütüphane, font, ikon çekme. Uygulama uçak modunda
+   çalışmak zorunda. İkonlar satır içi SVG, fontlar sistem fontu. Besin verisi de
+   gömülü — çalışma anında dış API çağrısı yok.
+3. **Dosya sayısını düşük tut.** Yukarıdaki liste yeterli. Yeni bir ekran, yeni bir dosya
+   gerektirmiyor; `app.js` içine bir `vXxx()` fonksiyonu yaz.
 4. **Veri yalnızca cihazda.** Analytics yok, uzak sunucuya istek yok, hesap yok.
-   Ölçüm ve öğün verisi hiçbir yere gönderilmez.
-5. **`ANAHTAR` sabitini değiştirme** (`"ayberk-plan-v1"`). Değiştirirsen kullanıcının
-   birikmiş verisi erişilemez olur. Veri şeması gerçekten kırılacaksa önce
-   geçiş (migration) kodu yaz, sonra sürüm numarasını artır.
-6. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v1` → `plan-v2`).
+5. **Depolamaya doğrudan dokunma.** `localStorage` yalnızca `Depo.oku` / `Depo.yaz`
+   içinden geçer. İleride hesap ve senkron eklenecekse sadece o iki fonksiyon değişir;
+   ekranların hiçbiri depolamayı tanımamalı. Bu ayrımı bozma.
+6. **`ANAHTAR` sabitini keyfî değiştirme** (`"fitplan-v2"`). Şema gerçekten kırılacaksa
+   önce geçiş kodu yaz, sonra sürümü artır — `goc()` fonksiyonu buna örnek.
+7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v4` → `plan-v5`).
    Artırmazsan kullanıcı eski sürümde takılı kalır — iOS önbelleği inatçıdır.
-7. **Türkçe karakterler.** Dosyalar UTF-8. `charset` meta etiketini silme.
-8. **Tıbbi iddia ekleme.** Rehber sekmesindeki sağlık notu ve "bu plan tıbbi tavsiye
-   değildir" ifadesi kalsın.
-9. **Kafein kuralını silme.** Rehber'deki "KAFEİN KURALI" maddesi ve `TAK_KICKBOX` /
-   `TAK_AGIRLIK` ayrımı bilerek böyle: iki üründe de porsiyon başına 100 mg kafein var ve
-   kullanıcı 20:30-22:00 arası antrenman yapıyor. İkisini aynı güne veya akşam saatine
-   taşıma.
+   Yeni bir dosya eklersen `DOSYALAR` listesine de eklemeyi unutma.
+8. **Türkçe karakterler.** Dosyalar UTF-8. `charset` meta etiketini silme.
+9. **Tıbbi iddia ekleme.** Rehber'deki "Sağlık notu" bölümü, takviye ekranındaki
+   "takviye ilaç değildir" uyarısı ve besin veritabanının başındaki doğruluk notu kalsın.
+10. **Kafein kuralını silme.** `uyarilar()` fonksiyonu ve takviyelerin `etiket.kafein`
+    alanı bilerek böyle. Kafeinli iki ürünün aynı güne düşmesi ve akşam antrenmanından
+    önce kafein alınması uykuyu bozar; uygulama bunu söylemek zorunda.
+11. **Cinsiyete göre vücut yağ formülü.** Navy yöntemi kadınlarda farklı katsayılar
+    kullanır ve **kalça ölçüsü** ister. `navy()` içindeki bu ayrımı tek formüle indirgeme —
+    indirgersen kadın kullanıcılarda sessizce yanlış sonuç üretirsin.
 
 ---
 
 ## Veri modeli
 
-Tek bir localStorage anahtarı: `ayberk-plan-v1`, JSON string.
+Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI` dizisinde.
 
 ```jsonc
 {
-  "boy": 0,                                     // cm — kurulum ekranında sorulur
+  "surum": 2,
+  "profil": {
+    "cinsiyet": "e",          // "e" | "k" — yağ oranı formülünü belirler
+    "dogumYili": 0,
+    "boy": 0, "kilo": 0,      // cm, kg
+    "aktivite": "orta",       // AKTIVITE id
+    "hedef": "yag",           // HEDEFLER id
+    "kcal": 0, "protein": 0,  // hesaplanır; kcalElle true ise elle ayarlı
+    "suHedef": 12,            // bardak, 1 bardak = 250 ml
+    "kcalElle": false,
+    "antrSaat": "18:00",      // kafein uyarısı bunu kullanır
+    "tamam": false            // false ise kurulum sihirbazı çalışır
+  },
+  "kurulumAdim": 0,
+  "sporlar": ["kickbox"],                       // SPORLAR id listesi
+  "program": [                                   // 7 kayıt, index = getDay(), 0 = Pazar
+    { "spor": "dinlenme", "sablon": "", "sure": 0 }
+  ],
+  "ogunler": [ { "id": "o1", "ad": "Kahvaltı", "saat": "08:00", "p": 0.28 } ],
+  "takviyeler": [ { "id": "kreatin", "ad": "Kreatin", "doz": "5 g", "saat": "08:00",
+                    "gunler": [], "etiket": { "kafein": 0 }, "not": "" } ],
+  "aliskanlik": { "aktif": true, "ad": "Şekerli içecek", "birim": "kutu",
+                  "baslangic": "2026-08-11", "hafta1": 21 },
   "gunler": {
     "2026-08-11": {
-      "su": 9,                                  // bardak sayısı, 1 bardak = 250 ml
-      "ogun":     { "t1": true, "t3": true },   // öğün id → yendi mi
-      "takviye":  { "kreatin": true },          // takviye id → alındı mı
-      "antrenman": true,
-      "tea": 2                                  // içilen 330 ml kutu sayısı
+      "su": 0,
+      "yenen": [ { "uid": "y…", "ogun": "o1", "ad": "…", "kcal": 0, "p": 0, "gram": 0 } ],
+      "takviye": { "kreatin": true },
+      "antrenman": { "yapildi": true, "sure": "", "round": "", "mesafe": "",
+                     "set": [ { "ad": "Squat", "set": "3", "tekrar": "10", "kg": "60" } ] },
+      "aliskanlik": 0
     }
   },
-  "olcumler": [
-    { "tarih": "2026-08-11", "kilo": 0, "bel": 0, "boyun": 0 }
-  ],
-  "market": { "Yumurta — 30 adet": true },      // ürün metni → alındı mı
-  "sonYedek": "2026-08-11"
+  "olcumler": [ { "tarih": "2026-08-11", "kilo": 0, "bel": 0, "boyun": 0, "kalca": 0 } ],
+  "market": { "Yumurta": true },
+  "ozelBesinler": [],
+  "sonYedek": null
 }
 ```
 
-Örnekteki sayılar sıfır — **bu dosyaya gerçek ölçü yazma**, depo public.
+Örnekteki sayılar sıfır — **bu dosyaya gerçek ölçü yazma.**
 
 Notlar:
 
-- Tarihler her zaman **yerel** `YYYY-AA-GG`. `iso()` fonksiyonu saat dilimi kaymasını
-  düzeltir — `toISOString()`'i doğrudan kullanma, gün kayar.
-- `boy` yoksa (eski kayıt) uygulama açılışta yalnızca boyu sorar, geri kalan veri durur.
-- Yedek JSON'u `boy`'u da taşır; `boy` içermeyen eski yedekler mevcut boyu ezmez.
-- `market` anahtarı ürün metninin kendisi. Ürün metnini değiştirirsen o ürünün işareti
-  sıfırlanır; kabul edilebilir ama bilerek yap.
-- `gunler` sınırsız büyür. 5 yılda ~2 MB civarı, localStorage kotası için sorun değil.
+- Tarihler her zaman **yerel** `YYYY-AA-GG`. `iso()` saat dilimi kaymasını düzeltir —
+  `toISOString()`'i doğrudan kullanma, gün kayar.
+- `ogunler[].p` o öğünün günlük kalorinin oranı; slot hedefleri buradan türer.
+- `takviyeler[].gunler` boş dizi = her gün. Doluysa `getDay()` değerlerini içerir.
+- `gunler[].yenen` düz bir liste; `ogun` alanı hangi slota ait olduğunu söyler.
+  Öğün "yendi mi" diye kutucuk yok — ne yediğin kayıtlı, toplamlar oradan çıkıyor.
+- `olcumler` **günde tek kayıt** tutar; aynı güne ikinci giriş üzerine yazar.
+- `gunler` sınırsız büyür. Yemek kaydıyla birlikte 5 yılda ~5-8 MB; localStorage kotası
+  (genelde 5-10 MB) için sınırda. Sorun çıkarsa eski günleri arşivle, silme.
+- Eski sürümden (`ayberk-plan-v1`) göç `goc()` içinde: su, takviye, antrenman, ice tea
+  sayacı ve ölçümler taşınır. Öğün kutucukları taşınmaz — eski şema "yendi mi" tutuyordu,
+  yeni şema "ne yedin" tutuyor, aralarında doğru bir eşleme yok.
 
 ---
 
-## Kod haritası (`index.html`)
+## Kod haritası
+
+### `veri.js` — plan içeriği
+
+| Sabit | İçerik |
+|---|---|
+| `HEDEFLER` | Yağ kaybı / kas / koruma / performans. `kcal` çarpanı ve `protein` g/kg. |
+| `AKTIVITE` | Mifflin-St Jeor çarpanları. |
+| `SPORLAR` | 20 spor. `tip` (dovus/guc/kardiyo/takim/esneklik) ve `log` alanları. |
+| `LOG_ALAN` | Antrenman günlüğü alan etiketleri. |
+| `GUC_SABLON` | Ağırlık antrenmanı egzersiz şablonları. |
+| `TAKVIYELER` | 22 takviye. `etiket.kafein` (mg) ve `etiket.tokKarin` uyarı motorunu besler. |
+| `OGUN_SABLON` | 3/4/5/6 öğün ve 16:8 düzenleri; `p` = günlük kalorinin oranı. |
+| `ALISKANLIK_SABLON`, `AZALT_EGRISI` | Bırakma modülü ve haftalık azaltma eğrisi. |
+| `MARKET_SABLON` | Alışveriş listesi iskeleti. |
+| `REHBER` | Rehber içeriği. `kosul` alanı süzme yapar (aşağıya bak). |
+
+`REHBER[].kosul`: `null` = herkese; `"kreatin"` gibi bir takviye id'si = o takviye
+seçiliyse; `"@kafein"` = kafeinli takviye varsa; `"@guc"` / `"@dovus"` / `"@kardiyo"` =
+o tipte spor seçiliyse.
+
+### `besinler.js` — besin veritabanı
+
+`BESIN_GRUP` — grup adı → satır listesi.
+Satır biçimi: `[ad, kcal, protein, karbonhidrat, yağ, porsiyonAdı, porsiyonGram]`.
+İlk dört sayı **100 g/ml başına**. Yeni kalem eklemek için ilgili grubun içine bir satır
+ekle, başka yeri güncelleme gerekmez. `BESIN_LISTE` düzleştirilmiş, aranabilir hâli;
+`sadeAd()` Türkçe karakterleri sadeleştirir (ı→i, ş→s …) ki arama "sut" yazınca da bulsun.
+
+Değerler yaklaşık referans değerlerdir. **Uydurma sayı ekleme** — emin değilsen kalemi
+hiç ekleme, kullanıcı zaten elle girebiliyor.
+
+### `app.js`
 
 | Bölüm | İçerik |
 |---|---|
-| `<style>` | Tüm CSS. Renkler `:root` içinde CSS değişkeni. Yeni renk uydurma, mevcutları kullan. |
-| `SABİTLER` | `OGUN`, `TAK_GUNLUK` / `TAK_KICKBOX` / `TAK_AGIRLIK`, `HAFTA`, `MARKET`, `HEDEF`, `REHBER` — plan içeriği burada, veriyle kod ayrı. |
-| `YARDIMCILAR` | `iso`, `trT`, `gunBilgi`, `ogunler`, `navy`, `navyStr`, `sayi`, `hedefler`, `teaFaz`, `esc` |
-| `DURUM` | `S` nesnesi, `yukle()`, `kaydet()`, `kurulumGerek()`, `gun()`, `toast()` |
-| `PARÇALAR` | `kart()`, `satir()`, `alan()`, `tally()` — HTML string üreten fonksiyonlar |
-| `SEKMELER` | `vKurulum`, `vBugun`, `vPlan`, `vOlcum`, `vMarket`, `vRehber` |
-| `ÇİZ` | `ciz()` — tüm ekranı yeniden basar, alt menüyü çizer. Kurulum gerekiyorsa alt menüsüz kurulum ekranını basıp çıkar. |
-| `OLAYLAR` | Tek bir delege edilmiş `click` dinleyici, `data-act` özniteliğine göre dallanır |
+| `DEPO` | `Depo.oku/yaz/eskiOku`. Depolamaya tek erişim noktası. |
+| `YARDIMCILAR` | `iso`, `trT`, `haftaBasi`, `esc`, `sayi`, `navy`, `bmr`, `hedefHesapla`, `gunProgram`, `aliskanlikDurum`, `besinAra`, `gunToplam`, `haftaButce`, `butceMesaj`, `uyarilar` |
+| `DURUM` | `varsayilan()`, `S`, `KALICI`, `yukle()`, `duzelt()`, `goc()`, `kaydet()`, `kaydetGecikmeli()`, `kurulumGerek()`, `gun()`, `toast()` |
+| `PARÇALAR` | `kart()`, `satir()`, `alan()`, `secOp()`, `uyariKutu()`, `tally()`, `ilerleme()`, `grafik()` |
+| `KURULUM` | `vKurulum()` + `kAdim0…kAdim7`, `adimGecerli()`, `adimUygula()` |
+| `SEKMELER` | `vBugun`, `vYemek`, `vAntrenman`, `vIlerleme`, `vDaha` (+ `dMarket`, `dRehber`, `dTakviye`, `dAyar`, `dYedek`) |
+| `ÇİZ` | `ciz()` — kurulum gerekiyorsa alt menüsüz sihirbazı basar ve çıkar |
+| `OLAYLAR` | Delege edilmiş `click`, `input`, `change` dinleyicileri |
 
 Mimari kasten basit: **durum değişir → `kaydet()` → `ciz()`**. Sanal DOM yok, framework
-yok. Yeni bir etkileşim eklerken `data-act="…"` koy ve click dinleyicisine bir dal ekle.
+yok. Yeni etkileşim eklerken `data-act="…"` koy ve click dinleyicisine bir dal ekle.
+
+**Yeniden çizim ve odak:** `ciz()` tüm ekranı yeniden basar, bu da yazarken odağı
+kaybettirir. Bu yüzden `input` olayında yalnızca `YENIDEN_CIZ` listesindeki alanlar için
+çiziyoruz (canlı hesap gösterenler) ve `yenidenCiz()` odağı imleç konumuyla geri koyuyor.
+Diğer alanlar sadece duruma yazıp `kaydetGecikmeli()` çağırıyor. Yeni bir alan eklerken
+canlı hesap göstermiyorsa listeye **ekleme**.
 
 Kullanıcı girdisi ekrana basılıyorsa `esc()` ile kaçır.
 
@@ -183,55 +188,67 @@ Kullanıcı girdisi ekrana basılıyorsa `esc()` ile kaçır.
 
 ## Sık istenecek değişiklikler
 
-**Öğün eklemek/değiştirmek** → `OGUN.antrenman` veya `OGUN.normal` dizisi. Her öğünün
-benzersiz `id`'si olmalı (`t1…t6`, `r1…r6`). Var olan bir `id`'yi yeniden kullanma,
-geçmiş günlerin işaretleri yanlış öğüne bağlanır.
+**Spor eklemek** → `SPORLAR` dizisine bir satır. `log` alanları `LOG_ALAN` anahtarlarından
+seçilir; `"set"` koyarsan egzersiz tablosu çıkar.
 
-**Kalori/protein hedefi** → `vPlan()` başlığındaki metin ve `vBugun()` içindeki
-`hK`/`hP` hesabı. Hedefler öğün listesinin toplamından türüyor, ayrı bir sabit yok.
+**Takviye eklemek** → `TAKVIYELER` dizisine bir satır. Kafein içeriyorsa `etiket.kafein`
+alanını mg olarak doldur, uyarı motoru gerisini halleder.
 
-**Su hedefi** → `BARDAK_HEDEF` (bardak sayısı) ve `BARDAK_ML`. `tally()` 5'li gruplar
-hâlinde çizer, 14 sayısı 5+5+4 olarak güzel bölünür; değiştirirken görünümü kontrol et.
+**Besin eklemek** → `besinler.js` içinde uygun grubun içine bir satır.
 
-**Ice tea aşamaları** → `teaFaz()`. Başlangıç tarihi `TEA_BASLA` sabitinde.
+**Öğün düzeni eklemek** → `OGUN_SABLON` dizisine bir kayıt; `p` değerlerinin toplamı 1
+olmalı.
 
-**Takviye eklemek/çıkarmak** → `TAK_GUNLUK` (her gün), `TAK_KICKBOX` (Pzt/Çar/Cum), `TAK_AGIRLIK`
-(Sal/Cmt). `takviyeler(k)` fonksiyonu gün tipine göre birleştirir. Her kalemin benzersiz `id`'si
-olmalı — aynı takviye günde birden fazla alınıyorsa `cla1`, `cla2`, `cla3` gibi ayrı id ver,
-yoksa hepsi tek kutucuk olur.
+**Kalori/protein formülü** → `hedefHesapla()`. Şu an Mifflin-St Jeor × aktivite × hedef
+çarpanı, ve kalori bazal metabolizmanın altına inmiyor.
 
-**Antrenman programı** → `HAFTA` dizisi. `tip` alanı `kickbox` / `agirlik` / `hafif` /
-`dinlenme` olabilir; `dinlenme` günlerinde antrenman kartı gizlenir ve gün yüzdesi
-hesabından düşer.
+**Haftalık bütçe mantığı** → `haftaButce()` ve `butceMesaj()`. Kayıt girilmemiş geçmiş
+günler bilerek hesaba katılmaz; katarsan uygulamayı hafta ortasında kuran kullanıcı o
+günlerde sıfır kalori yemiş sayılır ve saçma bir bütçe çıkar.
 
-**Yeni sekme** → `ADLAR` ve `IKON` nesnelerine ekle, bir `vXxx()` fonksiyonu yaz,
-`ciz()` içindeki eşlemeye kaydet. Alt menü 5 sütuna sabit (`grid-template-columns`);
-6. sekme eklersen o kuralı da güncelle.
+**Rehber maddesi eklemek** → `REHBER` dizisi, `kosul` alanını doğru ayarla.
+
+**Yeni sekme** → `ADLAR` ve `IKON` nesnelerine ekle, bir `vXxx()` yaz, `ciz()` içindeki
+eşlemeye kaydet. Alt menü 5 sütuna sabit (`stil.css` içindeki `.nav-in`); 6. sekme
+eklersen o kuralı da güncelle. Alternatif: "Daha" sekmesinin altına bir alt sayfa ekle —
+`dXxx()` yaz ve `vDaha()` içindeki eşlemeye koy, alt menüyü hiç değiştirme.
+
+---
+
+## İleride hesap ve senkron eklenirse
+
+`Depo` arayüzü bunun için var. Yapılacaklar:
+
+1. `Depo.oku/yaz`'ı asenkron hâle getir (Promise döndürsün) ve çağıranları `await` et.
+2. Çakışma çözümü gerekir: `gunler` gün bazında birleştirilebilir, `olcumler` tarih
+   bazında. `profil` ve `ogunler` için "son yazan kazanır" yeterli.
+3. Hesap eklenirse gizlilik metni ve veri silme yolu da eklenmeli.
+
+Ekranlarda ya da yardımcılarda `localStorage` araması yapmak zorunda kalıyorsan
+5. kural bozulmuş demektir.
 
 ---
 
 ## Gizlilik
 
-Uygulamanın kendisi hiçbir veriyi dışarı göndermiyor. Depo public, ama Görev 2
-uygulandığı için kodda kişisel ölçü kalmadı — boy, kilo, bel ve boyun yalnızca cihazın
-localStorage'ında.
+Uygulama hiçbir veriyi dışarı göndermiyor. Depo public; **kodda kişisel veri yok ve
+olmamalı.**
 
-**Bu durumu koru.** Depoya (koda, CLAUDE.md'ye, örnek JSON'lara, ekran görüntülerine,
-commit mesajlarına) gerçek vücut ölçüsü yazma. Ölçüye ihtiyaç duyan yeni bir özellik
-`S` üzerinden okusun, sabit yazma. Test için gerçek değil uydurma sayı kullan.
-
-Alternatif isterse: `Settings` → `General` → `Change repository visibility` → Private,
-sonra Cloudflare Pages/Netlify ile yayınla (Görev 1, Seçenek B).
+Depoya (koda, bu dosyaya, örnek JSON'lara, ekran görüntülerine, commit mesajlarına)
+gerçek vücut ölçüsü, gerçek isim ya da kişiye özel bir plan yazma. Ölçüye ihtiyaç duyan
+bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydurma sayı kullan.
 
 ---
 
 ## Değişiklikten sonra kontrol listesi
 
-- [ ] `node --check` ile JS sözdizimi temiz (script'i geçici dosyaya çıkarıp bak)
+- [ ] `node --check` her `.js` dosyasında temiz
 - [ ] Konsolda hata yok
-- [ ] Var olan localStorage verisiyle açılıyor — şema değiştiyse geçiş kodu var
-- [ ] `sw.js` içindeki `CACHE` adı artırıldı
-- [ ] 390 px genişlikte (iPhone) taşma yok, alt menü içeriği kapatmıyor
+- [ ] Var olan `fitplan-v2` verisiyle açılıyor; şema değiştiyse `duzelt()` güncellendi
+- [ ] `ayberk-plan-v1` verisiyle açılıyor (göç yolu bozulmadı)
+- [ ] `sw.js` içindeki `CACHE` adı artırıldı, yeni dosyalar `DOSYALAR` listesinde
+- [ ] 390 px genişlikte taşma yok, alt menü içeriği kapatmıyor
 - [ ] Koyu tema kontrastı bozulmadı
-- [ ] Yedekle → geri yükle turu çalışıyor
+- [ ] Kurulum sihirbazı baştan sona geçiliyor (erkek ve kadın akışı ayrı ayrı)
+- [ ] Yedekle → sil → geri yükle turu çalışıyor
 - [ ] Türkçe karakterler bozulmadı

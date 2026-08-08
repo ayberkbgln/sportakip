@@ -1,15 +1,24 @@
-PLAN — iPhone'a kurulabilir kişisel takip uygulaması
-====================================================
+PLAN — telefona kurulabilir beslenme ve antrenman takibi
+========================================================
+
+NE YAPAR
+  Günlük yemek, su, takviye ve antrenman takibi; vücut ölçüsü ve yağ oranı
+  takibi; alışveriş listesi; azaltmak istediğin bir alışkanlık için haftalık
+  sınır. Kickboks, boks, ağırlık, koşu, yüzme, yoga, takım sporları — hepsi var.
 
 DOSYALAR
-  index.html     uygulamanın tamamı (arayüz + mantık + veriler)
+  index.html     iskelet
+  stil.css       görünüm
+  veri.js        spor, takviye ve öğün şablonları
+  besinler.js    besin veritabanı
+  app.js         uygulamanın mantığı
   manifest.json  ana ekran uygulaması ayarları
   sw.js          internetsiz çalışması için önbellek
   icon-*.png     uygulama ikonları
 
 KURULUM — GitHub Pages (ücretsiz, kalıcı)
   1. github.com > New repository > isim ver > Public > Create
-  2. "uploading an existing file" > bu klasördeki 6 dosyayı sürükle > Commit
+  2. "uploading an existing file" > bu klasördeki dosyaların TAMAMINI sürükle > Commit
   3. Settings > Pages > Source: "Deploy from a branch" > Branch: main / (root) > Save
   4. 1-2 dakika sonra https://KULLANICIADIN.github.io/REPOADI/ adresi hazır olur
 
@@ -22,17 +31,29 @@ IPHONE'A EKLEME
   1. Adresi Safari'de aç (Chrome değil, Safari)
   2. Alttaki paylaş ikonu > "Ana Ekrana Ekle"
   3. Ana ekranda ikon çıkar, tıklayınca tam ekran açılır
+  NOT: iOS'ta ana ekran uygulamasının verisi Safari'den ayrıdır. Kurulumu
+  uygulamanın içinde bir kez daha yapman gerekebilir.
+
+ANDROID'E EKLEME
+  1. Adresi Chrome'da aç
+  2. Üç nokta menüsü > "Uygulamayı yükle"
+  3. Uygulama çekmecesine gerçek bir uygulama olarak eklenir
+  Android'de veri Chrome ile ortaktır, kurulumu tekrarlamana gerek kalmaz.
 
 ILK ACILIS
-  Uygulama ilk açıldığında boy, kilo, bel ve boyun ölçünü sorar. Bir kez gir, yeter.
-  Bu ölçüler koda yazılı değil — sadece senin telefonunda saklanır.
-  Boyu sonradan Ölçüm sekmesinin altındaki "Boy" kartından değiştirebilirsin.
+  Sekiz adımlık bir kurulum çıkar: ölçülerin, hedefin, sporun, haftalık programın,
+  öğün düzenin, kullandığın takviyeler ve (istersen) azaltmak istediğin bir
+  alışkanlık. Ölçüler ve takviye adımlarını atlayabilirsin.
+  Kalori ve protein hedefin bu bilgilerden hesaplanır; Daha > Ayarlar'dan elle
+  değiştirebilirsin.
 
 VERİLER
-  Veriler telefonun içinde saklanır, hiçbir sunucuya gitmez.
+  Veriler telefonun içinde saklanır, hiçbir sunucuya gitmez, hesap açman gerekmez.
   Ana ekrana eklenen uygulamalar Safari'nin 7 günlük veri silme kuralından muaftır.
-  Yine de: Rehber sekmesinin altındaki "Yedeği kopyala" ile ayda bir yedek al.
-  Telefon değiştirirsen aynı yerden geri yüklersin.
+  Yine de: Daha > Yedek'ten ayda bir yedek al. Telefon değiştirirsen aynı yerden
+  geri yüklersin.
 
 NOT
-  Bu plan tıbbi tavsiye değildir.
+  Bu uygulama tıbbi tavsiye değildir. Besin değerleri yaklaşık referans
+  değerlerdir; ambalajlı bir ürün yiyorsan etiketteki değer daha doğrudur.
+  Takviye ilaç değildir ve ilacın yerine geçmez.

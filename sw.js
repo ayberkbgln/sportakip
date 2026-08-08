@@ -1,6 +1,10 @@
-/* Offline cache — uygulama internetsiz de açılsın diye */
-const CACHE = "plan-v3";
-const DOSYALAR = ["./", "./index.html", "./manifest.json", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
+/* Offline cache — uygulama internetsiz de açılsın diye.
+   CACHE adını HER dağıtımda artır, yoksa kullanıcı eski sürümde takılı kalır. */
+const CACHE = "plan-v4";
+const DOSYALAR = [
+  "./", "./index.html", "./stil.css", "./veri.js", "./besinler.js", "./app.js",
+  "./manifest.json", "./icon-180.png", "./icon-192.png", "./icon-512.png"
+];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(DOSYALAR)).then(() => self.skipWaiting()));
