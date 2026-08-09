@@ -16,6 +16,10 @@ ulaşması demek. iCloud özel kapsayıcı buna girmiyor — geliştiricinin eri
 
 Takip (tracking): **Yok.** ATT izni istenmiyor, IDFA kullanılmıyor.
 
+Kamera: barkod okumak için kullanılıyor ama **hiçbir görüntü toplanmıyor** —
+kare işlenip atılıyor, kaydedilmiyor, gönderilmiyor. Bu yüzden App Privacy
+formunda yine "Data Not Collected". `NSCameraUsageDescription` Info.plist'te.
+
 ## Gizlilik manifesti
 
 `magaza/PrivacyInfo.xcprivacy` dosyası projeye ekleniyor:
@@ -72,6 +76,15 @@ Ayarlar'dan açarsan kilo, su ve antrenman kayıtların Apple Sağlık uygulamas
 yazılıyor; son kilo kaydın oradan okunuyor. İzin ayrıca isteniyor ve istediğin
 zaman iOS Ayarlar → Gizlilik ve Güvenlik → Sağlık bölümünden geri alabilirsin.
 Sağlık verisi hiçbir koşulda reklam ya da analiz için kullanılmıyor.
+
+### Kamera ve barkod
+
+Yemek eklerken barkod tarayabilirsin. Kamera yalnızca o an açılır, koddaki
+karakterleri okur ve kapanır. Görüntü kaydedilmez, saklanmaz ve hiçbir yere
+gönderilmez. Barkodun hangi ürün olduğu bir veritabanına sorulmuyor —
+uygulama hiçbir ağ isteği yapmıyor; ürünü ilk taramada kullanıcı tanımlıyor
+ve eşleşme yalnızca cihazda kalıyor. İzin iOS Ayarlar → Gizlilik ve Güvenlik
+→ Kamera bölümünden geri alınabilir.
 
 ### Toplamadığımız şeyler
 

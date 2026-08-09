@@ -266,6 +266,28 @@ th:first-child{text-align:left;}
 td{padding:10px 0;border-top:1px solid var(--cizgi);text-align:right;white-space:nowrap;}
 td:first-child{text-align:left;color:var(--soluk);font-size:11px;}
 
+/* ---------- set satırları ----------
+   Her set ayrı satır: numara · tekrar · kg · tamam kutusu. Dört sütun 390 px'e
+   sığsın diye grid; sütun genişlikleri başlıkla birebir aynı olmalı. */
+.setr,.setr-bas{display:grid;grid-template-columns:24px 1fr 1fr 36px;gap:8px;align-items:center;}
+.setr{margin-bottom:7px;}
+.setr-bas{margin-bottom:7px;}
+.setr-bas span{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--sonuk);text-align:center;}
+.setr-n{font-family:var(--mono);font-size:12px;font-weight:650;color:var(--sonuk);text-align:center;}
+.setr input{text-align:center;padding:12px 4px;}
+.setr.ok .setr-n{color:var(--iyi);}
+.setr.ok input{color:var(--iyi);border-color:rgba(95,227,161,.32);}
+.setr-ok{
+  width:36px;height:38px;border-radius:11px;border:1.5px solid var(--cizgi-parlak);
+  background:var(--zemin);display:flex;align-items:center;justify-content:center;
+  padding:0;cursor:pointer;transition:background .16s,border-color .16s,transform .12s;
+}
+.setr-ok svg{opacity:0;transition:opacity .16s;}
+.setr-ok.on{background:var(--iyi);border-color:var(--iyi);}
+.setr-ok.on svg{opacity:1;}
+.setr-ok:active{transform:scale(.94);}
+
 /* ---------- rehber satırı ---------- */
 .gr{padding:13px 0;border-top:1px solid var(--cizgi);}
 .gr:first-of-type{border-top:none;padding-top:2px;}
@@ -311,6 +333,33 @@ hr{height:1px;background:var(--cizgi);margin:16px 0;border:none;}
    Yemek ekleme akışı sayfaya kart olarak eklenmiyor, üstüne oturuyor.
    Sabit konumlu olduğu için içerik kullanıcının altından kaymıyor. */
 body.kilit{overflow:hidden;}
+
+/* ---------- barkod tarayıcı ----------
+   Panelin de üstünde duruyor (z-index 80) ve .wrap'in dışında, body'ye
+   ekleniyor — 13. kuraldaki yığın bağlamı tuzağına düşmesin diye. */
+.tarayici{
+  position:fixed;inset:0;z-index:80;background:#000;
+  display:flex;align-items:center;justify-content:center;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.tarayici video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.tarayici-hedef{
+  position:relative;width:74%;max-width:320px;aspect-ratio:5/3;
+  border:2px solid var(--vurgu);border-radius:16px;
+  box-shadow:0 0 0 100vmax rgba(4,5,7,.55);
+}
+.tarayici-not{
+  position:absolute;left:0;right:0;bottom:calc(96px + env(safe-area-inset-bottom));
+  text-align:center;margin:0;color:var(--metin);font-size:13px;
+  text-shadow:0 1px 6px rgba(0,0,0,.9);
+}
+.tarayici-kapa{
+  position:absolute;left:50%;transform:translateX(-50%);
+  bottom:calc(30px + env(safe-area-inset-bottom));
+  background:var(--yuzey);color:var(--metin);border:1px solid var(--cizgi-parlak);
+  border-radius:14px;padding:13px 30px;font-size:15px;font-weight:650;
+  font-family:var(--sans);cursor:pointer;
+}
 
 .perde{
   position:fixed;inset:0;z-index:50;background:rgba(4,5,7,.74);

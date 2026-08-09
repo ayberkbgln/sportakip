@@ -42,8 +42,9 @@ web/                 uygulamanın kendisi — buildsiz, tek başına PWA olarak 
 ios-eklenti/         Xcode projesine elle kopyalanan yerel kaynaklar
   BulutPlugin.swift  iCloud Documents senkronu
   SaglikPlugin.swift HealthKit köprüsü
+  BarkodPlugin.swift AVFoundation ile barkod okuma (üçüncü taraf kütüphane yok)
   App.entitlements   HealthKit + iCloud yetenekleri
-  Info-eklenecek.plist  izin metinleri
+  Info-eklenecek.plist  izin metinleri (sağlık + kamera)
 
 magaza/              App Store materyalleri (gizlilik, açıklama, inceleme notu,
                      imzalama rehberi, icon-1024.png)
@@ -143,6 +144,7 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
     "kcalElle": false,
     "kcalAyarTarih": "",      // son kalori önerisinin uygulandığı gün
     "antrSaat": "18:00",      // kafein uyarısı bunu kullanır
+    "dinlenme": 90,           // set arası geri sayım tercihi (sn)
     "tamam": false            // false ise kurulum sihirbazı çalışır
   },
   "kurulumAdim": 0,
@@ -166,7 +168,8 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
       "takviye": { "kreatin": true },
       "antrenman": { "seans": {                  // anahtar = program seansının sid'i
         "s…": { "yapildi": true, "sure": "", "round": "", "mesafe": "",
-                "set": [ { "ad": "Squat", "set": "3", "tekrar": "10", "kg": "60" } ] }
+                "set": [ { "ad": "Squat",          // egzersiz; her set ayrı satır
+                           "setler": [ { "tekrar": "10", "kg": "60", "ok": true } ] } ] }
       } },
       "aliskanlik": 0,
       "d": 0                                   // ms — gün bazlı birleştirme damgası
@@ -178,6 +181,8 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
   "ozelBesinler": [],
   "kayitliOgun": [ { "id": "m…", "ad": "Kahvaltı · Yulaf +2",
                      "kalemler": [ { "ad": "…", "kcal": 0, "p": 0, "gram": 0 } ] } ],
+  "barkod": { "869…": { "ad": "…", "kcal": 0, "p": 0, "k": 0, "y": 0,
+                        "pAd": "porsiyon", "pGram": 0, "sonGram": 0 } },
   "sonYedek": null
 }
 ```
@@ -219,6 +224,14 @@ Notlar:
 - `profil.kcalAyarTarih` kalori önerisinin tekrarını engeller: bir öneri uygulandıktan
   sonra 14 gün yeni öneri çıkmaz. Olmasaydı arka arkaya basan kullanıcı hedefini her
   dokunuşta 300 kcal aşağı çekerdi.
+- **Antrenman kaydı set bazlı.** Bir egzersiz `{ ad, setler: [{tekrar,kg,ok}] }`. Tek
+  satırda "3×10 @60" tutmak gerçeği anlatmıyordu — setler arasında hem tekrar hem
+  ağırlık düşer, tonaj da o yüzden yanlış çıkardı. `ok` yalnız arayüz için: seti
+  işaretleyince dinlenme sayacı başlıyor. **Hacim ve rekor hesabı `ok`'a bakmaz**,
+  tekrar/kg dolu olan her seti sayar — kullanıcı işaretlemeyi unutabilir.
+- `barkod` kişisel bir eşleme tablosu: kod → besin. Barkodun ne olduğu hiçbir yere
+  sorulmuyor (2. kural), kullanıcı ilk taramada kendisi tanımlıyor. `sonGram` o üründe
+  en son yediği miktar; ikinci taramada doğrudan onunla açılıyor.
 - `gunler` sınırsız büyür. Yemek kaydıyla birlikte 5 yılda ~5-8 MB; localStorage kotası
   (genelde 5-10 MB) için sınırda. Sorun çıkarsa eski günleri arşivle, silme.
 - Şema göçleri `duzelt()` içinde ve **kalıcı**: `semaDegisti` işaretliyse `yukle()`
@@ -301,7 +314,7 @@ ayrım paletten, tipografi ölçeğinden ve kompozisyondan geliyor.
 | `DEPO` | `Depo.oku/yaz/eskiOku`. Depolamaya tek erişim noktası. |
 | `YARDIMCILAR` | `iso`, `trT`, `haftaBasi`, `esc`, `sayi`, `navy`, `bmr`, `hedefHesapla`, `kiloOrtalama`, `kaloriOneri`, `aliskanlikDurum`, `besinAra`, `gunToplam`, `haftaButce`, `butceMesaj`, `uyarilar` |
 | `ÖĞÜNLER` | `ogunSlotlari`, `ogunOran`, `yeniOid`, `ogunKur`, `ogunDuzenle`, `ogunKaydet`, `kayitToplam` |
-| `SEANSLAR` | `gunSeanslari`, `gunSporAdlari`, `gunToplamSure`, `yeniSid`, `seansOku`, `seansYaz`, `antrenmanYapildi`, `yapilanSeans`, `programDuzenle`, `gecenAntrenman`, `setOzet`, `e1rm`, `egzersizRekor`, `sporSeanslariniSil` |
+| `SEANSLAR` | `gunSeanslari`, `gunSporAdlari`, `gunToplamSure`, `yeniSid`, `seansOku`, `seansYaz`, `antrenmanYapildi`, `yapilanSeans`, `programDuzenle`, `gecenAntrenman`, `bosSetler`, `dinlenmeSn`, `setOzet`, `e1rm`, `egzersizRekor`, `setlerEnIyi`, `haftaHacim`, `sporSeanslariniSil` |
 | `ALIŞVERİŞ` | `marketGruplari`, `marketOnerileri`, `marketEkle` |
 | `DURUM` | `varsayilan()`, `S`, `KALICI`, `yukle()`, `duzelt()`, `goc()`, `kaydet()`, `kaydetGecikmeli()`, `kurulumGerek()`, `gun()`, `toast()` |
 | `PARÇALAR` | `kart()`, `satir()`, `alan()`, `secOp()`, `uyariKutu()`, `tally()`, `ilerleme()`, `halka()`, `grafik()` |
@@ -374,6 +387,20 @@ kendiliğinden uygulanmaz; `kcalAyarTarih` 14 gün susturur.
 **bugünü hariç tut**, yoksa kayıt kendi rekorunu geçemez ve her satır "yeni rekor"
 yazar. `set-doldur` geçen seansın ağırlıklarını satırlara yazıyor.
 
+**Set satırları** → `data-setr="sid:egzersiz:set:alan"` (dört parça; egzersiz adı hâlâ
+`data-set="sid:egzersiz:ad"`). Ekleme/silme `setr-ekle` / `setr-sil`, tamamlama
+`setr-ok`. Yeni set son setin değerlerini devralıyor. `.setr` ve `.setr-bas` sütun
+şablonları **birebir aynı olmalı**, yoksa başlıklar kutularla hizalanmıyor.
+
+**Haftalık hacim** → `haftaHacim(n)`. Tonaj = Σ tekrar × kg; vücut ağırlığı hareketleri
+(kg yok) tonaja girmiyor, o yüzden set sayısı da dönüyor ve ekranda ikisi birlikte
+gösteriliyor. Kart yalnız **en az iki haftada set varsa** çiziliyor — yeni kullanıcıda
+düz sıfır çizgisi anlamsız.
+
+**Barkod** → `Yerel.barkodTara()` kodu getiriyor, `S.barkod[kod]` varsa panel doğrudan
+miktara geçiyor, yoksa tanımlama adımı açılıyor. Kod `data-act` içinde taşındığı için
+`kodTemizle()` harf/rakam dışını atıyor. Barkod veritabanı **eklenmeyecek** — 2. kural.
+
 **Bugün ekranı** → hero halka + `.izgara` içinde `.kutu` döşemeleri. Yeni bir döşeme
 eklerken `kutular.push(...)` sırasına gir; detay gerekiyorsa `data-act="panel:xxx"` koy
 ve `panelHtml()` içine bir dal ekle — ana ekran uzamasın.
@@ -394,6 +421,7 @@ eklersen o kuralı da güncelle. Alternatif: "Daha" sekmesinin altına bir alt s
 | `Yerel.bulutOku/bulutYaz/bulutDurum` | iCloud Documents'taki `plan.json` |
 | `Yerel.saglikIzin/saglikKiloYaz/saglikSuYaz/saglikAntrenmanYaz/saglikSonKilo` | HealthKit |
 | `Yerel.bildirimIzin/bildirimKur` | Yerel bildirimler (`bildirimleriKur()` planlar) |
+| `Yerel.barkodVar/barkodTara` | Barkod okuma — **tek istisna:** tarayıcıda da bir karşılığı var (standart `BarcodeDetector` + `getUserMedia`), Safari'de ikisi de yoksa `barkodVar()` false döner ve düğme hiç çizilmez |
 | `Yerel.titre` | Dokunsal geri bildirim |
 
 Swift tarafının kaynağı `ios-eklenti/` altında; ilk kurulumda Xcode projesine
@@ -440,6 +468,11 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Bir öğün kaydedilip panelden tek dokunuşla geri ekleniyor; "dünü tekrarla" doğru
       öğüne yazıyor
 - [ ] Aynı egzersizde ağırlık artınca "yeni rekor" çıkıyor, artmayınca çıkmıyor
+- [ ] Setler ayrı ayrı giriliyor, set ekleniyor/siliniyor, seti işaretleyince dinlenme
+      sayacı başlıyor; eski tek satırlı kayıtlar set listesine açılmış
+- [ ] Haftalık hacim kartı iki haftadan az veriyle çıkmıyor, tonaj elle doğrulandı
+- [ ] Barkod: tanınmayan kod tanımlanıyor, ikinci taramada son gramla açılıyor,
+      Ayarlar'dan siliniyor; tarayıcı desteklemiyorsa düğme hiç görünmüyor
 - [ ] Test sunucusu `stil.css`'i **text/css** olarak servis ediyor — yanlış MIME'de
       sayfa stilsiz açılır ve düzen kontrolleri boşuna geçer
 - [ ] Türkçe karakterler bozulmadı

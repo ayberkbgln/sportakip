@@ -98,6 +98,30 @@ const Yerel = {
     } catch (e) { return false; }
   },
 
+  /* ---- Barkod ----
+     Barkod veritabanı İNTERNETTEN çekilmiyor (2. kural) — çekemeyiz de,
+     uygulama uçak modunda çalışmak zorunda. Kamera yalnızca kodun rakamlarını
+     okuyor; o kodun hangi ürün olduğunu kullanıcı bir kez kendisi tanımlıyor
+     ve eşleşme cihazda kalıyor.
+
+     Buradaki tek istisna: bu fonksiyonun tarayıcıda da bir karşılığı var.
+     Kabukta AVFoundation eklentisi, tarayıcıda standart BarcodeDetector
+     çalışıyor; ikisi de yoksa "" dönüyor ve ekran özelliği hiç göstermiyor.
+     Görüntü hiçbir yere yazılmıyor, kaydedilmiyor. */
+  barkodVar() {
+    if (this.eklenti("Barkod")) return true;
+    return typeof window.BarcodeDetector === "function"
+      && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  },
+  async barkodTara() {
+    const p = this.eklenti("Barkod");
+    if (p) {
+      try { const r = await p.tara(); return kodTemizle(r && r.kod); }
+      catch (e) { return ""; }
+    }
+    return tarayiciBarkod();
+  },
+
   /* ---- Dokunsal geri bildirim ---- */
   async titre(tip) {
     const p = this.eklenti("Haptics");
@@ -105,6 +129,62 @@ const Yerel = {
     try { await p.impact({ style: tip || "Light" }); } catch (e) {}
   }
 };
+
+/* Kod app.js'te data-act içine giriyor; ":" ile bölünen bir dizede yaşayacağı
+   için ayırıcı olabilecek her şeyi atıyoruz. */
+function kodTemizle(v) {
+  return String(v == null ? "" : v).replace(/[^0-9A-Za-z]/g, "").slice(0, 24);
+}
+
+/* Tarayıcı tarafı: BarcodeDetector + getUserMedia. Safari'de ikisi de yok,
+   o zaman "" dönüyor ve düğme hiç çizilmiyor. Kamera akışı her çıkışta
+   kapatılıyor — finally bloğu bunun için. */
+async function tarayiciBarkod() {
+  if (typeof window.BarcodeDetector !== "function"
+      || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return "";
+  let akis = null, kap = null, iptal = false;
+  try {
+    const dedektor = new window.BarcodeDetector({
+      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf"]
+    });
+    akis = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } });
+    const video = document.createElement("video");
+    video.setAttribute("playsinline", "");
+    video.muted = true;
+    video.srcObject = akis;
+    await video.play();
+
+    kap = document.createElement("div");
+    kap.className = "tarayici";
+    kap.appendChild(video);
+    const cerceve = document.createElement("div");
+    cerceve.className = "tarayici-hedef";
+    const not = document.createElement("p");
+    not.className = "tarayici-not";
+    not.textContent = "Barkodu çerçeveye getir";
+    const kapa = document.createElement("button");
+    kapa.type = "button";
+    kapa.className = "tarayici-kapa";
+    kapa.textContent = "Vazgeç";
+    kapa.addEventListener("click", () => { iptal = true; });
+    kap.appendChild(cerceve); kap.appendChild(not); kap.appendChild(kapa);
+    document.body.appendChild(kap);
+
+    const bitis = Date.now() + 30000;          // 30 sn sonra kendiliğinden bırak
+    while (!iptal && Date.now() < bitis) {
+      let bulunan = [];
+      try { bulunan = await dedektor.detect(video); } catch (e) { bulunan = []; }
+      const kod = bulunan.find(b => b && b.rawValue);
+      if (kod) { const t = kodTemizle(kod.rawValue); if (t) return t; }
+      await new Promise(r => setTimeout(r, 220));
+    }
+    return "";
+  } catch (e) { return ""; }
+  finally {
+    if (akis) akis.getTracks().forEach(t => t.stop());
+    if (kap && kap.parentNode) kap.parentNode.removeChild(kap);
+  }
+}
 
 /* Kabuk hazır olduğunda gövdeye sınıf ekle — güvenli alan payları ve
    tarayıcıya özgü kurulum notları buna göre değişiyor. */

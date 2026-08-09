@@ -44,12 +44,13 @@ dışlıyor.
 ```bash
 cp ios-eklenti/BulutPlugin.swift  ios/App/App/
 cp ios-eklenti/SaglikPlugin.swift ios/App/App/
+cp ios-eklenti/BarkodPlugin.swift ios/App/App/
 cp ios-eklenti/App.entitlements   ios/App/App/
 cp magaza/PrivacyInfo.xcprivacy   ios/App/App/
 ```
 
 Xcode'da (`npx cap open ios`) sol paneldeki **App** hedefine sağ tık →
-`Add Files to "App"…` → kopyaladığın dört dosyayı seç. Capacitor eklentileri
+`Add Files to "App"…` → kopyaladığın beş dosyayı seç. Capacitor eklentileri
 `@objc` ile otomatik bulunur, ayrıca kayıt gerekmez.
 
 ## 4. Info.plist anahtarlarını ekle
@@ -59,7 +60,8 @@ içindeki anahtarları en dıştaki `<dict>` bloğuna ekle. **Dosyayı komple
 değiştirme**, Capacitor'ın kendi anahtarları duruyor.
 
 Sağlık izin metinleri olmadan uygulama HealthKit'e eriştiği anda çöker ve
-inceleme reddedilir — bu adımı atlama.
+inceleme reddedilir — bu adımı atlama. Aynı şey kamera için de geçerli:
+`NSCameraUsageDescription` yoksa barkod tarayıcı açıldığı anda çöker.
 
 ## 5. Xcode'da yetenekleri aç
 

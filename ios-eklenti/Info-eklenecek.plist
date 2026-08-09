@@ -6,6 +6,11 @@
 <key>NSHealthUpdateUsageDescription</key>
 <string>Kaydettiğin kilo, su ve antrenmanı Sağlık uygulamasına yazar. Veriler cihazından çıkmaz.</string>
 
+<!-- Barkod okuma. Kamera görüntüsü kaydedilmez, hiçbir yere gönderilmez;
+     yalnız koddaki rakamlar okunur. -->
+<key>NSCameraUsageDescription</key>
+<string>Ürün barkodunu okumak için kamerayı kullanır. Görüntü kaydedilmez ve cihazından çıkmaz.</string>
+
 <!-- Uygulama karanlık temaya göre tasarlandı; sistem açık temadayken de aynı kalsın -->
 <key>UIUserInterfaceStyle</key>
 <string>Dark</string>
