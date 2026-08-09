@@ -142,6 +142,13 @@ hem bu bölümün cevapları hem yayınlanacak gizlilik metni var.
 içeremez. Rehber'deki sağlık notu ve takviye uyarıları bu yüzden duruyor —
 silme.
 
-**Gereken görseller.** 1024×1024 App Store ikonu ve 6.7" ile 6.9" cihaz için
-ekran görüntüleri. Mevcut `web/icon-512.png` yeterli çözünürlükte değil,
-1024'lük ayrıca üretilmeli.
+**Görseller.** `magaza/icon-1024.png` hazır — alfa kanalsız, Apple'ın istediği
+biçimde. Xcode'da `Assets.xcassets` → `AppIcon` → 1024 yuvasına sürükle.
+Ayrıca 6.7" ve 6.9" cihaz için ekran görüntüsü gerekiyor; uygulamayı simülatörde
+açıp Bugün / Yemek / Antrenman / İlerleme ekranlarından alabilirsin.
+
+**Gizlilik politikası URL'i.** `web/gizlilik.html` hazır. GitHub Pages açıksa
+adres: `https://ayberkbgln.github.io/sportakip/gizlilik.html`
+
+> Pages'i `main` / `(root)` olarak açtıysan uygulama artık `web/` altında —
+> Pages ayarını `main` / `/web` olarak güncelle, yoksa adres 404 verir.

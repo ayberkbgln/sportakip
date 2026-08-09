@@ -1276,7 +1276,8 @@ function vDaha() {
     .map(([id, ad, d]) => `<div class="item" data-act="daha:${id}"><div class="ib">
       <div class="it"><span class="name">${ad}</span></div><div class="desc">${esc(d)}</div></div>
       <div class="uc"><span class="ara-sag">›</span></div></div>`).join(""));
-  h += `<p class="note" style="text-align:center;margin-top:18px">Verilerin yalnızca bu cihazda. Hiçbir yere gönderilmiyor.</p>`;
+  h += `<p class="note" style="text-align:center;margin-top:18px">Verilerin yalnızca bu cihazda. Hiçbir yere gönderilmiyor.<br>
+   <a href="gizlilik.html" style="color:var(--vurgu)">Gizlilik politikası</a></p>`;
   return h;
 }
 

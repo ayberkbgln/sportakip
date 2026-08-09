@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Plan — Gizlilik Politikası</title>
+<meta name="description" content="Plan uygulamasının gizlilik politikası. Hiçbir veri toplanmıyor.">
+<meta name="theme-color" content="#0A0B0D">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<!-- Kasten kendi kendine yeten bir sayfa: stil.css'e bağlı değil, böylece
+     uygulamanın stili değişse de bu yasal metin bozulmuyor. -->
+<style>
+:root{
+  --zemin:#0A0B0D; --yuzey:#131519; --cizgi:#262B34;
+  --metin:#EDEDE8; --soluk:#828B99; --vurgu:#D2FF3E;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,"Roboto Mono",Menlo,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;background:var(--zemin);}
+body{
+  color:var(--metin);font-family:var(--sans);line-height:1.65;
+  -webkit-font-smoothing:antialiased;padding:0 20px 64px;
+}
+.kap{max-width:680px;margin:0 auto;}
+header{padding:44px 0 26px;border-bottom:1px solid var(--cizgi);margin-bottom:30px;}
+.ust{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--vurgu);margin:0 0 10px;}
+h1{font-size:32px;font-weight:800;letter-spacing:-.03em;margin:0;line-height:1.1;}
+.tarih{font-family:var(--mono);font-size:12px;color:var(--soluk);margin:12px 0 0;}
+h2{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:34px 0 10px;}
+p{margin:0 0 14px;color:#D8D6D0;}
+ul{margin:0 0 14px;padding-left:20px;color:#D8D6D0;}
+li{margin-bottom:7px;}
+strong{color:var(--metin);}
+a{color:var(--vurgu);}
+.ozet{
+  background:var(--yuzey);border:1px solid var(--cizgi);border-left:3px solid var(--vurgu);
+  border-radius:14px;padding:18px 20px;margin:0 0 30px;
+}
+.ozet p{margin:0;font-size:16px;}
+footer{margin-top:44px;padding-top:22px;border-top:1px solid var(--cizgi);
+  font-family:var(--mono);font-size:12px;color:var(--soluk);}
+footer a{color:var(--soluk);}
+</style>
+</head>
+<body>
+<div class="kap">
+
+<header>
+  <p class="ust">Plan</p>
+  <h1>Gizlilik Politikası</h1>
+  <p class="tarih">Son güncelleme: Ağustos 2026</p>
+</header>
+
+<div class="ozet">
+  <p><strong>Kısa cevap:</strong> Bu uygulama hiçbir kişisel verini toplamıyor, bize
+  göndermiyor ve üçüncü taraflarla paylaşmıyor. Girdiğin her şey senin cihazında kalıyor.
+  Sunucumuz yok, hesap açman gerekmiyor.</p>
+</div>
+
+<h2>Hangi veriler tutuluyor</h2>
+<p>Uygulamayı kullanırken şunları girebiliyorsun: yaş, cinsiyet, boy, kilo, vücut
+ölçüleri, yediklerin, içtiğin su, antrenmanların, kullandığın takviyeler ve varsa
+azaltmak istediğin bir alışkanlık.</p>
+<p>Bu verilerin tamamı <strong>yalnızca cihazının kendi depolamasında</strong>
+saklanıyor. Geliştiriciye ya da başka bir yere iletilmiyor.</p>
+
+<h2>iCloud</h2>
+<p>Ayarlar'dan açarsan verilerin, senin Apple hesabına ait iCloud alanında uygulamaya
+özel bir dosyaya yazılıyor ve cihazların arasında eşitleniyor. Bu alan Apple'ın
+altyapısında ve senin hesabına ait — <strong>geliştiricinin buraya erişimi yok.</strong></p>
+<p>Kapatmak istersen: iOS Ayarlar → Apple hesabın → iCloud bölümünden bu uygulamayı
+kapatabilirsin.</p>
+
+<h2>Apple Sağlık</h2>
+<p>Ayarlar'dan açarsan kilo, su ve antrenman kayıtların Apple Sağlık uygulamasına
+yazılıyor; son kilo kaydın oradan okunuyor. İzin ayrıca isteniyor ve istediğin zaman
+iOS Ayarlar → Gizlilik ve Güvenlik → Sağlık bölümünden geri alabilirsin.</p>
+<p>Sağlık verisi hiçbir koşulda reklam, analiz ya da veri madenciliği için
+kullanılmıyor ve cihazından çıkmıyor.</p>
+
+<h2>Toplamadığımız şeyler</h2>
+<ul>
+  <li>Analytics yok</li>
+  <li>Çökme raporlama yok</li>
+  <li>Reklam yok, reklam kimliği (IDFA) kullanılmıyor</li>
+  <li>Hesap yok, e-posta istemiyoruz</li>
+  <li>Konum, kişiler, fotoğraflar gibi verilere erişilmiyor</li>
+  <li>Uygulama çalışırken hiçbir ağ isteği yapmıyor — besin veritabanı dahil her şey
+      cihazın içinde gömülü</li>
+</ul>
+
+<h2>Verini silmek</h2>
+<p>Uygulama içinde <strong>Daha → Ayarlar → Tehlikeli bölge → "Her şeyi sil"</strong>
+tüm verini cihazdan siler. Uygulamayı silmek de aynı sonucu verir.</p>
+<p>iCloud kopyası için: iOS Ayarlar → Apple hesabın → iCloud → Depolamayı Yönet
+bölümünden uygulamanın verisini silebilirsin.</p>
+
+<h2>Çocuklar</h2>
+<p>Uygulama 13 yaş altına yönelik değildir ve çocuklardan bilerek veri toplamaz.</p>
+
+<h2>Sağlık uyarısı</h2>
+<p>Bu uygulama tıbbi tavsiye vermez. İçerdiği bilgiler geneldir; teşhis ya da tedavi
+yerine geçmez. Besin değerleri yaklaşık referans değerleridir; ambalajlı bir ürün
+yiyorsan etiketteki değer daha doğrudur. Takviyeler ilaç değildir ve ilacın yerine
+geçmez. Kronik hastalığın, ilaç kullanımın ya da gebelik varsa plana başlamadan
+hekimine danış.</p>
+
+<h2>Bu metinde değişiklik</h2>
+<p>Politika değişirse bu sayfadaki tarih güncellenir. Uygulama veri toplamaya
+başlayacak olursa bu, güncellemeden önce açıkça bildirilir.</p>
+
+<h2>İletişim</h2>
+<p><a href="mailto:ayberkbaglan@gmail.com">ayberkbaglan@gmail.com</a></p>
+
+<footer>
+  <a href="./index.html">← Uygulamaya dön</a>
+</footer>
+
+</div>
+</body>
+</html>

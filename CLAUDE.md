@@ -28,6 +28,7 @@ web/                 uygulamanın kendisi — buildsiz, tek başına PWA olarak 
   app.js             durum, ekranlar, olaylar — uygulamanın mantığı
   sw.js              çevrimdışı önbellek (service worker)
   manifest.json      ana ekran uygulaması tanımı
+  gizlilik.html      gizlilik politikası — kendi kendine yeten, stil.css'e bağlı değil
   icon-*.png         ikonlar (180 apple-touch, 192/512 manifest + maskable)
   OKU-BENI.txt       kullanıcı için kurulum notu
 
@@ -37,7 +38,9 @@ ios-eklenti/         Xcode projesine elle kopyalanan yerel kaynaklar
   App.entitlements   HealthKit + iCloud yetenekleri
   Info-eklenecek.plist  izin metinleri
 
-magaza/              App Store materyalleri (gizlilik, açıklama, inceleme notu)
+magaza/              App Store materyalleri (gizlilik, açıklama, inceleme notu,
+                     imzalama rehberi, icon-1024.png)
+.github/workflows/   iOS derleme + TestFlight hattı (macOS sunucusunda)
 capacitor.config.json / package.json   iOS kabuğu
 KURULUM-MAC.md       Mac'te derleme adımları
 CLAUDE.md            bu dosya
@@ -78,7 +81,9 @@ oluşturulup commit edildikten sonra derleme GitHub Actions'ta yapılıyor
    Yeni bir dosya eklersen `DOSYALAR` listesine de eklemeyi unutma.
 8. **Türkçe karakterler.** Dosyalar UTF-8. `charset` meta etiketini silme.
 9. **Tıbbi iddia ekleme.** Rehber'deki "Sağlık notu" bölümü, takviye ekranındaki
-   "takviye ilaç değildir" uyarısı ve besin veritabanının başındaki doğruluk notu kalsın.
+   "takviye ilaç değildir" uyarısı, besin veritabanının başındaki doğruluk notu ve
+   `web/gizlilik.html` içindeki sağlık uyarısı kalsın. App Store'da Health & Fitness
+   kategorisinde inceleme bunlara bakıyor.
 10. **Kafein kuralını silme.** `uyarilar()` fonksiyonu ve takviyelerin `etiket.kafein`
     alanı bilerek böyle. Kafeinli iki ürünün aynı güne düşmesi ve akşam antrenmanından
     önce kafein alınması uykuyu bozar; uygulama bunu söylemek zorunda.
@@ -391,3 +396,5 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Yemek ekleme paneli açılıyor, arama/miktar/düzenleme adımları ekranda kalıyor
 - [ ] Yedekle → sil → geri yükle turu çalışıyor
 - [ ] Türkçe karakterler bozulmadı
+- [ ] İkon değiştiyse dört boyut da (180/192/512 + magaza/icon-1024) yenilendi ve
+      1024'lük alfa kanalsız — Apple alfa kanallı ikonu reddediyor
