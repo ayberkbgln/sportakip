@@ -93,8 +93,36 @@ function hedefHesapla() {
 }
 
 /* Bugünün programı ve sporu */
-const gunProgram = k => S.program[haftaninGunu(k)] || { spor: "dinlenme", sure: 0 };
 const sporBul = id => SPORLAR.find(s => s.id === id) || null;
+
+/* ---- Seanslar ----
+   Bir gün birden fazla seans taşıyabilir ve sıra önemlidir: ısınma koşusu →
+   kickboks → ağırlık → esneme. program[gün].seanslar sıralı bir listedir;
+   boş liste dinlenme günü demektir. Her seansın kalıcı bir sid'i var, günlük
+   kayıt buna bağlanıyor — programı düzenlemek geçmiş kaydı bozmasın diye. */
+const gunSeanslari = k => ((S.program[haftaninGunu(k)] || {}).seanslar) || [];
+const gunSporAdlari = k => gunSeanslari(k).map(s => (sporBul(s.spor) || {}).ad).filter(Boolean);
+const gunToplamSure = k => gunSeanslari(k).reduce((a, s) => a + (+s.sure || 0), 0);
+const yeniSid = () => "s" + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
+
+const seansOku = (k, sid) => {
+  const a = (S.gunler[k] || {}).antrenman || {};
+  return (a.seans || {})[sid] || {};
+};
+function seansYaz(k, sid) {
+  const a = gun(k).antrenman;
+  if (!a.seans) a.seans = {};
+  if (!a.seans[sid]) a.seans[sid] = { yapildi: false };
+  return a.seans[sid];
+}
+const antrenmanYapildi = k => {
+  const s = ((S.gunler[k] || {}).antrenman || {}).seans || {};
+  return Object.keys(s).some(id => s[id] && s[id].yapildi);
+};
+const yapilanSeans = k => {
+  const s = ((S.gunler[k] || {}).antrenman || {}).seans || {};
+  return Object.keys(s).filter(id => s[id] && s[id].yapildi).length;
+};
 
 function gununTakviyeleri(k) {
   const g = haftaninGunu(k);
@@ -242,14 +270,14 @@ function uyarilar(k) {
   const kafeinli = tk.filter(t => (t.etiket || {}).kafein > 0);
   const toplam = kafeinli.reduce((a, t) => a + t.etiket.kafein, 0);
   const antrSaat = parseInt(S.profil.antrSaat || "0", 10);
-  const prog = gunProgram(k);
+  const antrenmanVar = gunSeanslari(k).length > 0;
 
   if (toplam > 400)
     out.push({ tip: "kirmizi", m: `Bugünkü takviyelerde toplam ${toplam} mg kafein var. Sağlıklı yetişkinde yaygın kabul gören günlük sınır 400 mg — kahve ve çayı da buna ekle.` });
   else if (kafeinli.length > 1)
     out.push({ tip: "sari", m: `Bugün ${kafeinli.length} kafeinli takviye planlı (${toplam} mg). İkisini aynı güne koyma; birini başka güne al.` });
 
-  if (toplam > 0 && antrSaat >= 17 && prog.spor !== "dinlenme")
+  if (toplam > 0 && antrSaat >= 17 && antrenmanVar)
     out.push({ tip: "sari", m: `Antrenmanın ${S.profil.antrSaat} — kafeinin yarılanma ömrü 5-6 saat. Antrenmandan hemen önce alırsan gece yarısı hâlâ yarısı kanında olur. Kafeinli ürünü sabaha al.` });
 
   const acKarnina = tk.filter(t => (t.etiket || {}).tokKarin);
@@ -267,7 +295,7 @@ function varsayilan() {
               kcal: null, protein: null, suHedef: 12, kcalElle: false, antrSaat: "18:00", tamam: false },
     kurulumAdim: 0,
     sporlar: [],
-    program: Array.from({ length: 7 }, () => ({ spor: "dinlenme", sablon: "", sure: 0 })),
+    program: Array.from({ length: 7 }, () => ({ seanslar: [] })),
     ogunler: [],
     takviyeler: [],
     aliskanlik: null,
@@ -292,9 +320,18 @@ let S = Object.assign(varsayilan(), {
 const KALICI = ["surum","profil","kurulumAdim","sporlar","program","ogunler","takviyeler",
                 "aliskanlik","gunler","olcumler","market","ozelBesinler","sonYedek"];
 
+let semaDegisti = false;
+
 function yukle() {
   const d = Depo.oku();
-  if (d) { KALICI.forEach(a => { if (d[a] !== undefined) S[a] = d[a]; }); duzelt(); return; }
+  if (d) {
+    KALICI.forEach(a => { if (d[a] !== undefined) S[a] = d[a]; });
+    duzelt();
+    /* Göç bellekte kalmasın: dönüştürülen şemayı hemen yaz, yoksa her
+       açılışta yeniden dönüştürülür ve yedek alınca eski şema dışarı çıkar. */
+    if (semaDegisti) kaydet();
+    return;
+  }
   const eski = Depo.eskiOku();
   if (eski) { goc(eski); return; }
 }
@@ -304,8 +341,35 @@ function duzelt() {
   const v = varsayilan();
   S.profil = Object.assign(v.profil, S.profil || {});
   if (!Array.isArray(S.program) || S.program.length !== 7) S.program = v.program;
+
+  /* Tek spordan seans listesine geçiş. Eski kayıt: {spor, sablon, sure} */
+  S.program = S.program.map((p, i) => {
+    if (p && Array.isArray(p.seanslar)) return p;
+    semaDegisti = true;
+    if (!p || !p.spor || p.spor === "dinlenme") return { seanslar: [] };
+    return { seanslar: [{ sid: "g" + i + "s1", spor: p.spor, sablon: p.sablon || "", sure: p.sure || 0 }] };
+  });
   ["sporlar","ogunler","takviyeler","olcumler","ozelBesinler"].forEach(a => { if (!Array.isArray(S[a])) S[a] = []; });
   if (!S.gunler || typeof S.gunler !== "object") S.gunler = {};
+
+  /* Günlük antrenman kaydı düz alandan seans haritasına. Eski kayıt o günün
+     ilk seansına bağlanır; program tek sporluyken zaten tek seans üretildi,
+     yani geçmiş birebir korunuyor. */
+  for (const k in S.gunler) {
+    const gn = S.gunler[k];
+    if (!gn || typeof gn !== "object") continue;
+    const a = gn.antrenman;
+    if (a && typeof a === "object" && a.seans) continue;
+    semaDegisti = true;
+    const hedef = ((S.program[haftaninGunu(k)] || {}).seanslar || [])[0];
+    const sid = hedef ? hedef.sid : "eski";
+    const eski = { yapildi: !!(a && a.yapildi) };
+    if (a && typeof a === "object") {
+      ["sure", "round", "mesafe", "tempo", "yogunluk"].forEach(f => { if (a[f] !== undefined) eski[f] = a[f]; });
+      if (Array.isArray(a.set)) eski.set = a.set;
+    }
+    gn.antrenman = { seans: eski.yapildi || eski.set ? { [sid]: eski } : {} };
+  }
   if (!S.market || typeof S.market !== "object") S.market = {};
 
   /* Ölçümler günde tek kayıt. Yedekten dönen ya da göçle gelen veri bu
@@ -337,6 +401,7 @@ function goc(eski) {
     S.aliskanlik = { aktif: true, ad: "Şekerli içecek", birim: "kutu", baslangic: Object.keys(eski.gunler).sort()[0], hafta1: 21 };
   }
   gocBildir = true;
+  duzelt();
   kaydet();
 }
 let gocBildir = false;
@@ -352,11 +417,12 @@ const kurulumGerek = () => !S.profil.tamam;
 
 function gun(k) {
   k = k || bugun();
-  if (!S.gunler[k]) S.gunler[k] = { su: 0, yenen: [], takviye: {}, antrenman: { yapildi: false }, aliskanlik: 0 };
+  if (!S.gunler[k]) S.gunler[k] = { su: 0, yenen: [], takviye: {}, antrenman: { seans: {} }, aliskanlik: 0 };
   const g = S.gunler[k];
   if (!Array.isArray(g.yenen)) g.yenen = [];
   if (!g.takviye) g.takviye = {};
-  if (!g.antrenman || typeof g.antrenman !== "object") g.antrenman = { yapildi: !!g.antrenman };
+  if (!g.antrenman || typeof g.antrenman !== "object") g.antrenman = { seans: {} };
+  if (!g.antrenman.seans) g.antrenman.seans = {};
   return g;
 }
 
@@ -528,17 +594,12 @@ function kAdim3() {
 }
 
 function kAdim4() {
-  const secili = S.sporlar.map(sporBul).filter(Boolean);
-  if (!secili.length) return kart("", "", `<p class="bos">Önce bir önceki adımda spor seç.</p>`);
+  if (!S.sporlar.length) return kart("", "", `<p class="bos">Önce bir önceki adımda spor seç.</p>`);
   return kart("", "",
-    S.program.map((p, i) => `<div class="gr">
-      <div class="gk">${GUN_AD[i]}</div>
-      <select data-prog="${i}">
-        <option value="dinlenme" ${p.spor === "dinlenme" ? "selected" : ""}>Dinlenme</option>
-        ${secili.map(s => `<option value="${s.id}" ${p.spor === s.id ? "selected" : ""}>${esc(s.ad)}</option>`).join("")}
-      </select></div>`).join("") +
-    `<button class="btn ghost blok" data-act="k-prog-oto" style="margin-top:12px">Otomatik doldur</button>
-     <p class="note" style="margin-top:10px">Dinlenme günleri gün yüzdesi hesabından düşer. Sonradan Antrenman sekmesinden değiştirebilirsin.</p>`);
+    `<button class="btn ghost blok" data-act="k-prog-oto" style="margin-bottom:14px">Otomatik doldur</button>` +
+    programDuzenle() +
+    `<p class="note" style="margin-top:12px">Bir güne birden fazla seans ekleyebilirsin ve sıra korunur —
+     ısınma koşusu, sonra kickboks, sonra ağırlık gibi. Dinlenme günleri gün yüzdesi hesabından düşer.</p>`);
 }
 
 function kAdim5() {
@@ -570,19 +631,20 @@ function kAdim7() {
 /* =================== SEKME: BUGÜN =================== */
 function vBugun() {
   const k = bugun(), g = gun(k), p = S.profil;
-  const prog = gunProgram(k), spor = sporBul(prog.spor);
+  const seanslar = gunSeanslari(k), adlar = gunSporAdlari(k);
   const tk = gununTakviyeleri(k), top = gunToplam(k), hb = haftaButce(k);
-  const dinlenme = prog.spor === "dinlenme";
+  const dinlenme = seanslar.length === 0;
 
-  const toplamIs = tk.length + p.suHedef + (dinlenme ? 0 : 1) + (S.ogunler.length || 1);
+  const toplamIs = tk.length + p.suHedef + seanslar.length + (S.ogunler.length || 1);
   const ogunDolu = S.ogunler.filter(o => g.yenen.some(y => y.ogun === o.id)).length;
   const biten = tk.filter(t => g.takviye[t.id]).length + Math.min(g.su, p.suHedef)
-    + (!dinlenme && g.antrenman.yapildi ? 1 : 0) + (S.ogunler.length ? ogunDolu : (g.yenen.length ? 1 : 0));
+    + yapilanSeans(k) + (S.ogunler.length ? ogunDolu : (g.yenen.length ? 1 : 0));
   const yz = Math.round(biten / toplamIs * 100);
 
   let h = `<header class="top"><p class="eyebrow">${GUN_AD[haftaninGunu(k)]} · ${trT(k)}</p>
-   <h1>${dinlenme ? "Dinlenme günü" : esc(spor ? spor.ad : "Antrenman")}</h1>
-   <p class="sub">${dinlenme ? "Toparlanma antrenmanın parçası" : (prog.sure || (spor ? spor.sure : 0)) + " dk · " + esc(p.antrSaat || "")}</p>
+   <h1>${dinlenme ? "Dinlenme günü" : esc(adlar.join(" + "))}</h1>
+   <p class="sub">${dinlenme ? "Toparlanma antrenmanın parçası"
+     : `${seanslar.length} seans · ${gunToplamSure(k)} dk · ${esc(p.antrSaat || "")}`}</p>
    ${ilerleme(biten / toplamIs)}<p class="sub">Gün %${yz} tamam</p></header>`;
 
   uyarilar(k).forEach(u => { h += uyariKutu(u); });
@@ -604,11 +666,20 @@ function vBugun() {
     h += kart("Takviye", tk.length + " kalem",
       tk.map(t => satir({ ad: t.ad, saat: t.saat, desc: t.doz, macro: t.not, on: !!g.takviye[t.id], act: "tak:" + t.id })).join(""));
 
-  /* Antrenman */
+  /* Antrenman — gün birden çok seans taşıyabilir, her biri ayrı işaretlenir */
   if (!dinlenme)
-    h += kart("Antrenman", "",
-      satir({ ad: spor ? spor.ad : "Antrenman", saat: p.antrSaat, desc: prog.sablon || "", on: !!g.antrenman.yapildi, act: "antr" }) +
-      `<button class="btn ghost blok" data-act="tab:antrenman" style="margin-top:10px">Detay gir</button>`);
+    h += kart("Antrenman", `${yapilanSeans(k)} / ${seanslar.length} seans`,
+      seanslar.map((s, i) => {
+        const sp = sporBul(s.spor);
+        return satir({
+          ad: `${i + 1}. ${sp ? sp.ad : s.spor}`,
+          saat: s.sure ? s.sure + " dk" : "",
+          desc: s.sablon || "",
+          on: !!seansOku(k, s.sid).yapildi,
+          act: "seans-tik:" + s.sid
+        });
+      }).join("") +
+      `<button class="btn ghost blok" data-act="tab:antrenman" style="margin-top:12px">Detay gir</button>`);
 
   /* Alışkanlık */
   const ad = aliskanlikDurum(k);
@@ -769,82 +840,127 @@ function onizlemeYag() {
 
 /* =================== SEKME: ANTRENMAN =================== */
 function vAntrenman() {
-  const k = bugun(), g = gun(k), prog = gunProgram(k), spor = sporBul(prog.spor);
+  const k = bugun(), seanslar = gunSeanslari(k), adlar = gunSporAdlari(k);
   let h = `<header class="top"><p class="eyebrow">${GUN_AD[haftaninGunu(k)]}</p>
-   <h1>${prog.spor === "dinlenme" ? "Dinlenme" : esc(spor ? spor.ad : "Antrenman")}</h1>
-   <p class="sub">Haftalık programın aşağıda</p></header>`;
+   <h1>${seanslar.length ? esc(adlar.join(" + ")) : "Dinlenme"}</h1>
+   <p class="sub">${seanslar.length
+     ? `${seanslar.length} seans · ${gunToplamSure(k)} dk planlı`
+     : "Toparlanma antrenmanın parçası"}</p></header>`;
 
-  if (prog.spor !== "dinlenme" && spor) {
-    const a = g.antrenman;
-    let ic = satir({ ad: "Bugün yaptım", saat: S.profil.antrSaat, on: !!a.yapildi, act: "antr" });
+  if (!seanslar.length)
+    h += kart("", "", `<p class="bos">Bugün dinlenme günü. Programı aşağıdan değiştirebilirsin.</p>`);
+
+  seanslar.forEach((s, i) => {
+    const spor = sporBul(s.spor);
+    if (!spor) return;
+    const log = seansOku(k, s.sid);
     const alanlar = spor.log.filter(x => x !== "set");
+    let ic = satir({ ad: "Yaptım", saat: s.sure ? s.sure + " dk planlı" : "", desc: s.sablon || "",
+                     on: !!log.yapildi, act: "seans-tik:" + s.sid });
     if (alanlar.length)
       ic += `<div class="row wrapped" style="margin-top:12px">${alanlar.map(x =>
-        `<div class="alan"><label class="lbl" for="in-log-${x}">${LOG_ALAN[x].ad}${LOG_ALAN[x].birim ? " " + LOG_ALAN[x].birim : ""}</label>
-         <input id="in-log-${x}" type="number" inputmode="decimal" data-log="${x}" value="${esc(a[x] == null ? "" : a[x])}" placeholder="—"></div>`).join("")}</div>`;
-    h += kart("Bugünkü antrenman", "", ic);
+        `<div class="alan"><label class="lbl" for="in-${s.sid}-${x}">${LOG_ALAN[x].ad}${LOG_ALAN[x].birim ? " " + LOG_ALAN[x].birim : ""}</label>
+         <input id="in-${s.sid}-${x}" type="number" inputmode="decimal" data-log="${s.sid}:${x}"
+          value="${esc(log[x] == null ? "" : log[x])}" placeholder="—"></div>`).join("")}</div>`;
+    h += kart(`${i + 1}. ${esc(spor.ad)}`, SPOR_TIP_AD[spor.tip] || "", ic);
 
     if (spor.log.indexOf("set") !== -1) {
       /* Şablonu ilk açılışta satırlara çevir — sonra kullanıcı üzerine yazar */
-      if (!Array.isArray(a.set) || !a.set.length) {
-        const sb = GUC_SABLON[prog.sablon];
-        a.set = (sb || ["", "", ""]).map(ad => ({ ad, set: "", tekrar: "", kg: "" }));
+      const w = seansYaz(k, s.sid);
+      if (!Array.isArray(w.set) || !w.set.length) {
+        const sb = GUC_SABLON[s.sablon];
+        w.set = (sb || ["", "", ""]).map(ad => ({ ad, set: "", tekrar: "", kg: "" }));
         kaydetGecikmeli();
       }
-      const oncekiKg = gecenAntrenman(prog.spor);
-      h += kart("Egzersizler", prog.sablon ? esc(prog.sablon) : "",
-        a.set.map((e, i) => `<div class="gr">
+      const onceki = gecenAntrenman(s.spor);
+      h += kart("Egzersizler", s.sablon ? esc(s.sablon) : "",
+        w.set.map((e, ei) => `<div class="gr">
           <div class="row" style="margin-bottom:7px">
-            <div class="alan"><input type="text" data-set="${i}:ad" value="${esc(e.ad)}" placeholder="Egzersiz" style="text-align:left"></div>
-            <button class="sil" data-act="set-sil:${i}" aria-label="sil">×</button></div>
+            <div class="alan"><input type="text" data-set="${s.sid}:${ei}:ad" value="${esc(e.ad)}" placeholder="Egzersiz" style="text-align:left"></div>
+            <button class="sil" data-act="set-sil:${s.sid}:${ei}" aria-label="sil">×</button></div>
           <div class="row">
-            <div class="alan"><label class="lbl">Set</label><input type="number" inputmode="numeric" data-set="${i}:set" value="${esc(e.set)}" placeholder="—"></div>
-            <div class="alan"><label class="lbl">Tekrar</label><input type="number" inputmode="numeric" data-set="${i}:tekrar" value="${esc(e.tekrar)}" placeholder="—"></div>
-            <div class="alan"><label class="lbl">Kg</label><input type="number" inputmode="decimal" data-set="${i}:kg" value="${esc(e.kg)}" placeholder="—"></div></div>
-          ${oncekiKg[e.ad] ? `<div class="macro">Geçen sefer: ${esc(oncekiKg[e.ad])}</div>` : ""}</div>`).join("") +
-        `<button class="btn ghost blok" data-act="set-ekle" style="margin-top:12px">Egzersiz ekle</button>
+            <div class="alan"><label class="lbl">Set</label><input type="number" inputmode="numeric" data-set="${s.sid}:${ei}:set" value="${esc(e.set)}" placeholder="—"></div>
+            <div class="alan"><label class="lbl">Tekrar</label><input type="number" inputmode="numeric" data-set="${s.sid}:${ei}:tekrar" value="${esc(e.tekrar)}" placeholder="—"></div>
+            <div class="alan"><label class="lbl">Kg</label><input type="number" inputmode="decimal" data-set="${s.sid}:${ei}:kg" value="${esc(e.kg)}" placeholder="—"></div></div>
+          ${onceki[e.ad] ? `<div class="macro">Geçen sefer: ${esc(onceki[e.ad])}</div>` : ""}</div>`).join("") +
+        `<button class="btn ghost blok" data-act="set-ekle:${s.sid}" style="margin-top:12px">Egzersiz ekle</button>
          <p class="note" style="margin-top:10px">Her hafta ya bir tekrar ya biraz kilo ekle. Aynı ağırlıkla aynı tekrar, gelişme değil bakımdır.</p>`);
     }
-  } else {
-    h += kart("", "", `<p class="bos">Bugün dinlenme günü. Toparlanma antrenmanın parçası — programı aşağıdan değiştirebilirsin.</p>`);
-  }
+  });
 
   /* Haftalık program */
-  const secili = S.sporlar.map(sporBul).filter(Boolean);
   h += `<p class="sec">Haftalık program</p>`;
-  h += kart("", "", S.program.map((p, i) => {
-    const s = sporBul(p.spor);
-    return `<div class="gr">
-      <div class="it" style="margin-bottom:6px"><span class="name">${GUN_AD[i]}</span>
-        ${s ? `<span class="chip ${s.tip === "guc" ? "mint" : "gold"}">${esc(s.ad)}</span>` : `<span class="chip">Dinlenme</span>`}</div>
-      <select data-prog="${i}">
-        <option value="dinlenme" ${p.spor === "dinlenme" ? "selected" : ""}>Dinlenme</option>
-        ${secili.map(x => `<option value="${x.id}" ${p.spor === x.id ? "selected" : ""}>${esc(x.ad)}</option>`).join("")}
-      </select>
-      ${s && s.tip === "guc" ? `<select data-sablon="${i}" style="margin-top:7px">
-        <option value="">Şablon seç (isteğe bağlı)</option>
-        ${Object.keys(GUC_SABLON).map(n => `<option value="${esc(n)}" ${p.sablon === n ? "selected" : ""}>${esc(n)}</option>`).join("")}
-      </select>` : ""}</div>`;
-  }).join("") + `<button class="btn ghost blok" data-act="spor-duzenle" style="margin-top:12px">Sporları düzenle</button>`);
+  h += kart("", "", programDuzenle() +
+    `<button class="btn ghost blok" data-act="spor-duzenle" style="margin-top:14px">Sporları düzenle</button>`);
 
   /* Son antrenmanlar */
-  const gecmis = Object.keys(S.gunler).filter(x => (S.gunler[x].antrenman || {}).yapildi).sort().reverse().slice(0, 10);
-  if (gecmis.length)
-    h += kart("Son antrenmanlar", gecmis.length + " kayıt",
-      `<div class="kaydir"><table><thead><tr><th>Tarih</th><th>Spor</th><th>Süre</th></tr></thead><tbody>
-       ${gecmis.map(x => { const s = sporBul(gunProgram(x).spor); const a = S.gunler[x].antrenman;
-         return `<tr><td>${trKisa(x)}</td><td>${esc(s ? s.ad : "—")}</td><td>${a.sure ? a.sure + " dk" : "—"}</td></tr>`; }).join("")}
+  const gecmis = Object.keys(S.gunler).filter(antrenmanYapildi).sort().reverse().slice(0, 10);
+  if (gecmis.length) {
+    const sidSpor = {};
+    S.program.forEach(p => (p.seanslar || []).forEach(x => { sidSpor[x.sid] = x.spor; }));
+    h += kart("Son antrenmanlar", gecmis.length + " gün",
+      `<div class="kaydir"><table><thead><tr><th>Tarih</th><th>Seans</th><th>Süre</th></tr></thead><tbody>
+       ${gecmis.map(x => {
+         const sn = (S.gunler[x].antrenman || {}).seans || {};
+         const yapilan = Object.keys(sn).filter(id => sn[id].yapildi);
+         const ad = yapilan.map(id => (sporBul(sidSpor[id]) || {}).ad).filter(Boolean).join(" + ") || "Antrenman";
+         const sure = yapilan.reduce((a, id) => a + (+sn[id].sure || 0), 0);
+         return `<tr><td>${trKisa(x)}</td><td>${esc(ad)}</td><td>${sure ? sure + " dk" : "—"}</td></tr>`;
+       }).join("")}
        </tbody></table></div>`);
+  }
   return h;
 }
 
-/* Bir sporun en son yapılan gününden egzersiz → "3×10 @ 40 kg" özeti */
+/* Haftalık program düzenleyici. Kurulum sihirbazı ve Antrenman sekmesi aynı
+   bileşeni kullanır. Bir güne sırayla birden çok seans eklenebilir. */
+function programDuzenle() {
+  const secili = S.sporlar.map(sporBul).filter(Boolean);
+  if (!secili.length) return `<p class="bos">Önce spor seç.</p>`;
+  return S.program.map((p, gi) => {
+    const list = p.seanslar || [];
+    const sure = list.reduce((a, s) => a + (+s.sure || 0), 0);
+    return `<div class="gr">
+      <div class="it" style="margin-bottom:9px"><span class="name">${GUN_AD[gi]}</span>
+        ${list.length ? `<span class="chip gold">${list.length} seans · ${sure} dk</span>`
+                      : `<span class="chip">Dinlenme</span>`}</div>
+      ${list.map((s, si) => {
+        const spor = sporBul(s.spor);
+        return `<div class="seans">
+          <div class="seans-bas">
+            <span class="seans-no">${si + 1}</span>
+            <span class="name">${esc(spor ? spor.ad : s.spor)}</span>
+            <span class="seans-ara">
+              ${si > 0 ? `<button class="seans-ok" data-act="seans-tasi:${gi}:${si}:-1" aria-label="yukarı taşı">↑</button>` : ""}
+              ${si < list.length - 1 ? `<button class="seans-ok" data-act="seans-tasi:${gi}:${si}:1" aria-label="aşağı taşı">↓</button>` : ""}
+              <button class="sil" data-act="seans-sil:${gi}:${si}" aria-label="kaldır">×</button></span></div>
+          <div class="row">
+            <div class="alan"><label class="lbl">Süre dk</label>
+              <input type="number" inputmode="numeric" data-seans="${gi}:${si}:sure" value="${esc(s.sure || "")}" placeholder="—"></div>
+            ${spor && spor.tip === "guc" ? `<div class="alan"><label class="lbl">Şablon</label>
+              <select data-seans="${gi}:${si}:sablon"><option value="">—</option>
+                ${Object.keys(GUC_SABLON).map(n => `<option value="${esc(n)}" ${s.sablon === n ? "selected" : ""}>${esc(n)}</option>`).join("")}
+              </select></div>` : ""}</div></div>`;
+      }).join("")}
+      <select data-seans-ekle="${gi}" style="margin-top:${list.length ? 9 : 0}px">
+        <option value="">+ Seans ekle</option>
+        ${secili.map(x => `<option value="${x.id}">${esc(x.ad)}</option>`).join("")}
+      </select></div>`;
+  }).join("");
+}
+
+/* Bir sporun en son yapılan seansından egzersiz → "3×10 @ 40 kg" özeti */
 function gecenAntrenman(sporId) {
+  const sidSpor = {};
+  S.program.forEach(p => (p.seanslar || []).forEach(x => { sidSpor[x.sid] = x.spor; }));
   const bug = bugun();
-  const gunler = Object.keys(S.gunler).filter(k => k < bug && gunProgram(k).spor === sporId && (S.gunler[k].antrenman || {}).yapildi).sort().reverse();
+  const gunler = Object.keys(S.gunler).filter(k => k < bug).sort().reverse();
   for (const k of gunler) {
-    const set = (S.gunler[k].antrenman || {}).set;
-    if (Array.isArray(set) && set.length) {
+    const sn = (S.gunler[k].antrenman || {}).seans || {};
+    for (const id in sn) {
+      if (sidSpor[id] !== sporId || !sn[id].yapildi) continue;
+      const set = sn[id].set;
+      if (!Array.isArray(set) || !set.length) continue;
       const m = {};
       set.forEach(e => { if (e.ad && (e.kg || e.tekrar)) m[e.ad] = `${e.set || "?"}×${e.tekrar || "?"}${e.kg ? " @ " + e.kg + " kg" : ""}`; });
       if (Object.keys(m).length) return m;
@@ -869,12 +985,12 @@ function vIlerleme() {
     const k = gunEkle(bas, i); if (k > bugun()) break;
     gecen++;
     const g = S.gunler[k]; if (!g) continue;
-    if ((g.antrenman || {}).yapildi) antrSayi++;
+    antrSayi += yapilanSeans(k);
     if ((g.su || 0) >= p.suHedef) suGun++;
     if (p.kcal && gunToplam(k).kcal > 0 && gunToplam(k).kcal <= p.kcal) kcalGun++;
   }
   h += kart("Bu hafta", gecen + " gün geçti",
-    `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${antrSayi}</div><div class="sl">Antrenman</div></div>
+    `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${antrSayi}</div><div class="sl">Seans</div></div>
       <div class="sc"><div class="sn">${suGun}</div><div class="sl">Su tuttu</div></div>
       <div class="sc"><div class="sn">${kcalGun}</div><div class="sl">Kalori tuttu</div></div></div>`);
 
@@ -1161,11 +1277,12 @@ function programOto() {
      ardışık iki güç günü gelmesin diye tipe göre sırala */
   const sirali = secili.slice().sort((a, b) => (a.tip === "guc") - (b.tip === "guc"));
   const gunSira = [1, 3, 5, 2, 6, 4];
-  S.program = Array.from({ length: 7 }, () => ({ spor: "dinlenme", sablon: "", sure: 0 }));
+  S.program = Array.from({ length: 7 }, () => ({ seanslar: [] }));
   const adet = Math.min(gunSira.length, Math.max(3, secili.length * 2));
   for (let i = 0; i < adet; i++) {
     const s = sirali[i % sirali.length];
-    S.program[gunSira[i]] = { spor: s.id, sablon: s.tip === "guc" ? Object.keys(GUC_SABLON)[i % 2] : "", sure: s.sure };
+    S.program[gunSira[i]].seanslar = [{ sid: yeniSid(), spor: s.id,
+      sablon: s.tip === "guc" ? Object.keys(GUC_SABLON)[i % 2] : "", sure: s.sure }];
   }
 }
 
@@ -1184,7 +1301,7 @@ document.addEventListener("click", e => {
     if (S.kurulumAdim === ADIM_SAYI - 1) {
       S.profil.tamam = true; S.tab = "bugun";
       if (!S.ogunler.length) ogunKur("4ogun");
-      if (S.program.every(p => p.spor === "dinlenme")) programOto();
+      if (S.program.every(p => !(p.seanslar || []).length)) programOto();
     } else S.kurulumAdim++;
     kurulumFormDoldur(); kaydet(); return ciz();
   }
@@ -1192,7 +1309,7 @@ document.addEventListener("click", e => {
   if (a === "k-atla") {
     if (S.kurulumAdim === ADIM_SAYI - 1) { S.profil.tamam = true; S.tab = "bugun";
       if (!S.ogunler.length) ogunKur("4ogun");
-      if (S.program.every(p => p.spor === "dinlenme")) programOto(); }
+      if (S.program.every(p => !(p.seanslar || []).length)) programOto(); }
     else S.kurulumAdim++;
     kurulumFormDoldur(); kaydet(); return ciz();
   }
@@ -1201,8 +1318,7 @@ document.addEventListener("click", e => {
   if (a.startsWith("k-akt:"))   { S.profil.aktivite = par(1); kaydet(); return ciz(); }
   if (a.startsWith("k-spor:"))  {
     const id = par(1), i = S.sporlar.indexOf(id);
-    if (i === -1) S.sporlar.push(id); else S.sporlar.splice(i, 1);
-    S.program.forEach((p, gi) => { if (p.spor === id && i !== -1) S.program[gi] = { spor: "dinlenme", sablon: "", sure: 0 }; });
+    if (i === -1) S.sporlar.push(id); else { S.sporlar.splice(i, 1); sporSeanslariniSil(id); }
     kaydet(); return ciz();
   }
   if (a === "k-prog-oto") { programOto(); kaydet(); return ciz(); }
@@ -1233,7 +1349,9 @@ document.addEventListener("click", e => {
   else if (a === "su-") { g.su = Math.max(0, g.su - 1); }
   else if (a === "alis+") { g.aliskanlik = (g.aliskanlik || 0) + 1; }
   else if (a === "alis-") { g.aliskanlik = Math.max(0, (g.aliskanlik || 0) - 1); }
-  else if (a === "antr") { g.antrenman.yapildi = !g.antrenman.yapildi; }
+  else if (a.startsWith("seans-tik:")) {
+    const l = seansYaz(bugun(), par(1)); l.yapildi = !l.yapildi;
+  }
   else if (a.startsWith("tak:")) { const id = par(1); g.takviye[id] = !g.takviye[id]; }
   else if (a.startsWith("mk:")) { const x = a.slice(3); S.market[x] = !S.market[x]; }
   else if (a === "mk-sifirla") { S.market = {}; toast("Liste sıfırlandı"); }
@@ -1305,8 +1423,23 @@ document.addEventListener("click", e => {
   }
 
   /* ---- antrenman ---- */
-  else if (a === "set-ekle") { g.antrenman.set = (g.antrenman.set || []).concat([{ ad: "", set: "", tekrar: "", kg: "" }]); }
-  else if (a.startsWith("set-sil:")) { (g.antrenman.set || []).splice(parseInt(par(1), 10), 1); }
+  else if (a.startsWith("set-ekle:")) {
+    const l = seansYaz(bugun(), par(1));
+    l.set = (l.set || []).concat([{ ad: "", set: "", tekrar: "", kg: "" }]);
+  }
+  else if (a.startsWith("set-sil:")) {
+    const l = seansYaz(bugun(), par(1));
+    (l.set || []).splice(parseInt(par(2), 10), 1);
+  }
+  else if (a.startsWith("seans-sil:")) {
+    const gi = parseInt(par(1), 10), si = parseInt(par(2), 10);
+    (S.program[gi].seanslar || []).splice(si, 1);
+  }
+  else if (a.startsWith("seans-tasi:")) {
+    const gi = parseInt(par(1), 10), si = parseInt(par(2), 10), yon = parseInt(par(3), 10);
+    const l = S.program[gi].seanslar || [], hedef = si + yon;
+    if (hedef >= 0 && hedef < l.length) { const t = l[si]; l[si] = l[hedef]; l[hedef] = t; }
+  }
   else if (a === "spor-duzenle") { S.tab = "daha"; S.daha = "ayar"; ayarFormDoldur(); window.scrollTo(0, 0); }
 
   /* ---- ölçüm ---- */
@@ -1369,7 +1502,7 @@ document.addEventListener("click", e => {
   else if (a.startsWith("ayar-spor:")) {
     const id = par(1), i = S.sporlar.indexOf(id);
     if (i === -1) S.sporlar.push(id);
-    else { S.sporlar.splice(i, 1); S.program.forEach((p, gi) => { if (p.spor === id) S.program[gi] = { spor: "dinlenme", sablon: "", sure: 0 }; }); }
+    else { S.sporlar.splice(i, 1); sporSeanslariniSil(id); }
   }
   else if (a.startsWith("alis-ac:")) {
     const sb = ALISKANLIK_SABLON.find(x => x.id === par(1));
@@ -1412,6 +1545,12 @@ document.addEventListener("click", e => {
 
   kaydet(); ciz();
 });
+
+/* Bir spor listeden çıkarılınca o spora ait seanslar programdan da silinir,
+   yoksa programda tanınmayan seans kalır. */
+function sporSeanslariniSil(id) {
+  S.program.forEach(p => { p.seanslar = (p.seanslar || []).filter(s => s.spor !== id); });
+}
 
 function yemekEkle(y) {
   const g = gun();
@@ -1465,11 +1604,21 @@ document.addEventListener("input", e => {
     if (liste) liste.innerHTML = araListeHtml();
     return;
   }
-  if (t.dataset.log) { gun().antrenman[t.dataset.log] = t.value; return kaydetGecikmeli(); }
+  if (t.dataset.log) {
+    const [sid, alan] = t.dataset.log.split(":");
+    seansYaz(bugun(), sid)[alan] = t.value;
+    return kaydetGecikmeli();
+  }
   if (t.dataset.set) {
-    const [i, alan] = t.dataset.set.split(":");
-    const s = gun().antrenman.set;
-    if (s && s[i]) { s[i][alan] = t.value; kaydetGecikmeli(); }
+    const [sid, i, alan] = t.dataset.set.split(":");
+    const l = seansYaz(bugun(), sid).set;
+    if (l && l[i]) { l[i][alan] = t.value; kaydetGecikmeli(); }
+    return;
+  }
+  if (t.dataset.seans) {
+    const [gi, si, alan] = t.dataset.seans.split(":");
+    const sn = (S.program[gi] || {}).seanslar || [];
+    if (sn[si]) { sn[si][alan] = alan === "sure" ? (sayi(t.value) || 0) : t.value; kaydetGecikmeli(); }
     return;
   }
   if (t.dataset.tak) {
@@ -1482,14 +1631,18 @@ document.addEventListener("input", e => {
 
 document.addEventListener("change", e => {
   const t = e.target;
-  if (t.dataset.prog != null) {
-    const i = parseInt(t.dataset.prog, 10), s = sporBul(t.value);
-    S.program[i] = { spor: t.value, sablon: S.program[i].sablon || "", sure: s ? s.sure : 0 };
+  if (t.dataset.seansEkle != null) {
+    const gi = parseInt(t.dataset.seansEkle, 10), spor = sporBul(t.value);
+    if (!spor) return;
+    const p = S.program[gi];
+    p.seanslar = (p.seanslar || []).concat([{ sid: yeniSid(), spor: spor.id, sablon: "", sure: spor.sure }]);
     kaydet(); return ciz();
   }
-  if (t.dataset.sablon != null) {
-    S.program[parseInt(t.dataset.sablon, 10)].sablon = t.value;
-    kaydet(); return ciz();
+  /* select ile gelen seans alanları (şablon) — input olayı tetiklemiyor */
+  if (t.dataset.seans && t.tagName === "SELECT") {
+    const [gi, si, alan] = t.dataset.seans.split(":");
+    const sn = (S.program[gi] || {}).seanslar || [];
+    if (sn[si]) { sn[si][alan] = t.value; kaydet(); return ciz(); }
   }
 });
 

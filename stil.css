@@ -386,3 +386,24 @@ nav{
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition:none!important;animation:none!important;}
 }
+
+/* ---------- program seansı ----------
+   Bir gün sıralı birden çok seans taşıyabilir; numara ve sıra okunur olsun. */
+.seans{
+  background:var(--zemin);border:1px solid var(--cizgi);border-left:2px solid var(--vurgu);
+  border-radius:var(--r-m);padding:11px 12px;margin-bottom:8px;
+}
+.seans-bas{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+.seans-bas .name{flex:1;min-width:0;font-size:14px;}
+.seans-no{
+  flex:none;width:19px;height:19px;border-radius:6px;background:var(--vurgu-sis);
+  color:var(--vurgu);font-family:var(--mono);font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.seans-ara{flex:none;display:flex;align-items:center;gap:2px;}
+.seans-ok{
+  background:none;border:1px solid var(--cizgi);border-radius:7px;color:var(--soluk);
+  width:26px;height:26px;font-size:12px;line-height:1;cursor:pointer;font-family:var(--mono);
+}
+.seans-ok:active{color:var(--vurgu);border-color:var(--vurgu);}
+.seans .lbl{text-align:left;}

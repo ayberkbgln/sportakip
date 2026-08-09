@@ -48,7 +48,7 @@ sabitleri kullanıyor.
    ekranların hiçbiri depolamayı tanımamalı. Bu ayrımı bozma.
 6. **`ANAHTAR` sabitini keyfî değiştirme** (`"fitplan-v2"`). Şema gerçekten kırılacaksa
    önce geçiş kodu yaz, sonra sürümü artır — `goc()` fonksiyonu buna örnek.
-7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v6` → `plan-v7`).
+7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v7` → `plan-v8`).
    Artırmazsan kullanıcı eski sürümde takılı kalır — iOS önbelleği inatçıdır.
    Yeni bir dosya eklersen `DOSYALAR` listesine de eklemeyi unutma.
 8. **Türkçe karakterler.** Dosyalar UTF-8. `charset` meta etiketini silme.
@@ -60,11 +60,15 @@ sabitleri kullanıyor.
 11. **Cinsiyete göre vücut yağ formülü.** Navy yöntemi kadınlarda farklı katsayılar
     kullanır ve **kalça ölçüsü** ister. `navy()` içindeki bu ayrımı tek formüle indirgeme —
     indirgersen kadın kullanıcılarda sessizce yanlış sonuç üretirsin.
-12. **Panel (`.sayfa`) `.wrap` içinde basılmaz.** `.wrap` `position:relative` +
+12. **Seans `sid`'lerini yeniden üretme.** Günlük antrenman kaydı
+    `gunler[].antrenman.seans[sid]` altında duruyor. Programdaki bir seansın
+    `sid`'ini değiştirirsen o seansın geçmiş kaydı öksüz kalır. Seans eklerken
+    `yeniSid()` çağır, var olanı asla yeniden yazma.
+13. **Panel (`.sayfa`) `.wrap` içinde basılmaz.** `.wrap` `position:relative` +
     `z-index` taşıdığı için bir yığın bağlamı yaratıyor; panel onun içine girerse
     `z-index:51` o bağlamda hapsolur ve alt menü panelin üstüne biner. `ciz()`
     paneli `nav`'dan sonra, `.wrap`'in dışına basıyor — orada bırak.
-13. **`input` olayında `ciz()` çağırma.** Tüm ekranı yeniden basmak yazarken odağı
+14. **`input` olayında `ciz()` çağırma.** Tüm ekranı yeniden basmak yazarken odağı
     kaybettirir; `input type="number"` üzerinde `setSelectionRange` da çalışmadığı için
     imleç başa düşer ve kullanıcı "40" yazarken "04" görür. Canlı hesap gerekiyorsa
     `canliGuncelle()` gibi yalnız ilgili düğümü tazeleyen bir yol yaz.
@@ -93,7 +97,11 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
   "kurulumAdim": 0,
   "sporlar": ["kickbox"],                       // SPORLAR id listesi
   "program": [                                   // 7 kayıt, index = getDay(), 0 = Pazar
-    { "spor": "dinlenme", "sablon": "", "sure": 0 }
+    { "seanslar": [                              // sıralı; boş liste = dinlenme
+      { "sid": "s…", "spor": "kosu",    "sablon": "",            "sure": 12 },
+      { "sid": "s…", "spor": "kickbox", "sablon": "",            "sure": 75 },
+      { "sid": "s…", "spor": "agirlik", "sablon": "Üst vücut",   "sure": 60 }
+    ] }
   ],
   "ogunler": [ { "id": "o1", "ad": "Kahvaltı", "saat": "08:00", "p": 0.28 } ],
   "takviyeler": [ { "id": "kreatin", "ad": "Kreatin", "doz": "5 g", "saat": "08:00",
@@ -105,8 +113,10 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
       "su": 0,
       "yenen": [ { "uid": "y…", "ogun": "o1", "ad": "…", "kcal": 0, "p": 0, "gram": 0 } ],
       "takviye": { "kreatin": true },
-      "antrenman": { "yapildi": true, "sure": "", "round": "", "mesafe": "",
-                     "set": [ { "ad": "Squat", "set": "3", "tekrar": "10", "kg": "60" } ] },
+      "antrenman": { "seans": {                  // anahtar = program seansının sid'i
+        "s…": { "yapildi": true, "sure": "", "round": "", "mesafe": "",
+                "set": [ { "ad": "Squat", "set": "3", "tekrar": "10", "kg": "60" } ] }
+      } },
       "aliskanlik": 0
     }
   },
@@ -127,9 +137,17 @@ Notlar:
 - `takviyeler[].gunler` boş dizi = her gün. Doluysa `getDay()` değerlerini içerir.
 - `gunler[].yenen` düz bir liste; `ogun` alanı hangi slota ait olduğunu söyler.
   Öğün "yendi mi" diye kutucuk yok — ne yediğin kayıtlı, toplamlar oradan çıkıyor.
+- Bir gün **birden çok seans** taşıyabilir ve sıra anlamlıdır: ısınma koşusu →
+  kickboks → ağırlık → esneme. Günlük kayıt `sid` üzerinden bağlanır, böylece
+  programı düzenlemek geçmişi bozmaz. Programdan silinen seansın geçmiş kaydı
+  yerinde kalır, sadece artık gösterilmez.
 - `olcumler` **günde tek kayıt** tutar; aynı güne ikinci giriş üzerine yazar.
 - `gunler` sınırsız büyür. Yemek kaydıyla birlikte 5 yılda ~5-8 MB; localStorage kotası
   (genelde 5-10 MB) için sınırda. Sorun çıkarsa eski günleri arşivle, silme.
+- Şema göçleri `duzelt()` içinde ve **kalıcı**: `semaDegisti` işaretliyse `yukle()`
+  hemen `kaydet()` çağırır, yoksa her açılışta yeniden dönüştürülür ve yedek eski
+  şemayla dışarı çıkar. Tek sporlu `program` ve düz `antrenman` kayıtları buradan
+  seans listesine çevriliyor; eski günün kaydı o günün ilk seansına bağlanıyor.
 - Eski sürümden (`ayberk-plan-v1`) göç `goc()` içinde: su, takviye, antrenman, ice tea
   sayacı ve ölçümler taşınır. Öğün kutucukları taşınmaz — eski şema "yendi mi" tutuyordu,
   yeni şema "ne yedin" tutuyor, aralarında doğru bir eşleme yok.
@@ -204,7 +222,8 @@ ayrım paletten, tipografi ölçeğinden ve kompozisyondan geliyor.
 | Bölüm | İçerik |
 |---|---|
 | `DEPO` | `Depo.oku/yaz/eskiOku`. Depolamaya tek erişim noktası. |
-| `YARDIMCILAR` | `iso`, `trT`, `haftaBasi`, `esc`, `sayi`, `navy`, `bmr`, `hedefHesapla`, `gunProgram`, `aliskanlikDurum`, `besinAra`, `gunToplam`, `haftaButce`, `butceMesaj`, `uyarilar` |
+| `YARDIMCILAR` | `iso`, `trT`, `haftaBasi`, `esc`, `sayi`, `navy`, `bmr`, `hedefHesapla`, `aliskanlikDurum`, `besinAra`, `gunToplam`, `haftaButce`, `butceMesaj`, `uyarilar` |
+| `SEANSLAR` | `gunSeanslari`, `gunSporAdlari`, `gunToplamSure`, `yeniSid`, `seansOku`, `seansYaz`, `antrenmanYapildi`, `yapilanSeans`, `programDuzenle`, `gecenAntrenman`, `sporSeanslariniSil` |
 | `DURUM` | `varsayilan()`, `S`, `KALICI`, `yukle()`, `duzelt()`, `goc()`, `kaydet()`, `kaydetGecikmeli()`, `kurulumGerek()`, `gun()`, `toast()` |
 | `PARÇALAR` | `kart()`, `satir()`, `alan()`, `secOp()`, `uyariKutu()`, `tally()`, `ilerleme()`, `halka()`, `grafik()` |
 | `KURULUM` | `vKurulum()` + `kAdim0…kAdim7`, `adimGecerli()`, `adimUygula()` |
@@ -227,6 +246,11 @@ Kullanıcı girdisi ekrana basılıyorsa `esc()` ile kaçır.
 ---
 
 ## Sık istenecek değişiklikler
+
+**Haftalık programı değiştirmek** → `programDuzenle()` tek bileşen; hem kurulum
+sihirbazının 5. adımı hem Antrenman sekmesi onu basıyor. Seans ekleme
+`data-seans-ekle`, alan yazımı `data-seans="gün:sıra:alan"`, sıralama
+`seans-tasi:gün:sıra:yön`.
 
 **Spor eklemek** → `SPORLAR` dizisine bir satır. `log` alanları `LOG_ALAN` anahtarlarından
 seçilir; `"set"` koyarsan egzersiz tablosu çıkar.
@@ -293,6 +317,7 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Koyu tema kontrastı bozulmadı
 - [ ] Sayı alanlarına **tuş tuş** yazılıyor (page.fill() bu hatayı yakalamaz)
 - [ ] Kurulum sihirbazı baştan sona geçiliyor (erkek ve kadın akışı ayrı ayrı)
+- [ ] Bir güne birden çok seans eklenip sıralanıyor; her seans kendi kaydını tutuyor
 - [ ] Yemek ekleme paneli açılıyor, arama/miktar/düzenleme adımları ekranda kalıyor
 - [ ] Yedekle → sil → geri yükle turu çalışıyor
 - [ ] Türkçe karakterler bozulmadı
