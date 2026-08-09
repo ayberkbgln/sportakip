@@ -45,7 +45,11 @@ CLAUDE.md            bu dosya
 
 Yükleme sırası önemli: `kopru.js` → `veri.js` → `besinler.js` → `app.js`.
 
-**`ios/` klasörü depoya girmez** — `npx cap add ios` ile üretilen bir çıktı.
+**`ios/` klasörü depoya GİRER** (Capacitor'ın önerisi): Xcode yetenekleri, hedefe
+eklenmiş Swift dosyaları ve Info.plist anahtarları orada. `.gitignore` yalnızca
+`Pods/`, `build/`, `public/` gibi üretilen çıktıları dışlar. Bir kere Mac'te
+oluşturulup commit edildikten sonra derleme GitHub Actions'ta yapılıyor
+(`.github/workflows/ios.yml`) — Mac'e bir daha gerek yok.
 
 ---
 
@@ -347,9 +351,9 @@ eklersen o kuralı da güncelle. Alternatif: "Daha" sekmesinin altına bir alt s
 | `Yerel.bildirimIzin/bildirimKur` | Yerel bildirimler (`bildirimleriKur()` planlar) |
 | `Yerel.titre` | Dokunsal geri bildirim |
 
-Swift tarafı `ios-eklenti/` altında ve Xcode projesine **elle kopyalanıyor** —
-`npx cap add ios` üretilen `ios/` klasörünü her seferinde yeniden yazabildiği için
-kaynak orada tutulmuyor. Adımlar `KURULUM-MAC.md` içinde.
+Swift tarafının kaynağı `ios-eklenti/` altında; ilk kurulumda Xcode projesine
+kopyalanıp hedefe ekleniyor ve `ios/` ile birlikte commit ediliyor. Eklentide
+değişiklik yaparsan iki yeri de güncelle. Adımlar `KURULUM-MAC.md` içinde.
 
 Web tarafında bir değişiklik yaptıktan sonra `npx cap sync ios` gerekiyor.
 

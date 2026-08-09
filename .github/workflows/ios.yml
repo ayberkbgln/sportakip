@@ -1,0 +1,123 @@
+# iOS derleme ve TestFlight yüklemesi.
+#
+# Mac gerekmiyor: GitHub'ın macOS sunucusunda çalışıyor. Sen Windows'tan
+# push ediyorsun, uygulama telefonuna TestFlight'tan geliyor.
+#
+# ÖN KOŞUL: ios/ klasörü depoda olmalı. Bir kereye mahsus Mac'te
+# "npx cap add ios" çalıştırıp Xcode'da yetenekleri açıp commit'lemen gerek —
+# adımlar KURULUM-MAC.md içinde. Ondan sonra bu dosya işi devralıyor.
+#
+# Gereken GitHub secrets (Settings → Secrets and variables → Actions):
+#   IOS_P12_BASE64        dağıtım sertifikası .p12, base64
+#   IOS_P12_SIFRE         .p12 dosyasının şifresi
+#   IOS_PROFIL_BASE64     App Store provisioning profile, base64
+#   ASC_KEY_ID            App Store Connect API anahtar kimliği
+#   ASC_ISSUER_ID         App Store Connect issuer kimliği
+#   ASC_KEY_BASE64        AuthKey_XXXX.p8, base64
+# Bunların hepsi Mac olmadan, tarayıcıdan üretilir — magaza/IMZA-MACSIZ.md
+
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:          # elle tetikle
+  push:
+    tags: ["v*"]              # v1.0.0 gibi bir etiket atınca
+
+jobs:
+  derle:
+    runs-on: macos-15
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Bağımlılıklar
+        run: npm install
+
+      - name: Web tarafını kabuğa kopyala
+        run: npx cap sync ios
+
+      - name: İmzalama malzemesini yükle
+        env:
+          P12: ${{ secrets.IOS_P12_BASE64 }}
+          P12_SIFRE: ${{ secrets.IOS_P12_SIFRE }}
+          PROFIL: ${{ secrets.IOS_PROFIL_BASE64 }}
+        run: |
+          set -euo pipefail
+          # Geçici anahtar zinciri — koşu bitince sunucuyla birlikte yok olur
+          ZINCIR=$RUNNER_TEMP/derleme.keychain-db
+          ZINCIR_SIFRE=$(openssl rand -base64 24)
+          security create-keychain -p "$ZINCIR_SIFRE" "$ZINCIR"
+          security set-keychain-settings -lut 3600 "$ZINCIR"
+          security unlock-keychain -p "$ZINCIR_SIFRE" "$ZINCIR"
+
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -P "$P12_SIFRE" \
+            -A -t cert -f pkcs12 -k "$ZINCIR"
+          security list-keychain -d user -s "$ZINCIR"
+          security set-key-partition-list -S apple-tool:,apple: -k "$ZINCIR_SIFRE" "$ZINCIR" >/dev/null
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFIL" | base64 --decode > \
+            ~/Library/MobileDevice/Provisioning\ Profiles/plan.mobileprovision
+
+      - name: Sürüm numarasını koşu numarasından üret
+        run: |
+          cd ios/App
+          # Etiketten sürüm (v1.2.3 → 1.2.3), yoksa 1.0.0
+          SURUM="${GITHUB_REF_NAME#v}"
+          case "$SURUM" in ''|*[!0-9.]*) SURUM="1.0.0";; esac
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SURUM" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" App/Info.plist
+          echo "Sürüm $SURUM ($GITHUB_RUN_NUMBER)"
+
+      - name: Arşivle
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App \
+            -configuration Release -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -allowProvisioningUpdates \
+            clean archive
+
+      - name: .ipa üret
+        run: |
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/ipa" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+            -allowProvisioningUpdates
+
+      - name: TestFlight'a yükle
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_BASE64: ${{ secrets.ASC_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/private_keys
+          echo "$ASC_KEY_BASE64" | base64 --decode > ~/private_keys/AuthKey_$ASC_KEY_ID.p8
+          IPA=$(find "$RUNNER_TEMP/ipa" -name "*.ipa" | head -1)
+          xcrun altool --upload-app -f "$IPA" -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: .ipa'yı koşuya ekle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-ipa
+          path: ${{ runner.temp }}/ipa/*.ipa
+          if-no-files-found: ignore

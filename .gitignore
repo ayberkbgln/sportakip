@@ -1,7 +1,22 @@
 node_modules/
+
+# Capacitor'ın kendi önerisi: ios/ klasörü KAYNAKTIR, depoya girer.
+# Xcode'da açtığın yetenekler, hedefe eklediğin Swift dosyaları ve Info.plist
+# anahtarları orada duruyor — yok sayarsan her CI çalışmasında kaybolur.
+# Yalnızca üretilen çıktıları hariç tutuyoruz:
 ios/App/Pods/
 ios/App/App/public/
 ios/App/build/
+ios/App/output/
 DerivedData/
 *.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+
+# imzalama sırları asla depoya girmez
+*.p12
+*.p8
+*.mobileprovision
+*.cer
+*.certSigningRequest
 .DS_Store

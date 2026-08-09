@@ -33,8 +33,11 @@ npx cap add ios
 npx cap sync ios
 ```
 
-Bu, `ios/` klasörünü üretir. **`ios/` klasörü depoya girmez** (`.gitignore`
-içinde) — üretilen bir çıktı, kaynak değil.
+Bu, `ios/` klasörünü üretir. **`ios/` klasörü depoya GİRER** — Capacitor'ın
+kendi önerisi bu. Xcode'da açtığın yetenekler, hedefe eklediğin Swift dosyaları
+ve Info.plist anahtarları orada duruyor; yok sayarsan her derlemede kaybolur.
+`.gitignore` yalnızca `Pods/`, `build/` ve `public/` gibi üretilen çıktıları
+dışlıyor.
 
 ## 3. Swift eklentilerini projeye kopyala
 
@@ -85,7 +88,20 @@ npx cap open ios
 Xcode'da cihazını seç → ⌘R. Simülatörde HealthKit sınırlı çalışır, **gerçek
 cihazda test et.**
 
-## 7. Web tarafında bir değişiklik yaptıktan sonra
+## 7. iOS projesini commit et — bu adımı atlama
+
+```bash
+git add ios/
+git commit -m "iOS projesi ve Xcode yapılandırması"
+git push
+```
+
+Bu tek seferlik. Ondan sonra **Mac'e bir daha ihtiyacın yok**: GitHub Actions
+her sürüm etiketinde macOS sunucusunda derleyip TestFlight'a yüklüyor
+(`.github/workflows/ios.yml`). İmzalama malzemesini Mac'siz üretme adımları
+`magaza/IMZA-MACSIZ.md` içinde.
+
+## 8. Web tarafında bir değişiklik yaptıktan sonra
 
 ```bash
 npx cap sync ios
