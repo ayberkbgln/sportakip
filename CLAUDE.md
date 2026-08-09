@@ -29,6 +29,7 @@ web/                 uygulamanın kendisi — buildsiz, tek başına PWA olarak 
   sw.js              çevrimdışı önbellek (service worker)
   manifest.json      ana ekran uygulaması tanımı
   gizlilik.html      gizlilik politikası — kendi kendine yeten, stil.css'e bağlı değil
+  404.html           bilinmeyen adresler için; Pages bunu otomatik servis eder
   icon-*.png         ikonlar (180 apple-touch, 192/512 manifest + maskable)
   OKU-BENI.txt       kullanıcı için kurulum notu
 
