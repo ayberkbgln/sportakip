@@ -328,6 +328,8 @@ let S = Object.assign(varsayilan(), {
   araHedef: "",       // aramanın hangi öğüne ekleyeceği
   daha: "",           // Daha sekmesindeki alt sayfa
   odakAra: false,     // panel açılınca arama kutusuna odaklan
+  seciliOgun: "",     // Yemek sekmesinde açık olan öğün
+  panel: "",          // açık detay paneli: takviye | antrenman | aliskanlik
   yedekMetin: ""
 });
 
@@ -477,6 +479,11 @@ function tally(n, hedef) {
     if (tam) h += `<div class="slash ${bas + 4 < n ? "on" : ""}"></div>`; h += "</div>"; });
   return `<div class="tally">${h}</div>`;
 }
+
+const ilerlemeInce = (oran, renk) => {
+  const y = kis(Math.round(oran * 100), 0, 100);
+  return `<div class="bar ince"><div class="fill" style="width:${y}%;background:${renk || "var(--vurgu)"}"></div></div>`;
+};
 
 function ilerleme(oran, renk) {
   const y = kis(Math.round(oran * 100), 0, 100);
@@ -653,67 +660,89 @@ function vBugun() {
   const seanslar = gunSeanslari(k), adlar = gunSporAdlari(k);
   const tk = gununTakviyeleri(k), top = gunToplam(k), hb = haftaButce(k);
   const dinlenme = seanslar.length === 0;
+  const ad = aliskanlikDurum(k);
 
   const toplamIs = tk.length + p.suHedef + seanslar.length + (S.ogunler.length || 1);
   const ogunDolu = S.ogunler.filter(o => g.yenen.some(y => y.ogun === o.id)).length;
   const biten = tk.filter(t => g.takviye[t.id]).length + Math.min(g.su, p.suHedef)
     + yapilanSeans(k) + (S.ogunler.length ? ogunDolu : (g.yenen.length ? 1 : 0));
-  const yz = Math.round(biten / toplamIs * 100);
 
-  let h = `<header class="top"><p class="eyebrow">${GUN_AD[haftaninGunu(k)]} · ${trT(k)}</p>
-   <h1>${dinlenme ? "Dinlenme günü" : esc(adlar.join(" + "))}</h1>
-   <p class="sub">${dinlenme ? "Toparlanma antrenmanın parçası"
-     : `${seanslar.length} seans · ${gunToplamSure(k)} dk · ${esc(p.antrSaat || "")}`}</p>
-   ${ilerleme(biten / toplamIs)}<p class="sub">Gün %${yz} tamam</p></header>`;
+  /* Sıkışık başlık: gün, spor ve gün yüzdesi tek satırda. Uzun yığın yerine
+     hero halka + dokunulabilir kutu ızgarası — ekran kaydırmadan okunuyor. */
+  let h = `<header class="top sik">
+    <div class="bas-sol"><p class="eyebrow">${GUN_AD[haftaninGunu(k)]} · ${trKisa(k)}</p>
+      <h1>${dinlenme ? "Dinlenme" : esc(adlar.join(" + "))}</h1></div>
+    <div class="bas-sag"><div class="rozet">%${Math.round(biten / toplamIs * 100)}</div>
+      <span class="sl">Gün</span></div></header>`;
 
   uyarilar(k).forEach(u => { h += uyariKutu(u); });
 
-  /* Kalori ve protein */
-  h += kart("Bugün yenen", g.yenen.length ? g.yenen.length + " kayıt" : "",
-    halka(top.kcal, p.kcal, top.p, p.protein) +
-    (hb ? `<hr><p class="note">${butceMesaj(hb)}</p>` : "") +
-    `<button class="btn gold blok" data-act="tab:yemek" style="margin-top:14px">Yemek ekle</button>`);
+  /* Hero — günün kalorisi */
+  h += `<div class="hero">
+    ${halka(top.kcal, p.kcal, top.p, p.protein)}
+    ${hb ? `<p class="note hero-not">${butceMesaj(hb)}</p>` : ""}
+    <button class="btn gold blok" data-act="yem-hizli">Yemek ekle</button></div>`;
 
-  /* Su */
-  h += kart("Su", `${g.su * bardakMl()} / ${suHedefMl()} ml`,
-    tally(g.su, p.suHedef) + `<div class="row">
-     <button class="btn" data-act="su+" style="color:var(--su);border-color:rgba(79,214,232,.4)">+ 1 bardak (${bardakMl()} ml)</button>
-     <button class="btn ghost sm" data-act="su-" aria-label="azalt">−</button></div>`);
+  /* Kutu ızgarası */
+  const kutular = [];
 
-  /* Takviye */
-  if (tk.length)
-    h += kart("Takviye", tk.length + " kalem",
-      tk.map(t => satir({ ad: t.ad, saat: t.saat, desc: t.doz, macro: t.not, on: !!g.takviye[t.id], act: "tak:" + t.id })).join(""));
+  kutular.push(`<div class="kutu su-kutu">
+    <p class="kutu-t">Su</p>
+    <p class="kutu-n" style="color:var(--su)">${(g.su * bardakMl() / 1000).toFixed(1)}<small>L</small></p>
+    <p class="kutu-alt">${g.su} / ${p.suHedef} × ${bardakMl()} ml</p>
+    ${ilerlemeInce(p.suHedef ? g.su / p.suHedef : 0, "var(--su)")}
+    <div class="kutu-ara">
+      <button class="mini" data-act="su-" aria-label="azalt">−</button>
+      <button class="mini artir" data-act="su+" aria-label="artır">+</button></div></div>`);
 
-  /* Antrenman — gün birden çok seans taşıyabilir, her biri ayrı işaretlenir */
   if (!dinlenme)
-    h += kart("Antrenman", `${yapilanSeans(k)} / ${seanslar.length} seans`,
-      seanslar.map((s, i) => {
-        const sp = sporBul(s.spor);
-        return satir({
-          ad: `${i + 1}. ${sp ? sp.ad : s.spor}`,
-          saat: s.sure ? s.sure + " dk" : "",
-          desc: s.sablon || "",
-          on: !!seansOku(k, s.sid).yapildi,
-          act: "seans-tik:" + s.sid
-        });
-      }).join("") +
-      `<button class="btn ghost blok" data-act="tab:antrenman" style="margin-top:12px">Detay gir</button>`);
+    kutular.push(`<button class="kutu" data-act="panel:antrenman">
+      <p class="kutu-t">Antrenman</p>
+      <p class="kutu-n">${yapilanSeans(k)}<small>/${seanslar.length}</small></p>
+      <p class="kutu-alt">${esc(adlar.join(" · "))}</p>
+      ${ilerlemeInce(seanslar.length ? yapilanSeans(k) / seanslar.length : 0)}</button>`);
 
-  /* Alışkanlık */
-  const ad = aliskanlikDurum(k);
+  if (tk.length) {
+    const alinan = tk.filter(t => g.takviye[t.id]).length;
+    kutular.push(`<button class="kutu" data-act="panel:takviye">
+      <p class="kutu-t">Takviye</p>
+      <p class="kutu-n">${alinan}<small>/${tk.length}</small></p>
+      <p class="kutu-alt">${alinan === tk.length ? "Hepsi alındı" : esc(tk.filter(t => !g.takviye[t.id]).map(t => t.ad).join(", "))}</p>
+      ${ilerlemeInce(alinan / tk.length, "var(--iyi)")}</button>`);
+  }
+
   if (ad) {
     const hafta = aliskanlikHafta(k), asti = hafta > ad.limit;
-    h += kart(esc(S.aliskanlik.ad), ad.ad,
-      `<div class="stat" style="margin-bottom:12px">
-        <div class="sc"><div class="sn">${g.aliskanlik}</div><div class="sl">Bugün</div></div>
-        <div class="sc"><div class="sn" style="color:${asti ? "var(--kotu)" : "var(--iyi)"}">${hafta}</div><div class="sl">7 günde</div></div>
-        <div class="sc"><div class="sn">${ad.limit}</div><div class="sl">Sınır</div></div></div>
-       <p class="note" style="margin-bottom:12px">Bu hafta en fazla ${ad.limit} ${esc(S.aliskanlik.birim)}${asti ? " — sınırı aştın, gelecek hafta sıfırdan başlıyorsun." : "."}</p>
-       <div class="row"><button class="btn" data-act="alis+">+ 1 ${esc(S.aliskanlik.birim)}</button>
-       <button class="btn ghost sm" data-act="alis-" aria-label="azalt">−</button></div>`);
+    kutular.push(`<button class="kutu" data-act="panel:aliskanlik">
+      <p class="kutu-t">${esc(S.aliskanlik.ad)}</p>
+      <p class="kutu-n" style="color:${asti ? "var(--kotu)" : "var(--iyi)"}">${hafta}<small>/${ad.limit}</small></p>
+      <p class="kutu-alt">7 günde · ${esc(ad.ad)}</p>
+      ${ilerlemeInce(ad.limit ? hafta / ad.limit : 0, asti ? "var(--kotu)" : "var(--iyi)")}</button>`);
   }
+
+  const sr = seri();
+  kutular.push(`<button class="kutu" data-act="tab:ilerleme">
+    <p class="kutu-t">Seri</p>
+    <p class="kutu-n">${sr}<small>gün</small></p>
+    <p class="kutu-alt">${sr > 1 ? "Üst üste kayıt girdin" : "Bugün kayıt gir, seri başlasın"}</p>
+    ${ilerlemeInce(Math.min(sr / 30, 1), "var(--vurgu)")}</button>`);
+
+  h += `<div class="izgara">${kutular.join("")}</div>`;
   return h;
+}
+
+/* Üst üste kaç gün kayıt girildi — yemek, su ya da antrenman sayılır.
+   Bugün henüz boşsa seri kırılmış sayılmaz, dünden geriye bakılır. */
+function seri() {
+  const dolu = t => {
+    const g = S.gunler[t];
+    if (!g) return false;
+    return (g.yenen || []).length > 0 || (g.su || 0) > 0 || antrenmanYapildi(t);
+  };
+  let k = bugun(), n = 0;
+  if (!dolu(k)) k = gunEkle(k, -1);
+  while (dolu(k) && n < 3650) { n++; k = gunEkle(k, -1); }
+  return n;
 }
 
 /* =================== SEKME: YEMEK =================== */
@@ -729,17 +758,29 @@ function vYemek() {
       `<div class="stat"><div class="sc"><div class="sn">${(hb.oncekiler / 1000).toFixed(1)}k</div><div class="sl">Yenen</div></div>
         <div class="sc"><div class="sn" style="color:var(--vurgu)">${hb.gunlukOneri}</div><div class="sl">Günlük öneri</div></div>
         <div class="sc"><div class="sn">${(hb.haftaHedef / 1000).toFixed(1)}k</div><div class="sl">Hafta bütçesi</div></div></div>
-       <p class="note" style="margin-top:11px">${butceMesaj(hb)}</p>
-       <p class="note" style="margin-top:8px">Bir gün taştıysan uygulama seni sıfırlamaz — kalan bütçeyi kalan günlere böler. Haftalık toplam, günlük mükemmellikten daha çok işe yarar.</p>`);
+       <p class="note" style="margin-top:11px">${butceMesaj(hb)}</p>`);
 
-  /* Öğün slotları */
-  ogunSlotlari().forEach(o => {
-    const kalemler = g.yenen.filter(y => y.ogun === o.id);
+  /* Öğün seçici — altı kartı alt alta yığmak yerine yatay şerit. Seçili
+     öğünün kalemleri altında açılıyor, ekran kısa kalıyor. */
+  const slot = ogunSlotlari();
+  if (!S.seciliOgun || !slot.some(o => o.id === S.seciliOgun)) S.seciliOgun = slot[0].id;
+  const aktif = slot.find(o => o.id === S.seciliOgun) || slot[0];
+
+  h += `<div class="serit">${slot.map(o => {
+    const kal = g.yenen.filter(y => y.ogun === o.id);
+    const sK = kal.reduce((a, y) => a + y.kcal, 0);
+    return `<button class="serit-op ${o.id === aktif.id ? "on" : ""}" data-act="ogun-sec:${esc(o.id)}">
+      <span class="serit-ad">${esc(o.ad)}</span>
+      <span class="serit-n">${sK}</span>
+      <span class="serit-alt">${o.saat ? esc(o.saat) : "kcal"}</span></button>`;
+  }).join("")}</div>`;
+
+  {
+    const kalemler = g.yenen.filter(y => y.ogun === aktif.id);
     const sK = kalemler.reduce((a, y) => a + y.kcal, 0), sP = kalemler.reduce((a, y) => a + y.p, 0);
-    const hedefK = p.kcal ? Math.round(p.kcal * ogunOran(o)) : null;
-    /* Slot hedefini belirgin biçimde aşınca sayıyı boya — yoksa fark edilmiyor */
+    const hedefK = p.kcal ? Math.round(p.kcal * ogunOran(aktif)) : null;
     const slotAsti = hedefK && sK > hedefK * 1.15;
-    h += kart(esc(o.ad) + (o.saat ? " · " + esc(o.saat) : ""),
+    h += kart(esc(aktif.ad) + (aktif.saat ? " · " + esc(aktif.saat) : ""),
       hedefK ? `<span${slotAsti ? ' style="color:var(--uyari)"' : ""}>${sK}</span> / ${hedefK} kcal` : `${sK} kcal`,
       (kalemler.length
         ? kalemler.map(y => `<div class="item" data-act="yem-duzenle:${esc(y.uid)}">
@@ -748,8 +789,8 @@ function vYemek() {
             <div class="uc"><button class="sil" data-act="yem-sil:${esc(y.uid)}" aria-label="sil">×</button></div></div>`).join("")
         : `<p class="bos">Henüz bir şey eklemedin.</p>`) +
       (kalemler.length ? `<div class="macro" style="margin:10px 0 10px">Toplam ${sK} kcal · ${sP.toFixed(1)} g protein</div>` : "") +
-      `<button class="btn ghost blok" data-act="yem-ac:${esc(o.id)}">Yemek ekle</button>`);
-  });
+      `<button class="btn gold blok" data-act="yem-ac:${esc(aktif.id)}">Yemek ekle</button>`);
+  }
 
   /* Öğün düzeni değişince eski kayıtlar hiçbir slota denk gelmeyebilir.
      Görünmez kalmasınlar — toplamlara zaten giriyorlar. */
@@ -822,6 +863,55 @@ function ogunDuzenle() {
    besine dokununca kart görüş alanının dışında kalıyor ve hiçbir şey olmamış
    gibi görünüyordu. Panel sabit olduğu için o hata sınıfı tamamen kalkıyor.
    --------------------------------------------------------------------- */
+/* Panel iskeleti. Yemek ekleme, takviye, antrenman ve alışkanlık detayları
+   hep bunun içinde açılıyor — ana ekran kısa kalsın diye. */
+function panelSar(baslik, govde, alt) {
+  return `<div class="perde" data-act="panel-kapat"></div>
+    <div class="sayfa"><div class="tut"></div>
+      <div class="sayfa-bas"><p class="card-t">${esc(baslik)}</p>
+        <button class="sayfa-kapa" data-act="panel-kapat" aria-label="kapat">×</button></div>
+      <div class="sayfa-govde">${govde}</div>
+      ${alt ? `<div class="sayfa-alt">${alt}</div>` : ""}</div>`;
+}
+
+function panelHtml() {
+  if (S.araHedef) return yemekPaneli();
+  const k = bugun(), g = gun(k);
+
+  if (S.panel === "takviye") {
+    const tk = gununTakviyeleri(k);
+    return panelSar("Bugünkü takviyeler",
+      tk.map(t => satir({ ad: t.ad, saat: t.saat, desc: t.doz, macro: t.not,
+                          on: !!g.takviye[t.id], act: "tak:" + t.id })).join("") || `<p class="bos">Takviye seçili değil.</p>`,
+      `<button class="btn ghost blok" data-act="panel-git:daha:takviye">Takviyeleri düzenle</button>`);
+  }
+
+  if (S.panel === "antrenman") {
+    const seanslar = gunSeanslari(k);
+    return panelSar("Bugünkü antrenman",
+      seanslar.map((s, i) => {
+        const sp = sporBul(s.spor);
+        return satir({ ad: `${i + 1}. ${sp ? sp.ad : s.spor}`, saat: s.sure ? s.sure + " dk" : "",
+                       desc: s.sablon || "", on: !!seansOku(k, s.sid).yapildi, act: "seans-tik:" + s.sid });
+      }).join("") || `<p class="bos">Bugün dinlenme günü.</p>`,
+      `<button class="btn gold blok" data-act="panel-git:antrenman:">Detay gir</button>`);
+  }
+
+  if (S.panel === "aliskanlik" && S.aliskanlik) {
+    const d = aliskanlikDurum(k), hafta = aliskanlikHafta(k), asti = hafta > d.limit;
+    return panelSar(S.aliskanlik.ad,
+      `<div class="stat" style="margin-bottom:14px">
+        <div class="sc"><div class="sn">${g.aliskanlik}</div><div class="sl">Bugün</div></div>
+        <div class="sc"><div class="sn" style="color:${asti ? "var(--kotu)" : "var(--iyi)"}">${hafta}</div><div class="sl">7 günde</div></div>
+        <div class="sc"><div class="sn">${d.limit}</div><div class="sl">Sınır</div></div></div>
+       <p class="note">${esc(d.ad)} · bu hafta en fazla ${d.limit} ${esc(S.aliskanlik.birim)}${
+         asti ? " — sınırı aştın, gelecek hafta sıfırdan başlıyorsun." : "."}</p>`,
+      `<div class="row"><button class="btn ghost sm" data-act="alis-" aria-label="azalt">−</button>
+       <button class="btn" data-act="alis+">+ 1 ${esc(S.aliskanlik.birim)}</button></div>`);
+  }
+  return "";
+}
+
 function yemekPaneli() {
   if (!S.araHedef) return "";
   const hedefAd = (ogunSlotlari().find(o => o.id === S.araHedef) || {}).ad || "";
@@ -959,7 +1049,11 @@ function vAntrenman() {
             <div class="alan"><label class="lbl">Tekrar</label><input type="number" inputmode="numeric" data-set="${s.sid}:${ei}:tekrar" value="${esc(e.tekrar)}" placeholder="—"></div>
             <div class="alan"><label class="lbl">Kg</label><input type="number" inputmode="decimal" data-set="${s.sid}:${ei}:kg" value="${esc(e.kg)}" placeholder="—"></div></div>
           ${onceki[e.ad] ? `<div class="macro">Geçen sefer: ${esc(onceki[e.ad])}</div>` : ""}</div>`).join("") +
-        `<button class="btn ghost blok" data-act="set-ekle:${s.sid}" style="margin-top:12px">Egzersiz ekle</button>
+        `<div class="row wrapped" style="gap:7px;margin-top:12px">
+           <span class="sl" style="align-self:center;margin:0 4px 0 0">Dinlenme</span>
+           ${[60, 90, 120, 180].map(sn => `<button class="chip" data-act="sayac:${sn}"
+             style="cursor:pointer;padding:9px 12px">${sn < 120 ? sn + " sn" : (sn / 60) + " dk"}</button>`).join("")}</div>
+         <button class="btn ghost blok" data-act="set-ekle:${s.sid}" style="margin-top:10px">Egzersiz ekle</button>
          <p class="note" style="margin-top:10px">Her hafta ya bir tekrar ya biraz kilo ekle. Aynı ağırlıkla aynı tekrar, gelişme değil bakımdır.</p>`);
     }
   });
@@ -1258,6 +1352,34 @@ function dYedek() {
      <p class="note" style="margin-top:11px">Geri yükleme mevcut verinin üzerine yazar.</p>`);
 }
 
+/* =================== DİNLENME SAYACI ===================
+   Set arası geri sayım. Ekranın altında sabit bir şeritte duruyor; her saniye
+   ciz() çağırmıyoruz, yalnız şeritteki rakamı tazeliyoruz (14. kural). */
+let sayacT = null, sayacBitis = 0;
+
+function sayacBaslat(sn) {
+  sayacBitis = Date.now() + sn * 1000;
+  clearInterval(sayacT);
+  sayacT = setInterval(sayacTik, 250);
+  ciz();
+}
+function sayacDur() { clearInterval(sayacT); sayacT = null; sayacBitis = 0; }
+function sayacTik() {
+  const kalan = Math.max(0, Math.ceil((sayacBitis - Date.now()) / 1000));
+  const el = document.getElementById("sayac-n");
+  if (el) el.textContent = `${Math.floor(kalan / 60)}:${String(kalan % 60).padStart(2, "0")}`;
+  if (kalan <= 0) { sayacDur(); ciz(); toast("Dinlenme bitti — sıradaki set"); }
+}
+function sayacBar() {
+  if (!sayacBitis) return "";
+  const kalan = Math.max(0, Math.ceil((sayacBitis - Date.now()) / 1000));
+  return `<div class="sayac" id="sayac">
+    <span class="sl">Dinlenme</span>
+    <span class="sayac-n" id="sayac-n">${Math.floor(kalan / 60)}:${String(kalan % 60).padStart(2, "0")}</span>
+    <button class="mini" data-act="sayac:60">+1 dk</button>
+    <button class="mini" data-act="sayac-dur">Bitir</button></div>`;
+}
+
 /* =================== ÇİZ =================== */
 const IKON = {
   bugun: "M12 2v4M5 5l2.5 2.5M2 12h4M19 5l-2.5 2.5M22 12h-4M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z",
@@ -1270,7 +1392,7 @@ const ADLAR = { bugun: "Bugün", yemek: "Yemek", antrenman: "Antrenman", ilerlem
 
 function ciz() {
   const app = document.getElementById("app");
-  document.body.classList.toggle("kilit", !!S.araHedef);
+  document.body.classList.toggle("kilit", !!(S.araHedef || S.panel));
   if (kurulumGerek()) { app.innerHTML = `<div class="wrap solo">${vKurulum()}</div>`; return; }
   const v = { bugun: vBugun, yemek: vYemek, antrenman: vAntrenman, ilerleme: vIlerleme, daha: vDaha }[S.tab]();
   app.innerHTML = `<div class="wrap">${v}</div>
@@ -1279,7 +1401,7 @@ function ciz() {
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
        stroke-linecap="round" stroke-linejoin="round"><path d="${IKON[id]}"/></svg><span>${ADLAR[id]}</span></button>`).join("")}
    </div></nav>
-   ${yemekPaneli()}`;
+   ${panelHtml()}${sayacBar()}`;
 
   /* Panel yeni açıldıysa arama kutusuna odaklan — kullanıcı hemen yazmaya başlasın */
   if (S.odakAra) {
@@ -1425,7 +1547,22 @@ document.addEventListener("click", e => {
     return ciz(); }
 
   /* ---- gezinme ---- */
-  if (a.startsWith("tab:")) { S.tab = par(1); S.daha = ""; S.araHedef = ""; S.ara = ""; S.f = {}; window.scrollTo(0, 0); return ciz(); }
+  if (a.startsWith("tab:")) { S.tab = par(1); S.daha = ""; S.araHedef = ""; S.ara = ""; S.panel = ""; S.f = {}; window.scrollTo(0, 0); return ciz(); }
+  if (a.startsWith("panel:")) { S.panel = par(1); return ciz(); }
+  if (a.startsWith("ogun-sec:")) { S.seciliOgun = a.slice(9); return ciz(); }
+  if (a === "panel-kapat") { S.panel = ""; return ciz(); }
+  if (a.startsWith("panel-git:")) {
+    S.panel = ""; S.tab = par(1) || "bugun"; S.daha = par(2) || "";
+    if (S.daha === "ayar") ayarFormDoldur();
+    window.scrollTo(0, 0); return ciz();
+  }
+  /* Hero'daki hızlı ekleme: ilk boş öğünü seçip yemek panelini açar */
+  if (a === "yem-hizli") {
+    const g0 = gun(), slot = ogunSlotlari();
+    const bos = slot.find(o => !g0.yenen.some(y => y.ogun === o.id)) || slot[0];
+    S.tab = "yemek"; S.panel = ""; S.araHedef = bos.id; S.ara = ""; S.f = {}; S.odakAra = true;
+    window.scrollTo(0, 0); return ciz();
+  }
   if (a.startsWith("daha:")) {
     S.daha = par(1) || "";
     if (S.daha === "ayar") ayarFormDoldur(); else S.f = {};
@@ -1449,6 +1586,8 @@ document.addEventListener("click", e => {
   /* ---- yemek ---- */
   else if (a.startsWith("yem-ac:")) { S.araHedef = par(1); S.ara = ""; S.f = {}; S.odakAra = true; }
   else if (a === "ara-kapat") { S.araHedef = ""; S.ara = ""; S.f = {}; }
+  else if (a.startsWith("sayac:")) { sayacBaslat(parseInt(par(1), 10)); return; }
+  else if (a === "sayac-dur") { sayacDur(); return ciz(); }
   else if (a.startsWith("bes-sec:")) {
     const b = besinAra(S.ara)[parseInt(par(1), 10)];
     if (b) { S.f.besin = b; S.f.besinGram = String(b.pGram); }

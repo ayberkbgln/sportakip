@@ -48,7 +48,7 @@ sabitleri kullanıyor.
    ekranların hiçbiri depolamayı tanımamalı. Bu ayrımı bozma.
 6. **`ANAHTAR` sabitini keyfî değiştirme** (`"fitplan-v2"`). Şema gerçekten kırılacaksa
    önce geçiş kodu yaz, sonra sürümü artır — `goc()` fonksiyonu buna örnek.
-7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v9` → `plan-v10`).
+7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v10` → `plan-v11`).
    Artırmazsan kullanıcı eski sürümde takılı kalır — iOS önbelleği inatçıdır.
    Yeni bir dosya eklersen `DOSYALAR` listesine de eklemeyi unutma.
 8. **Türkçe karakterler.** Dosyalar UTF-8. `charset` meta etiketini silme.
@@ -239,7 +239,8 @@ ayrım paletten, tipografi ölçeğinden ve kompozisyondan geliyor.
 | `PARÇALAR` | `kart()`, `satir()`, `alan()`, `secOp()`, `uyariKutu()`, `tally()`, `ilerleme()`, `halka()`, `grafik()` |
 | `KURULUM` | `vKurulum()` + `kAdim0…kAdim7`, `adimGecerli()`, `adimUygula()` |
 | `SEKMELER` | `vBugun`, `vYemek`, `vAntrenman`, `vIlerleme`, `vDaha` (+ `dMarket`, `dRehber`, `dTakviye`, `dAyar`, `dYedek`) |
-| `PANEL` | `yemekPaneli()` — üç adımlı yemek ekleme (`ara` → `miktar` → kaydet), `araListeHtml()`, `besinHesap()`, `ozelBesinKaydet()` |
+| `PANEL` | `panelHtml()` yönlendirir, `panelSar()` iskelet. `yemekPaneli()` üç adımlı yemek ekleme; takviye / antrenman / alışkanlık detayları da panelde açılır. |
+| `SAYAÇ` | `sayacBaslat/Dur/Tik`, `sayacBar()` — set arası dinlenme geri sayımı |
 | `ÇİZ` | `ciz()` — kurulum gerekiyorsa alt menüsüz sihirbazı basar ve çıkar |
 | `OLAYLAR` | Delege edilmiş `click`, `input`, `change` dinleyicileri |
 
@@ -291,6 +292,10 @@ günlerde sıfır kalori yemiş sayılır ve saçma bir bütçe çıkar.
 
 **Rehber maddesi eklemek** → `REHBER` dizisi, `kosul` alanını doğru ayarla.
 
+**Bugün ekranı** → hero halka + `.izgara` içinde `.kutu` döşemeleri. Yeni bir döşeme
+eklerken `kutular.push(...)` sırasına gir; detay gerekiyorsa `data-act="panel:xxx"` koy
+ve `panelHtml()` içine bir dal ekle — ana ekran uzamasın.
+
 **Yeni sekme** → `ADLAR` ve `IKON` nesnelerine ekle, bir `vXxx()` yaz, `ciz()` içindeki
 eşlemeye kaydet. Alt menü 5 sütuna sabit (`stil.css` içindeki `.nav-in`); 6. sekme
 eklersen o kuralı da güncelle. Alternatif: "Daha" sekmesinin altına bir alt sayfa ekle —
@@ -331,6 +336,7 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] `ayberk-plan-v1` verisiyle açılıyor (göç yolu bozulmadı)
 - [ ] `sw.js` içindeki `CACHE` adı artırıldı, yeni dosyalar `DOSYALAR` listesinde
 - [ ] 390 px genişlikte taşma yok, alt menü içeriği kapatmıyor
+- [ ] Bugün ekranı tek bakışta okunuyor; detaylar panelde açılıyor
 - [ ] Koyu tema kontrastı bozulmadı
 - [ ] Sayı alanlarına **tuş tuş** yazılıyor (page.fill() bu hatayı yakalamaz)
 - [ ] Kurulum sihirbazı baştan sona geçiliyor (erkek ve kadın akışı ayrı ayrı)
