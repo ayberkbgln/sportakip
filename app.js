@@ -76,6 +76,17 @@ function bmr(kilo, boy, yas, cinsiyet) {
   if (!kilo || !boy || !yas) return null;
   return 10 * kilo + 6.25 * boy - 5 * yas + (cinsiyet === "k" ? -161 : 5);
 }
+const bardakMl = () => +S.profil.bardakMl > 0 ? +S.profil.bardakMl : 250;
+const suHedefMl = () => bardakMl() * (S.profil.suHedef || 0);
+
+/* Bardak boyutu değişince günlük ml hedefi korunur, bardak sayısı yeniden
+   hesaplanır — kullanıcı litre hedefini kaybetmesin. */
+function bardakAyarla(ml) {
+  const p = S.profil, eski = suHedefMl();
+  p.bardakMl = kis(Math.round(ml), 50, 2000);
+  if (eski > 0) p.suHedef = kis(Math.round(eski / p.bardakMl), 1, 40);
+}
+
 const yasHesap = () => S.profil.dogumYili ? new Date().getFullYear() - S.profil.dogumYili : null;
 
 /* Kalori ve protein hedefi profilden türer. Kullanıcı Ayarlar'dan elle
@@ -89,7 +100,9 @@ function hedefHesapla() {
   const tdee = b * akt.k;
   /* Kalori açığı bazal metabolizmanın altına inmesin */
   const kcal = Math.max(Math.round(tdee * hed.kcal / 10) * 10, Math.round(b / 10) * 10);
-  return { tdee: Math.round(tdee), kcal, protein: Math.round(p.kilo * hed.protein), su: kis(Math.round(p.kilo * 35 / 250), 6, 20) };
+  const suMl = Math.round(p.kilo * 35);                       // ~35 ml/kg
+  return { tdee: Math.round(tdee), kcal, protein: Math.round(p.kilo * hed.protein),
+           suMl, su: kis(Math.round(suMl / bardakMl()), 1, 40) };
 }
 
 /* Bugünün programı ve sporu */
@@ -292,7 +305,8 @@ function varsayilan() {
   return {
     surum: 2,
     profil: { cinsiyet: "", dogumYili: null, boy: null, kilo: null, aktivite: "", hedef: "",
-              kcal: null, protein: null, suHedef: 12, kcalElle: false, antrSaat: "18:00", tamam: false },
+              kcal: null, protein: null, suHedef: 12, bardakMl: 250, kcalElle: false,
+              antrSaat: "18:00", tamam: false },
     kurulumAdim: 0,
     sporlar: [],
     program: Array.from({ length: 7 }, () => ({ seanslar: [] })),
@@ -340,6 +354,7 @@ function yukle() {
 function duzelt() {
   const v = varsayilan();
   S.profil = Object.assign(v.profil, S.profil || {});
+  if (!(+S.profil.bardakMl > 0)) S.profil.bardakMl = 250;
   if (!Array.isArray(S.program) || S.program.length !== 7) S.program = v.program;
 
   /* Tek spordan seans listesine geçiş. Eski kayıt: {spor, sablon, sure} */
@@ -578,8 +593,9 @@ function kAdim2() {
      <input type="time" data-fld="antrSaat" value="${esc(p.antrSaat || "18:00")}" style="margin-bottom:11px">
      ${h ? `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${h.kcal}</div><div class="sl">kcal / gün</div></div>
        <div class="sc"><div class="sn">${h.protein}</div><div class="sl">g protein</div></div>
-       <div class="sc"><div class="sn">${h.su}</div><div class="sl">bardak su</div></div></div>
-       <p class="note" style="margin-top:10px">Günlük harcaman yaklaşık ${h.tdee} kcal. Bu hedefleri sonradan Ayarlar'dan değiştirebilirsin.</p>`
+       <div class="sc"><div class="sn">${(h.suMl / 1000).toFixed(1)}</div><div class="sl">litre su</div></div></div>
+       <p class="note" style="margin-top:10px">Günlük harcaman yaklaşık ${h.tdee} kcal.
+       Su hedefi ${h.su} × ${bardakMl()} ml. Bu hedefleri ve bardak boyutunu sonradan Ayarlar'dan değiştirebilirsin.</p>`
       : `<p class="note">Hedef ve aktiviteyi seçince kalori hedefin hesaplanacak.</p>`}`);
 }
 
@@ -659,9 +675,9 @@ function vBugun() {
     `<button class="btn gold blok" data-act="tab:yemek" style="margin-top:14px">Yemek ekle</button>`);
 
   /* Su */
-  h += kart("Su", `${g.su * 250} / ${p.suHedef * 250} ml`,
+  h += kart("Su", `${g.su * bardakMl()} / ${suHedefMl()} ml`,
     tally(g.su, p.suHedef) + `<div class="row">
-     <button class="btn" data-act="su+" style="color:var(--su);border-color:rgba(79,214,232,.4)">+ 1 bardak (250 ml)</button>
+     <button class="btn" data-act="su+" style="color:var(--su);border-color:rgba(79,214,232,.4)">+ 1 bardak (${bardakMl()} ml)</button>
      <button class="btn ghost sm" data-act="su-" aria-label="azalt">−</button></div>`);
 
   /* Takviye */
@@ -1175,9 +1191,19 @@ function dAyar() {
 
   h += kart("Günlük hedefler", p.kcalElle ? "elle ayarlı" : "otomatik",
     `<div class="row" style="margin-bottom:11px">${alan("aKcal", "kcal")}${alan("aProtein", "Protein g")}${alan("aSu", "Su bardak")}</div>
+     <label class="lbl sol">Bardak boyutu</label>
+     <div class="row wrapped" style="gap:7px;margin-bottom:10px">
+       ${[200, 250, 330, 500, 750, 1000].map(ml =>
+         `<button class="chip ${bardakMl() === ml ? "gold" : ""}" data-act="bardak:${ml}"
+           style="cursor:pointer;padding:9px 12px">${ml} ml</button>`).join("")}</div>
+     <div class="row" style="margin-bottom:11px">${alan("aBardak", "Bardak ml")}</div>
+     <p class="note" style="margin-bottom:11px">Günlük su hedefin
+       <strong id="su-toplam">${(suHedefMl() / 1000).toFixed(2)} litre</strong>
+       (${S.profil.suHedef} × ${bardakMl()} ml). Şişeden içiyorsan boyutu değiştir —
+       litre hedefin korunur, bardak sayısı yeniden hesaplanır.</p>
      <div class="row"><button class="btn gold" data-act="ayar-hedef">Kaydet</button>
       ${hs ? `<button class="btn ghost" data-act="ayar-oto">Otomatiğe dön</button>` : ""}</div>
-     ${hs ? `<p class="note" style="margin-top:11px">Profiline göre hesaplanan: ${hs.kcal} kcal · ${hs.protein} g protein · ${hs.su} bardak. Günlük harcaman ~${hs.tdee} kcal.</p>` : ""}`);
+     ${hs ? `<p class="note" style="margin-top:11px">Profiline göre hesaplanan: ${hs.kcal} kcal · ${hs.protein} g protein · ${(hs.suMl / 1000).toFixed(1)} litre su. Günlük harcaman ~${hs.tdee} kcal.</p>` : ""}`);
 
   h += kart("Profil", "",
     `<div class="row" style="margin-bottom:11px">${alan("pDogum", "Doğum yılı")}${alan("pBoy", "Boy cm")}${alan("pKilo", "Kilo kg")}</div>
@@ -1321,7 +1347,7 @@ function kurulumFormDoldur() {
 }
 function ayarFormDoldur() {
   const p = S.profil;
-  S.f = { aKcal: p.kcal || "", aProtein: p.protein || "", aSu: p.suHedef || "",
+  S.f = { aKcal: p.kcal || "", aProtein: p.protein || "", aSu: p.suHedef || "", aBardak: p.bardakMl || 250,
           pDogum: p.dogumYili || "", pBoy: p.boy || "", pKilo: p.kilo || "", pAntrSaat: p.antrSaat || "" };
 }
 
@@ -1542,8 +1568,14 @@ document.addEventListener("click", e => {
     if (!(kc >= 800 && kc <= 6000)) { toast("Kalori 800-6000 arası olmalı"); return; }
     S.profil.kcal = Math.round(kc);
     if (pr > 0) S.profil.protein = Math.round(pr);
-    if (su > 0) S.profil.suHedef = kis(Math.round(su), 1, 30);
+    if (su > 0) S.profil.suHedef = kis(Math.round(su), 1, 40);
+    const bml = sayi(S.f.aBardak);
+    if (bml >= 50 && bml <= 2000) S.profil.bardakMl = Math.round(bml);
     S.profil.kcalElle = true; ayarFormDoldur(); toast("Hedefler kaydedildi");
+  }
+  else if (a.startsWith("bardak:")) {
+    bardakAyarla(parseInt(par(1), 10));
+    ayarFormDoldur(); toast(`Bardak ${bardakMl()} ml · hedef ${S.profil.suHedef} bardak`);
   }
   else if (a === "ayar-oto") {
     S.profil.kcalElle = false;

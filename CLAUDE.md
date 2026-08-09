@@ -48,7 +48,7 @@ sabitleri kullanıyor.
    ekranların hiçbiri depolamayı tanımamalı. Bu ayrımı bozma.
 6. **`ANAHTAR` sabitini keyfî değiştirme** (`"fitplan-v2"`). Şema gerçekten kırılacaksa
    önce geçiş kodu yaz, sonra sürümü artır — `goc()` fonksiyonu buna örnek.
-7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v8` → `plan-v9`).
+7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v9` → `plan-v10`).
    Artırmazsan kullanıcı eski sürümde takılı kalır — iOS önbelleği inatçıdır.
    Yeni bir dosya eklersen `DOSYALAR` listesine de eklemeyi unutma.
 8. **Türkçe karakterler.** Dosyalar UTF-8. `charset` meta etiketini silme.
@@ -89,7 +89,8 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
     "aktivite": "orta",       // AKTIVITE id
     "hedef": "yag",           // HEDEFLER id
     "kcal": 0, "protein": 0,  // hesaplanır; kcalElle true ise elle ayarlı
-    "suHedef": 12,            // bardak, 1 bardak = 250 ml
+    "suHedef": 12,            // kaç bardak
+    "bardakMl": 250,          // bardak boyutu; günlük hedef = suHedef × bardakMl
     "kcalElle": false,
     "antrSaat": "18:00",      // kafein uyarısı bunu kullanır
     "tamam": false            // false ise kurulum sihirbazı çalışır
@@ -141,6 +142,8 @@ Notlar:
   kurar. Öğünler eklenip çıkarılabilir, yeniden adlandırılabilir, sıralanabilir.
 - Bir öğün silinince ona bağlı `yenen` kayıtları öksüz kalır; Yemek sekmesi bunları
   "Öğün dışı" kartında gösterir. Görünmez kalmamalılar, çünkü günlük toplama giriyorlar.
+- Su hedefi bardak sayısı + bardak boyutu olarak tutulur. Boyut değişince
+  `bardakAyarla()` litre hedefini koruyup bardak sayısını yeniden hesaplar.
 - `takviyeler[].gunler` boş dizi = her gün. Doluysa `getDay()` değerlerini içerir.
 - `gunler[].yenen` düz bir liste; `ogun` alanı hangi slota ait olduğunu söyler.
   Öğün "yendi mi" diye kutucuk yok — ne yediğin kayıtlı, toplamlar oradan çıkıyor.
