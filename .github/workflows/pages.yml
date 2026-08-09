@@ -1,0 +1,48 @@
+# GitHub Pages yayını.
+#
+# NEDEN ACTIONS: Pages'in "Deploy from a branch" seçeneği yalnızca "/" ve
+# "/docs" klasörlerini kabul ediyor; "/web" diye bir seçenek yok. Uygulama
+# web/ altında olduğu için yayını Actions üzerinden yapıyoruz — bu yöntem
+# istediğin klasörü yayınlayabiliyor.
+#
+# TEK SEFERLİK AYAR: repo → Settings → Pages → Source: **GitHub Actions**
+# ("Deploy from a branch" DEĞİL). Başka hiçbir şey seçmene gerek yok.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Aynı anda tek yayın; yenisi geleni eskisini iptal etmesin diye sıraya alır
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  yayinla:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.dagit.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - name: web/ klasörünü paketle
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - id: dagit
+        uses: actions/deploy-pages@v4

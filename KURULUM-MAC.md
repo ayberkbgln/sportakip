@@ -147,8 +147,11 @@ biçimde. Xcode'da `Assets.xcassets` → `AppIcon` → 1024 yuvasına sürükle.
 Ayrıca 6.7" ve 6.9" cihaz için ekran görüntüsü gerekiyor; uygulamayı simülatörde
 açıp Bugün / Yemek / Antrenman / İlerleme ekranlarından alabilirsin.
 
-**Gizlilik politikası URL'i.** `web/gizlilik.html` hazır. GitHub Pages açıksa
-adres: `https://ayberkbgln.github.io/sportakip/gizlilik.html`
+**Gizlilik politikası URL'i.** `web/gizlilik.html` hazır.
+Adres: `https://ayberkbgln.github.io/sportakip/gizlilik.html`
 
-> Pages'i `main` / `(root)` olarak açtıysan uygulama artık `web/` altında —
-> Pages ayarını `main` / `/web` olarak güncelle, yoksa adres 404 verir.
+> **Pages ayarı:** repo → Settings → Pages → Source: **GitHub Actions**.
+> "Deploy from a branch" seçeneği yalnızca `/` ve `/docs` klasörlerini kabul
+> ediyor, `/web` diye bir seçenek yok — bu yüzden yayın
+> `.github/workflows/pages.yml` üzerinden yapılıyor. Ayarı bir kez değiştirmen
+> yeterli, sonrası otomatik.

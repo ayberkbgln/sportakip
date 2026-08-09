@@ -22,6 +22,10 @@ KURULUM — GitHub Pages (ücretsiz, kalıcı)
   3. Settings > Pages > Source: "Deploy from a branch" > Branch: main / (root) > Save
   4. 1-2 dakika sonra https://KULLANICIADIN.github.io/REPOADI/ adresi hazır olur
 
+  NOT: Dosyaları bir alt klasöre koyduysan Pages'in klasör seçeneği yalnızca
+  "/" ve "/docs" sunar. Başka bir klasörden yayınlamak için Source olarak
+  "GitHub Actions" seç ve bir yayın akışı ekle.
+
 KURULUM — Netlify Drop (hesapsız, en hızlı)
   1. app.netlify.com/drop adresine git
   2. Bu klasörün tamamını sürükleyip bırak

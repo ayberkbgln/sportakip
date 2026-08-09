@@ -40,13 +40,18 @@ ios-eklenti/         Xcode projesine elle kopyalanan yerel kaynaklar
 
 magaza/              App Store materyalleri (gizlilik, açıklama, inceleme notu,
                      imzalama rehberi, icon-1024.png)
-.github/workflows/   iOS derleme + TestFlight hattı (macOS sunucusunda)
+.github/workflows/   ios.yml   → derleme + TestFlight (macOS sunucusunda)
+                     pages.yml → web/ klasörünü GitHub Pages'e yayınlar
 capacitor.config.json / package.json   iOS kabuğu
 KURULUM-MAC.md       Mac'te derleme adımları
 CLAUDE.md            bu dosya
 ```
 
 Yükleme sırası önemli: `kopru.js` → `veri.js` → `besinler.js` → `app.js`.
+
+**Pages ayarı "GitHub Actions" olmalı.** Pages'in "Deploy from a branch" seçeneği
+yalnızca `/` ve `/docs` klasörlerini kabul ediyor; uygulama `web/` altında olduğu için
+yayın `pages.yml` üzerinden yapılıyor.
 
 **`ios/` klasörü depoya GİRER** (Capacitor'ın önerisi): Xcode yetenekleri, hedefe
 eklenmiş Swift dosyaları ve Info.plist anahtarları orada. `.gitignore` yalnızca
