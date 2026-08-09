@@ -1,7 +1,10 @@
 # Plan — beslenme ve antrenman takibi
 
 Herkesin kendi telefonuna kurup kullanabileceği bir takip uygulaması. Sunucu yok, hesap
-yok, build adımı yok — statik dosyalar. Kullanıcının verisi yalnızca kendi cihazında.
+yok. Kullanıcının verisi yalnızca kendi cihazında ve kendi iCloud alanında.
+
+**İki hedefte çalışıyor:** `web/` klasörü tek başına buildsiz bir PWA; aynı klasör
+Capacitor kabuğunun içinde iOS uygulaması olarak da çalışıyor (App Store yolu).
 
 Arayüz metinleri Türkçe. Uygulama kickboksa değil, **her spora** göre kuruluyor: dövüş
 sporları, ağırlık, kardiyo, takım sporları, esneklik. Öğün planı, takviyeler ve haftalık
@@ -16,36 +19,54 @@ program kodda sabit değil — kurulum sihirbazında kullanıcıdan alınıp cih
 ## Dosya yapısı
 
 ```
-index.html      iskelet — sadece <head> ve script/style etiketleri
-stil.css        tüm görünüm; renkler :root içinde anlam taşıyan değişkenler
-veri.js         plan içeriği: sporlar, takviye kütüphanesi, öğün şablonları, rehber
-besinler.js     besin veritabanı (539 kalem, gruplu)
-app.js          durum, ekranlar, olaylar — uygulamanın mantığı
-sw.js           çevrimdışı önbellek (service worker)
-manifest.json   ana ekran uygulaması tanımı
-icon-*.png      ikonlar (180 apple-touch, 192/512 manifest + maskable)
-OKU-BENI.txt    kullanıcı için kurulum notu
-CLAUDE.md       bu dosya
+web/                 uygulamanın kendisi — buildsiz, tek başına PWA olarak çalışır
+  index.html         iskelet — sadece <head> ve script/style etiketleri
+  stil.css           tüm görünüm; renkler :root içinde anlam taşıyan değişkenler
+  kopru.js           yerel kabuk köprüsü (Yerel.*) — tarayıcıda hepsi no-op
+  veri.js            plan içeriği: sporlar, takviyeler, öğün şablonları, rehber
+  besinler.js        besin veritabanı (539 kalem, gruplu)
+  app.js             durum, ekranlar, olaylar — uygulamanın mantığı
+  sw.js              çevrimdışı önbellek (service worker)
+  manifest.json      ana ekran uygulaması tanımı
+  icon-*.png         ikonlar (180 apple-touch, 192/512 manifest + maskable)
+  OKU-BENI.txt       kullanıcı için kurulum notu
+
+ios-eklenti/         Xcode projesine elle kopyalanan yerel kaynaklar
+  BulutPlugin.swift  iCloud Documents senkronu
+  SaglikPlugin.swift HealthKit köprüsü
+  App.entitlements   HealthKit + iCloud yetenekleri
+  Info-eklenecek.plist  izin metinleri
+
+magaza/              App Store materyalleri (gizlilik, açıklama, inceleme notu)
+capacitor.config.json / package.json   iOS kabuğu
+KURULUM-MAC.md       Mac'te derleme adımları
+CLAUDE.md            bu dosya
 ```
 
-Yükleme sırası önemli: `veri.js` → `besinler.js` → `app.js`. `app.js` diğer ikisindeki
-sabitleri kullanıyor.
+Yükleme sırası önemli: `kopru.js` → `veri.js` → `besinler.js` → `app.js`.
+
+**`ios/` klasörü depoya girmez** — `npx cap add ios` ile üretilen bir çıktı.
 
 ---
 
 ## Kesin kurallar — bunları bozma
 
-1. **Build adımı ekleme.** npm yok, bundler yok, `package.json` yok. Dosyalar bir statik
-   sunucuya konduğu gibi çalışmalı.
-2. **Dış bağımlılık ekleme.** CDN'den kütüphane, font, ikon çekme. Uygulama uçak modunda
-   çalışmak zorunda. İkonlar satır içi SVG, fontlar sistem fontu. Besin verisi de
-   gömülü — çalışma anında dış API çağrısı yok.
+1. **`web/` buildsiz kalır.** İçindeki dosyalar statik sunucuya konduğu gibi çalışmalı;
+   bundler, transpiler, npm paketi girmez. Kökteki `package.json` yalnızca Capacitor
+   kabuğu içindir — web tarafı ondan hiçbir şey `import` etmez.
+2. **Çalışma anında dış istek yok.** CDN'den kütüphane, font, ikon çekme; uzak API
+   çağırma. Uygulama uçak modunda çalışmak zorunda. İkonlar satır içi SVG, fontlar
+   sistem fontu, besin verisi gömülü.
 3. **Dosya sayısını düşük tut.** Yukarıdaki liste yeterli. Yeni bir ekran, yeni bir dosya
    gerektirmiyor; `app.js` içine bir `vXxx()` fonksiyonu yaz.
-4. **Veri yalnızca cihazda.** Analytics yok, uzak sunucuya istek yok, hesap yok.
+4. **Veri kullanıcının kendisinde kalır.** Analytics yok, çökme raporu yok, reklam
+   kimliği yok, bizim sunucumuz yok, hesap yok. Senkron yalnızca kullanıcının **kendi**
+   iCloud kapsayıcısı üzerinden — geliştiricinin erişimi olmayan bir alan. App Store
+   gizlilik formu bu yüzden "Data Not Collected" olarak dolduruluyor; bunu bozan bir
+   şey eklersen `magaza/gizlilik.md` de güncellenmek zorunda.
 5. **Depolamaya doğrudan dokunma.** `localStorage` yalnızca `Depo.oku` / `Depo.yaz`
-   içinden geçer. İleride hesap ve senkron eklenecekse sadece o iki fonksiyon değişir;
-   ekranların hiçbiri depolamayı tanımamalı. Bu ayrımı bozma.
+   içinden geçer. Bulut aynası da oradan besleniyor (`bulutaGonderGecikmeli`), bu yüzden
+   `Depo.yaz` senkron kalmak zorunda — ekranların hiçbiri `await` etmiyor.
 6. **`ANAHTAR` sabitini keyfî değiştirme** (`"fitplan-v2"`). Şema gerçekten kırılacaksa
    önce geçiş kodu yaz, sonra sürümü artır — `goc()` fonksiyonu buna örnek.
 7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v10` → `plan-v11`).
@@ -68,6 +89,12 @@ sabitleri kullanıyor.
     `z-index` taşıdığı için bir yığın bağlamı yaratıyor; panel onun içine girerse
     `z-index:51` o bağlamda hapsolur ve alt menü panelin üstüne biner. `ciz()`
     paneli `nav`'dan sonra, `.wrap`'in dışına basıyor — orada bırak.
+15. **Yerel özellikler `Yerel.*` üzerinden çağrılır.** `window.Capacitor`'a doğrudan
+    dokunma. `kopru.js` tarayıcıda her fonksiyonu sessizce no-op yapıyor; bu sayede
+    aynı kod hem PWA'da hem kabukta çalışıyor ve testler native olmadan geçiyor.
+16. **HealthKit izni kurulumda toplu istenmez.** Apple'ın beklediği davranış, izni
+    özellik ilk açıldığında istemek — Ayarlar → Telefon anahtarındaki akış bu yüzden
+    böyle. Kurulum sihirbazına taşıma.
 14. **`input` olayında `ciz()` çağırma.** Tüm ekranı yeniden basmak yazarken odağı
     kaybettirir; `input type="number"` üzerinde `setSelectionRange` da çalışmadığı için
     imleç başa düşer ve kullanıcı "40" yazarken "04" görür. Canlı hesap gerekiyorsa
@@ -82,6 +109,7 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
 ```jsonc
 {
   "surum": 2,
+  "guncelleme": 0,           // ms — bulut birleştirmesinde "son yazan" kararı
   "profil": {
     "cinsiyet": "e",          // "e" | "k" — yağ oranı formülünü belirler
     "dogumYili": 0,
@@ -118,7 +146,8 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
         "s…": { "yapildi": true, "sure": "", "round": "", "mesafe": "",
                 "set": [ { "ad": "Squat", "set": "3", "tekrar": "10", "kg": "60" } ] }
       } },
-      "aliskanlik": 0
+      "aliskanlik": 0,
+      "d": 0                                   // ms — gün bazlı birleştirme damgası
     }
   },
   "olcumler": [ { "tarih": "2026-08-11", "kilo": 0, "bel": 0, "boyun": 0, "kalca": 0 } ],
@@ -142,6 +171,10 @@ Notlar:
   kurar. Öğünler eklenip çıkarılabilir, yeniden adlandırılabilir, sıralanabilir.
 - Bir öğün silinince ona bağlı `yenen` kayıtları öksüz kalır; Yemek sekmesi bunları
   "Öğün dışı" kartında gösterir. Görünmez kalmamalılar, çünkü günlük toplama giriyorlar.
+- **Bulut birleştirmesi** `birlestir()` içinde: `gunler` gün gün (`d` damgası yeni olan
+  kazanır), `olcumler` ve `ozelBesinler` anahtar bazında birleşir, gerisi top-level
+  `guncelleme`'ye göre "son yazan kazanır". `kaydet()` bugünün `d` damgasını atar —
+  uygulama yalnız bugünü düzenlediği için bu yeterli.
 - Su hedefi bardak sayısı + bardak boyutu olarak tutulur. Boyut değişince
   `bardakAyarla()` litre hedefini koruyup bardak sayısını yeniden hesaplar.
 - `takviyeler[].gunler` boş dizi = her gün. Doluysa `getDay()` değerlerini içerir.
@@ -303,14 +336,22 @@ eklersen o kuralı da güncelle. Alternatif: "Daha" sekmesinin altına bir alt s
 
 ---
 
-## İleride hesap ve senkron eklenirse
+## Yerel kabuk (iOS)
 
-`Depo` arayüzü bunun için var. Yapılacaklar:
+`kopru.js` içindeki `Yerel` nesnesi tek geçit. Tarayıcıda her metot sessizce boş döner.
 
-1. `Depo.oku/yaz`'ı asenkron hâle getir (Promise döndürsün) ve çağıranları `await` et.
-2. Çakışma çözümü gerekir: `gunler` gün bazında birleştirilebilir, `olcumler` tarih
-   bazında. `profil` ve `ogunler` için "son yazan kazanır" yeterli.
-3. Hesap eklenirse gizlilik metni ve veri silme yolu da eklenmeli.
+| Alan | Ne yapar |
+|---|---|
+| `Yerel.bulutOku/bulutYaz/bulutDurum` | iCloud Documents'taki `plan.json` |
+| `Yerel.saglikIzin/saglikKiloYaz/saglikSuYaz/saglikAntrenmanYaz/saglikSonKilo` | HealthKit |
+| `Yerel.bildirimIzin/bildirimKur` | Yerel bildirimler (`bildirimleriKur()` planlar) |
+| `Yerel.titre` | Dokunsal geri bildirim |
+
+Swift tarafı `ios-eklenti/` altında ve Xcode projesine **elle kopyalanıyor** —
+`npx cap add ios` üretilen `ios/` klasörünü her seferinde yeniden yazabildiği için
+kaynak orada tutulmuyor. Adımlar `KURULUM-MAC.md` içinde.
+
+Web tarafında bir değişiklik yaptıktan sonra `npx cap sync ios` gerekiyor.
 
 Ekranlarda ya da yardımcılarda `localStorage` araması yapmak zorunda kalıyorsan
 5. kural bozulmuş demektir.
@@ -330,7 +371,8 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 
 ## Değişiklikten sonra kontrol listesi
 
-- [ ] `node --check` her `.js` dosyasında temiz
+- [ ] `node --check` her `web/*.js` dosyasında temiz
+- [ ] Tarayıcıda `Yerel.var()` false; hiçbir yerel çağrı hata vermiyor
 - [ ] Konsolda hata yok
 - [ ] Var olan `fitplan-v2` verisiyle açılıyor; şema değiştiyse `duzelt()` güncellendi
 - [ ] `ayberk-plan-v1` verisiyle açılıyor (göç yolu bozulmadı)

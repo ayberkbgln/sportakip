@@ -1,0 +1,17 @@
+<!-- ios/App/App/Info.plist içindeki <dict> bloğuna EKLE (dosyayı komple değiştirme) -->
+
+<key>NSHealthShareUsageDescription</key>
+<string>Tartıdan girdiğin kiloyu uygulamaya taşımak için Sağlık verilerini okur. Veriler cihazından çıkmaz.</string>
+
+<key>NSHealthUpdateUsageDescription</key>
+<string>Kaydettiğin kilo, su ve antrenmanı Sağlık uygulamasına yazar. Veriler cihazından çıkmaz.</string>
+
+<!-- Uygulama karanlık temaya göre tasarlandı; sistem açık temadayken de aynı kalsın -->
+<key>UIUserInterfaceStyle</key>
+<string>Dark</string>
+
+<key>UIViewControllerBasedStatusBarAppearance</key>
+<false/>
+
+<key>UIStatusBarStyle</key>
+<string>UIStatusBarStyleLightContent</string>

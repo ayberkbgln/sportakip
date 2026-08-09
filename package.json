@@ -1,0 +1,21 @@
+{
+  "name": "plan",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Beslenme ve antrenman takibi — iOS kabuğu",
+  "scripts": {
+    "ios:ekle": "cap add ios",
+    "ios:esitle": "cap sync ios",
+    "ios:ac": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "@capacitor/local-notifications": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@capacitor/app": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}

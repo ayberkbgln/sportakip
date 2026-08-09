@@ -1,0 +1,131 @@
+# Mac'te iOS kabuğunu kurma
+
+Bu dosya, mevcut web uygulamasını App Store'a gidebilecek bir iOS uygulamasına
+çevirmek için gereken adımları sırayla anlatıyor. Web tarafı hiç değişmiyor —
+`web/` klasörü aynen çalışmaya devam ediyor, PWA olarak da yayınlanabilir.
+
+> **Test edilmedi uyarısı:** Bu depodaki Swift kodu ve yapılandırma dosyaları
+> Mac olmayan bir ortamda yazıldı. Sözdizimi ve API kullanımı gözden geçirildi
+> ama **hiçbiri derlenip cihazda çalıştırılmadı.** İlk derlemede düzeltme
+> gerekmesi normal; hata mesajını bana getir.
+
+---
+
+## 0. Gereksinimler
+
+- macOS + Xcode (App Store'dan, ~10 GB)
+- Node.js 20+
+- CocoaPods: `sudo gem install cocoapods`
+- Apple Developer hesabı (var)
+
+## 1. Bağımlılıkları kur
+
+```bash
+git clone https://github.com/ayberkbgln/sportakip
+cd sportakip
+npm install
+```
+
+## 2. iOS projesini oluştur
+
+```bash
+npx cap add ios
+npx cap sync ios
+```
+
+Bu, `ios/` klasörünü üretir. **`ios/` klasörü depoya girmez** (`.gitignore`
+içinde) — üretilen bir çıktı, kaynak değil.
+
+## 3. Swift eklentilerini projeye kopyala
+
+```bash
+cp ios-eklenti/BulutPlugin.swift  ios/App/App/
+cp ios-eklenti/SaglikPlugin.swift ios/App/App/
+cp ios-eklenti/App.entitlements   ios/App/App/
+cp magaza/PrivacyInfo.xcprivacy   ios/App/App/
+```
+
+Xcode'da (`npx cap open ios`) sol paneldeki **App** hedefine sağ tık →
+`Add Files to "App"…` → kopyaladığın dört dosyayı seç. Capacitor eklentileri
+`@objc` ile otomatik bulunur, ayrıca kayıt gerekmez.
+
+## 4. Info.plist anahtarlarını ekle
+
+`ios/App/App/Info.plist` dosyasını aç, `ios-eklenti/Info-eklenecek.plist`
+içindeki anahtarları en dıştaki `<dict>` bloğuna ekle. **Dosyayı komple
+değiştirme**, Capacitor'ın kendi anahtarları duruyor.
+
+Sağlık izin metinleri olmadan uygulama HealthKit'e eriştiği anda çöker ve
+inceleme reddedilir — bu adımı atlama.
+
+## 5. Xcode'da yetenekleri aç
+
+`App` hedefi → **Signing & Capabilities**:
+
+| Yetenek | Ayar |
+|---|---|
+| Team | Kendi geliştirici hesabın |
+| Bundle Identifier | `com.ayberkbgln.plan` |
+| + Capability → **HealthKit** | Ek kutu işaretlemeye gerek yok |
+| + Capability → **iCloud** | **iCloud Documents** işaretli, kapsayıcı `iCloud.com.ayberkbgln.plan` |
+| + Capability → **Push Notifications** | Gerekmiyor — yerel bildirim kullanıyoruz |
+
+`App.entitlements` dosyasını eklediysen Xcode çoğunu zaten okur; yine de
+listede göründüğünü doğrula.
+
+Bundle id'yi değiştirirsen `capacitor.config.json` ve `App.entitlements`
+içindeki iCloud kapsayıcı adını da güncelle.
+
+## 6. Çalıştır
+
+```bash
+npx cap open ios
+```
+
+Xcode'da cihazını seç → ⌘R. Simülatörde HealthKit sınırlı çalışır, **gerçek
+cihazda test et.**
+
+## 7. Web tarafında bir değişiklik yaptıktan sonra
+
+```bash
+npx cap sync ios
+```
+
+`web/` klasörü `ios/App/App/public/` içine kopyalanır. Xcode'u kapatmana
+gerek yok, sadece tekrar çalıştır.
+
+---
+
+## Ne çalışıyor, nasıl doğrularsın
+
+| Özellik | Nerede | Beklenen |
+|---|---|---|
+| iCloud senkron | Ayarlar → Telefon | İki cihazda aç, birinde su ekle; diğerinde uygulamayı arka plandan getir, "iCloud'dan güncellendi" çıkmalı |
+| Sağlık senkronu | Ayarlar → Telefon → Sağlık | Anahtarı açınca iOS izin ekranı çıkar. Kilo kaydet → Sağlık uygulaması → Vücut Ağırlığı'nda görünmeli |
+| Su → Sağlık | Bugün → su + | Sağlık → Beslenme → Su |
+| Antrenman → Sağlık | Bugün → seans işaretle | Sağlık → Antrenmanlar |
+| Hatırlatıcılar | Ayarlar → Telefon → Hatırlatıcılar | İzin ekranı; sonra 10/14/18'de su, program günlerinde antrenman bildirimi |
+
+Bir özellik çalışmazsa Xcode konsolunda `⚡️ [error]` satırlarına bak.
+
+---
+
+## App Store'a gönderirken
+
+**4.2 Minimum Functionality.** Apple, "web sitesinin yeniden paketlenmiş hâli"
+olan uygulamaları reddediyor. Bu kabuk üç yerel yetenek taşıyor — HealthKit
+entegrasyonu, yerel bildirimler ve iCloud senkronu — ve inceleme notunda
+bunları açıkça yazman gerekiyor. Metni `magaza/inceleme-notu.md` içinde hazır.
+
+**Gizlilik.** App Store Connect → App Privacy bölümünde **"Data Not Collected"**
+seçilecek. Uygulama hiçbir veriyi cihaz dışına çıkarmıyor; iCloud kullanıcının
+kendi hesabının özel alanı, bizim erişimimiz yok. `magaza/gizlilik.md` içinde
+hem bu bölümün cevapları hem yayınlanacak gizlilik metni var.
+
+**Sağlık kategorisi.** Health & Fitness kategorisinde uygulama tıbbi iddia
+içeremez. Rehber'deki sağlık notu ve takviye uyarıları bu yüzden duruyor —
+silme.
+
+**Gereken görseller.** 1024×1024 App Store ikonu ve 6.7" ile 6.9" cihaz için
+ekran görüntüleri. Mevcut `web/icon-512.png` yeterli çözünürlükte değil,
+1024'lük ayrıca üretilmeli.

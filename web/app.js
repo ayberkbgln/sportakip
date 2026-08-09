@@ -20,14 +20,72 @@ const Depo = {
     catch (e) { return null; }
   },
   yaz(d) {
-    try { localStorage.setItem(ANAHTAR, JSON.stringify(d)); return true; }
-    catch (e) { return false; }
+    try {
+      const j = JSON.stringify(d);
+      localStorage.setItem(ANAHTAR, j);
+      /* Bulut aynası: yazma senkron kalıyor, iCloud'a gönderim arka planda.
+         Böylece hiçbir ekran await etmek zorunda kalmıyor. */
+      bulutaGonderGecikmeli(j);
+      return true;
+    } catch (e) { return false; }
   },
   eskiOku() {
     try { const h = localStorage.getItem(ESKI_ANAHTAR); return h ? JSON.parse(h) : null; }
     catch (e) { return null; }
   }
 };
+
+/* ---- Bulut senkronu ----
+   Cihazda tutulan veri asıl kaynak; iCloud yalnızca ayna. Açılışta uzaktaki
+   kopya okunup birleştiriliyor. Çakışma çözümü CLAUDE.md'de anlatıldığı gibi:
+   gunler gün gün (damgası yeni olan), olcumler tarih bazında, gerisi "son
+   yazan kazanır". */
+let bulutT = null;
+function bulutaGonderGecikmeli(json) {
+  if (!Yerel.var()) return;
+  clearTimeout(bulutT);
+  bulutT = setTimeout(() => Yerel.bulutYaz(json), 1500);
+}
+
+function birlestir(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  const yeni = (b.guncelleme || 0) > (a.guncelleme || 0) ? b : a;
+  const c = Object.assign({}, yeni);
+
+  c.gunler = {};
+  const tumGun = new Set(Object.keys(a.gunler || {}).concat(Object.keys(b.gunler || {})));
+  tumGun.forEach(k => {
+    const ga = (a.gunler || {})[k], gb = (b.gunler || {})[k];
+    if (!ga) { c.gunler[k] = gb; return; }
+    if (!gb) { c.gunler[k] = ga; return; }
+    c.gunler[k] = (gb.d || 0) > (ga.d || 0) ? gb : ga;
+  });
+
+  const olc = new Map();
+  (a.olcumler || []).concat(b.olcumler || []).forEach(o => { if (o && o.tarih) olc.set(o.tarih, o); });
+  c.olcumler = Array.from(olc.values()).sort((x, y) => x.tarih < y.tarih ? -1 : 1);
+
+  const bes = new Map();
+  (a.ozelBesinler || []).concat(b.ozelBesinler || []).forEach(x => { if (x && x.ad) bes.set(sadeAd(x.ad), x); });
+  c.ozelBesinler = Array.from(bes.values());
+
+  return c;
+}
+
+async function bulutSenkron() {
+  if (!Yerel.var()) return;
+  const ham = await Yerel.bulutOku();
+  if (!ham) { Yerel.bulutYaz(JSON.stringify(kalici())); return; }
+  let uzak = null;
+  try { uzak = JSON.parse(ham); } catch (e) { return; }
+  if (!uzak || typeof uzak !== "object") return;
+  const once = JSON.stringify(kalici());
+  const karma = birlestir(kalici(), uzak);
+  KALICI.forEach(x => { if (karma[x] !== undefined) S[x] = karma[x]; });
+  duzelt();
+  if (JSON.stringify(kalici()) !== once) { kaydet(); ciz(); toast("iCloud'dan güncellendi"); }
+}
 
 /* =================== YARDIMCILAR =================== */
 const AYLAR = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
@@ -304,9 +362,12 @@ function uyarilar(k) {
 function varsayilan() {
   return {
     surum: 2,
+    guncelleme: 0,
     profil: { cinsiyet: "", dogumYili: null, boy: null, kilo: null, aktivite: "", hedef: "",
               kcal: null, protein: null, suHedef: 12, bardakMl: 250, kcalElle: false,
-              antrSaat: "18:00", tamam: false },
+              antrSaat: "18:00", tamam: false,
+              /* yalnız yerel kabukta anlamlı; tarayıcıda hep kapalı kalır */
+              saglik: false, bildirim: false, bildirimSu: true, bildirimAntrenman: true },
     kurulumAdim: 0,
     sporlar: [],
     program: Array.from({ length: 7 }, () => ({ seanslar: [] })),
@@ -333,7 +394,7 @@ let S = Object.assign(varsayilan(), {
   yedekMetin: ""
 });
 
-const KALICI = ["surum","profil","kurulumAdim","sporlar","program","ogunler","takviyeler",
+const KALICI = ["surum","guncelleme","profil","kurulumAdim","sporlar","program","ogunler","takviyeler",
                 "aliskanlik","gunler","olcumler","market","ozelBesinler","sonYedek"];
 
 let semaDegisti = false;
@@ -423,9 +484,16 @@ function goc(eski) {
 }
 let gocBildir = false;
 
-function kaydet() {
+function kalici() {
   const d = {}; KALICI.forEach(a => d[a] = S[a]);
-  if (!Depo.yaz(d)) toast("Kaydedilemedi — depolama dolu olabilir");
+  return d;
+}
+function kaydet() {
+  /* Bugünün kaydına değişiklik damgası — bulut birleştirmesi buna bakıyor */
+  const k = bugun();
+  if (S.gunler[k]) S.gunler[k].d = Date.now();
+  S.guncelleme = Date.now();
+  if (!Depo.yaz(kalici())) toast("Kaydedilemedi — depolama dolu olabilir");
 }
 let kaydetT;
 function kaydetGecikmeli() { clearTimeout(kaydetT); kaydetT = setTimeout(kaydet, 400); }
@@ -1323,6 +1391,20 @@ function dAyar() {
       : `<p class="note" style="margin-bottom:11px">Azaltmak istediğin bir şey varsa buradan açabilirsin.</p>
          <div class="sec-lst" style="margin-bottom:11px">${ALISKANLIK_SABLON.filter(x => x.id !== "ozel").map(x => secOp("alis-ac:" + x.id, false, x.ad, "Haftada " + x.baslangic + " " + x.birim + " ile başlar")).join("")}</div>`);
 
+  if (Yerel.var())
+    h += kart("Telefon", "", `
+      <div class="sec-lst">
+        ${secOp("yer-saglik", !!p.saglik, "Sağlık uygulamasıyla senkron",
+                "Kilo, su ve antrenman Apple Health'e yazılır. İzni ilk açtığında ister.")}
+        ${secOp("yer-bildirim", !!p.bildirim, "Hatırlatıcılar",
+                "Su ve antrenman saatlerinde bildirim gönderir.")}
+        ${p.bildirim ? secOp("yer-bild-su", !!p.bildirimSu, "Su hatırlatıcısı", "10:00 · 14:00 · 18:00") : ""}
+        ${p.bildirim ? secOp("yer-bild-antr", !!p.bildirimAntrenman, "Antrenman hatırlatıcısı",
+                             "Programda seans olan günlerde " + esc(p.antrSaat || "18:00")) : ""}
+      </div>
+      <p class="note" style="margin-top:11px">Verilerin iCloud hesabının özel alanında saklanıyor —
+      bizim sunucumuz yok, kimse okuyamaz. Cihazlarında otomatik eşitlenir.</p>`);
+
   h += kart("Öğün düzeni", S.ogunler.length + " öğün", ogunDuzenle());
   h += kart("Hazır düzenler", "",
     `<div class="sec-lst">${OGUN_SABLON.map(o => secOp("ayar-ogun:" + o.id, false, o.ad, o.d)).join("")}</div>
@@ -1350,6 +1432,39 @@ function dYedek() {
      <textarea id="yedek-in" placeholder='{"profil":…}'>${esc(S.yedekMetin)}</textarea>
      <button class="btn ghost blok" data-act="yedek-yukle" style="margin-top:9px">Yedekten geri yükle</button>
      <p class="note" style="margin-top:11px">Geri yükleme mevcut verinin üzerine yazar.</p>`);
+}
+
+/* ---- Yerel bildirimler ----
+   Su hatırlatıcısı gün içine yayılıyor, antrenman hatırlatıcısı programda
+   seans olan günlere. Kabuk yoksa hiçbiri kurulmuyor. */
+function bildirimleriKur() {
+  if (!Yerel.var() || !S.profil.bildirim) return;
+  const liste = [];
+  let id = 1;
+
+  if (S.profil.bildirimSu) {
+    /* 10:00-20:00 arası üç hatırlatma — daha sık olursa insanlar kapatıyor */
+    [10, 14, 18].forEach(saat => {
+      liste.push({
+        id: id++, title: "Su", body: `Günlük hedefin ${(suHedefMl() / 1000).toFixed(1)} litre.`,
+        schedule: { on: { hour: saat, minute: 0 }, allowWhileIdle: false }
+      });
+    });
+  }
+
+  if (S.profil.bildirimAntrenman) {
+    const [sa, dk] = String(S.profil.antrSaat || "18:00").split(":").map(Number);
+    S.program.forEach((p, gi) => {
+      if (!(p.seanslar || []).length) return;
+      const adlar = p.seanslar.map(x => (sporBul(x.spor) || {}).ad).filter(Boolean).join(" + ");
+      liste.push({
+        id: id++, title: "Antrenman", body: adlar,
+        /* Capacitor'da hafta günü 1 = Pazar, bizim dizide 0 = Pazar */
+        schedule: { on: { weekday: gi + 1, hour: sa || 18, minute: dk || 0 } }
+      });
+    });
+  }
+  Yerel.bildirimKur(liste);
 }
 
 /* =================== DİNLENME SAYACI ===================
@@ -1572,12 +1687,23 @@ document.addEventListener("click", e => {
   const g = gun();
 
   /* ---- bugün ---- */
-  if (a === "su+") { g.su = Math.min(g.su + 1, 30); }
+  if (a === "su+") {
+    g.su = Math.min(g.su + 1, 30);
+    if (S.profil.saglik) Yerel.saglikSuYaz(bardakMl());
+    Yerel.titre("Light");
+  }
   else if (a === "su-") { g.su = Math.max(0, g.su - 1); }
   else if (a === "alis+") { g.aliskanlik = (g.aliskanlik || 0) + 1; }
   else if (a === "alis-") { g.aliskanlik = Math.max(0, (g.aliskanlik || 0) - 1); }
   else if (a.startsWith("seans-tik:")) {
-    const l = seansYaz(bugun(), par(1)); l.yapildi = !l.yapildi;
+    const sid = par(1), l = seansYaz(bugun(), sid);
+    l.yapildi = !l.yapildi;
+    Yerel.titre("Medium");
+    if (l.yapildi && S.profil.saglik) {
+      const s = gunSeanslari(bugun()).find(x => x.sid === sid);
+      const sp = s ? sporBul(s.spor) : null;
+      if (sp) Yerel.saglikAntrenmanYaz(sp.tip, +l.sure || (s.sure || sp.sure));
+    }
   }
   else if (a.startsWith("tak:")) { const id = par(1); g.takviye[id] = !g.takviye[id]; }
   else if (a.startsWith("mk:")) { const x = a.slice(3); S.market[x] = !S.market[x]; }
@@ -1681,6 +1807,7 @@ document.addEventListener("click", e => {
     if (S.profil.cinsiyet === "k" && kalca) o.kalca = kalca;
     S.olcumler = [...S.olcumler.filter(x => x.tarih !== o.tarih), o];
     S.profil.kilo = kilo;
+    if (S.profil.saglik) Yerel.saglikKiloYaz(kilo);
     if (!S.profil.kcalElle) { const hh = hedefHesapla(); if (hh) { S.profil.kcal = hh.kcal; S.profil.protein = hh.protein; } }
     S.f = {}; toast("Ölçüm kaydedildi");
   }
@@ -1730,6 +1857,31 @@ document.addEventListener("click", e => {
     if (!S.profil.kcalElle) { const h = hedefHesapla(); if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; S.profil.suHedef = h.su; } }
     ayarFormDoldur(); toast("Profil kaydedildi");
   }
+  else if (a === "yer-saglik") {
+    if (S.profil.saglik) S.profil.saglik = false;
+    else {
+      /* İzin, özellik ilk açıldığında isteniyor — kurulumda topluca değil */
+      Yerel.saglikIzin().then(ok2 => {
+        S.profil.saglik = ok2;
+        kaydet(); ciz();
+        toast(ok2 ? "Sağlık senkronu açıldı" : "Sağlık izni verilmedi");
+      });
+      return;
+    }
+  }
+  else if (a === "yer-bildirim") {
+    if (S.profil.bildirim) { S.profil.bildirim = false; Yerel.bildirimKur([]); }
+    else {
+      Yerel.bildirimIzin().then(ok2 => {
+        S.profil.bildirim = ok2;
+        kaydet(); bildirimleriKur(); ciz();
+        toast(ok2 ? "Hatırlatıcılar açıldı" : "Bildirim izni verilmedi");
+      });
+      return;
+    }
+  }
+  else if (a === "yer-bild-su") { S.profil.bildirimSu = !S.profil.bildirimSu; bildirimleriKur(); }
+  else if (a === "yer-bild-antr") { S.profil.bildirimAntrenman = !S.profil.bildirimAntrenman; bildirimleriKur(); }
   else if (a.startsWith("ayar-cins:")) { S.profil.cinsiyet = par(1); }
   else if (a.startsWith("ayar-hedefTip:")) { S.profil.hedef = par(1); if (!S.profil.kcalElle) { const h = hedefHesapla(); if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; } } }
   else if (a.startsWith("ayar-akt:")) { S.profil.aktivite = par(1); if (!S.profil.kcalElle) { const h = hedefHesapla(); if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; } } }
@@ -1932,6 +2084,13 @@ yukle();
 if (kurulumGerek()) kurulumFormDoldur();
 ciz();
 if (gocBildir) setTimeout(() => toast("Eski verin taşındı — öğün işaretleri hariç"), 600);
+
+/* Yerel kabukta: iCloud'dan çek, bildirimleri tazele */
+if (Yerel.var()) {
+  bulutSenkron();
+  document.addEventListener("resume", bulutSenkron);
+  setTimeout(bildirimleriKur, 1200);
+}
 
 if ("serviceWorker" in navigator)
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
