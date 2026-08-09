@@ -1,6 +1,6 @@
 /* Offline cache — uygulama internetsiz de açılsın diye.
    CACHE adını HER dağıtımda artır, yoksa kullanıcı eski sürümde takılı kalır. */
-const CACHE = "plan-v13";
+const CACHE = "plan-v14";
 const DOSYALAR = [
   "./", "./index.html", "./stil.css", "./kopru.js", "./veri.js", "./besinler.js", "./app.js",
   "./gizlilik.html", "./manifest.json", "./icon-180.png", "./icon-192.png", "./icon-512.png"

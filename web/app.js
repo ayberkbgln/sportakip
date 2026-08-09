@@ -163,6 +163,41 @@ function hedefHesapla() {
            suMl, su: kis(Math.round(suMl / bardakMl()), 1, 40) };
 }
 
+/* ---- Kilo trendi ve kalori uyarlaması ----
+   Formül insanı tahmin eder, terazi ölçer. İki hafta veri birikince gerçek
+   değişim hızına bakıp günlük kaloriye düzeltme öneriyoruz. Günlük tartı
+   dalgalanması su ve tuzdur; karar 7 günlük ortalamalardan çıkıyor.
+   Öneri kendiliğinden uygulanmaz — kabul etmek kullanıcının.               */
+const HAFTALIK_BEKLENTI = { yag: -0.5, kas: 0.25, koru: 0, perf: 0 };   // kg / hafta
+
+function kiloOrtalama(bitis, gunSayi) {
+  const bas = gunEkle(bitis, -(gunSayi - 1));
+  const l = S.olcumler.filter(o => o.tarih >= bas && o.tarih <= bitis && +o.kilo > 0);
+  return l.length ? l.reduce((a, o) => a + +o.kilo, 0) / l.length : null;
+}
+
+function kaloriOneri() {
+  const p = S.profil;
+  if (!p.kcal || !p.hedef) return null;
+  const k = bugun();
+  /* Bir öneriyi uyguladıktan sonra iki hafta susuyoruz: trend daha yeni
+     kaloriyi görmedi. Susmasak arka arkaya basan kullanıcının hedefi her
+     dokunuşta 300 kcal daha aşağı inerdi. */
+  if (p.kcalAyarTarih && p.kcalAyarTarih > gunEkle(k, -14)) return null;
+  const yeni = kiloOrtalama(k, 7), eski = kiloOrtalama(gunEkle(k, -7), 7);
+  if (yeni == null || eski == null) return null;
+  const gercek = yeni - eski;                                  // kg / hafta
+  const beklenen = HAFTALIK_BEKLENTI[p.hedef] || 0;
+  /* 1 kg vücut kütlesi ≈ 7700 kcal; haftalık sapmayı güne bölüyoruz. */
+  const duzeltme = kis(Math.round((beklenen - gercek) * 7700 / 7 / 10) * 10, -300, 300);
+  if (Math.abs(duzeltme) < 60) return null;                    // gürültüyü öneriye çevirme
+  const taban = bmr(p.kilo, p.boy, yasHesap(), p.cinsiyet);
+  let yeniKcal = p.kcal + duzeltme;
+  if (taban) yeniKcal = Math.max(Math.round(taban / 10) * 10, yeniKcal);
+  if (yeniKcal === p.kcal) return null;
+  return { gercek, beklenen, duzeltme, yeniKcal };
+}
+
 /* Bugünün programı ve sporu */
 const sporBul = id => SPORLAR.find(s => s.id === id) || null;
 
@@ -365,6 +400,7 @@ function varsayilan() {
     guncelleme: 0,
     profil: { cinsiyet: "", dogumYili: null, boy: null, kilo: null, aktivite: "", hedef: "",
               kcal: null, protein: null, suHedef: 12, bardakMl: 250, kcalElle: false,
+              kcalAyarTarih: "",   // son kalori önerisinin uygulandığı gün
               antrSaat: "18:00", tamam: false,
               /* yalnız yerel kabukta anlamlı; tarayıcıda hep kapalı kalır */
               saglik: false, bildirim: false, bildirimSu: true, bildirimAntrenman: true },
@@ -377,7 +413,9 @@ function varsayilan() {
     gunler: {},
     olcumler: [],
     market: {},
+    marketEk: [],        // kullanıcının listeye eklediği kendi kalemleri
     ozelBesinler: [],
+    kayitliOgun: [],     // [{ id, ad, kalemler:[{ad,kcal,p,gram}] }] — tek dokunuşla eklenen öğün
     sonYedek: null
   };
 }
@@ -391,11 +429,12 @@ let S = Object.assign(varsayilan(), {
   odakAra: false,     // panel açılınca arama kutusuna odaklan
   seciliOgun: "",     // Yemek sekmesinde açık olan öğün
   panel: "",          // açık detay paneli: takviye | antrenman | aliskanlik
+  mkAcik: {},         // alışverişte açık olan gruplar — kalıcı değil
   yedekMetin: ""
 });
 
 const KALICI = ["surum","guncelleme","profil","kurulumAdim","sporlar","program","ogunler","takviyeler",
-                "aliskanlik","gunler","olcumler","market","ozelBesinler","sonYedek"];
+                "aliskanlik","gunler","olcumler","market","marketEk","ozelBesinler","kayitliOgun","sonYedek"];
 
 let semaDegisti = false;
 
@@ -427,7 +466,10 @@ function duzelt() {
     if (!p || !p.spor || p.spor === "dinlenme") return { seanslar: [] };
     return { seanslar: [{ sid: "g" + i + "s1", spor: p.spor, sablon: p.sablon || "", sure: p.sure || 0 }] };
   });
-  ["sporlar","ogunler","takviyeler","olcumler","ozelBesinler"].forEach(a => { if (!Array.isArray(S[a])) S[a] = []; });
+  ["sporlar","ogunler","takviyeler","olcumler","ozelBesinler","marketEk","kayitliOgun"]
+    .forEach(a => { if (!Array.isArray(S[a])) S[a] = []; });
+  /* Kayıtlı öğünlerde kalem listesi bozuksa kaydı at — panelde çökmesin */
+  S.kayitliOgun = S.kayitliOgun.filter(o => o && o.id && Array.isArray(o.kalemler) && o.kalemler.length);
   if (!S.gunler || typeof S.gunler !== "object") S.gunler = {};
 
   /* Günlük antrenman kaydı düz alandan seans haritasına. Eski kayıt o günün
@@ -651,7 +693,9 @@ function kAdim1() {
   const kadin = S.profil.cinsiyet === "k";
   return kart("", "",
     `<div class="row" style="margin-bottom:11px">${alan("bel", "Bel cm")}${alan("boyun", "Boyun cm")}${kadin ? alan("kalca", "Kalça cm") : ""}</div>
-     <p class="note">Bel: göbek deliği hizasından, karnı içe çekmeden, normal nefes verdikten sonra. Boyun: adem elmasının hemen altından.${kadin ? " Kalça: en geniş yerinden, ayaklar bitişik." : ""}<br><br>
+     <p class="note">Bel: göbek deliği hizasından, karnı içe çekmeden, normal nefes verdikten sonra.
+     Boyun: gırtlağın hemen altından, boynun en dar yerinden${kadin ? "" : " (adem elmasının altı)"}.${
+       kadin ? " Kalça: en geniş yerinden, ayaklar bitişik." : ""}<br><br>
      Bunları girmezsen uygulama yine çalışır — sadece vücut yağ oranı hesaplanmaz, kilo takibi devam eder.</p>`);
 }
 
@@ -845,6 +889,7 @@ function vYemek() {
 
   {
     const kalemler = g.yenen.filter(y => y.ogun === aktif.id);
+    const dun = ((S.gunler[gunEkle(k, -1)] || {}).yenen || []).filter(y => y.ogun === aktif.id);
     const sK = kalemler.reduce((a, y) => a + y.kcal, 0), sP = kalemler.reduce((a, y) => a + y.p, 0);
     const hedefK = p.kcal ? Math.round(p.kcal * ogunOran(aktif)) : null;
     const slotAsti = hedefK && sK > hedefK * 1.15;
@@ -857,7 +902,15 @@ function vYemek() {
             <div class="uc"><button class="sil" data-act="yem-sil:${esc(y.uid)}" aria-label="sil">×</button></div></div>`).join("")
         : `<p class="bos">Henüz bir şey eklemedin.</p>`) +
       (kalemler.length ? `<div class="macro" style="margin:10px 0 10px">Toplam ${sK} kcal · ${sP.toFixed(1)} g protein</div>` : "") +
-      `<button class="btn gold blok" data-act="yem-ac:${esc(aktif.id)}">Yemek ekle</button>`);
+      `<button class="btn gold blok" data-act="yem-ac:${esc(aktif.id)}">Yemek ekle</button>` +
+      /* Tekrar eden öğünü yeniden aratmak, kalori takibini bırakmanın bir
+         numaralı sebebi. İki kestirme: dünü tekrarla, öğünü şablon olarak
+         kaydet.                                                            */
+      (!kalemler.length && dun.length
+        ? `<button class="btn ghost blok" data-act="yem-dun:${esc(aktif.id)}" style="margin-top:9px">Dünü tekrarla · ${
+            dun.length} kalem · ${dun.reduce((a, y) => a + y.kcal, 0)} kcal</button>` : "") +
+      (kalemler.length
+        ? `<button class="btn ghost blok" data-act="ogun-kaydet:${esc(aktif.id)}" style="margin-top:9px">Bu öğünü kaydet</button>` : ""));
   }
 
   /* Öğün düzeni değişince eski kayıtlar hiçbir slota denk gelmeyebilir.
@@ -887,6 +940,26 @@ function ogunOran(o) {
   return (+o.p > 0 ? +o.p : 0) / t;
 }
 const yeniOid = () => "o" + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
+const yeniKid = () => "m" + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
+
+/* ---- Kayıtlı öğünler ----
+   Çoğu insan sabah aynı şeyi yiyor. Aynı beş kalemi her gün baştan aratmak,
+   kalori takibini bırakmanın bir numaralı sebebi; bir kez kaydedip tek
+   dokunuşla ekliyoruz.                                                     */
+const kayitToplam = m => m.kalemler.reduce(
+  (a, y) => ({ kcal: a.kcal + (+y.kcal || 0), p: a.p + (+y.p || 0) }), { kcal: 0, p: 0 });
+
+function ogunKaydet(oid) {
+  const kalemler = gun().yenen.filter(y => y.ogun === oid)
+    .map(y => ({ ad: y.ad, kcal: +y.kcal || 0, p: +y.p || 0, gram: +y.gram || 0 }));
+  if (!kalemler.length) return null;
+  const slot = ogunSlotlari().find(o => o.id === oid);
+  const ad = `${slot ? slot.ad : "Öğün"} · ${kalemler[0].ad}${kalemler.length > 1 ? " +" + (kalemler.length - 1) : ""}`;
+  const kayit = { id: yeniKid(), ad, kalemler };
+  S.kayitliOgun.unshift(kayit);
+  if (S.kayitliOgun.length > 30) S.kayitliOgun.length = 30;
+  return kayit;
+}
 
 /* Öğün düzeni düzenleyici — kurulum sihirbazı ve Ayarlar aynı bileşeni kullanır.
    Öğün sayısı 1'den başlar; tek öğün yiyen de sık yiyen de kendi düzenini kurar. */
@@ -1044,12 +1117,20 @@ function yemekPaneli() {
 
 function araListeHtml() {
   const sonuc = besinAra(S.ara);
-  const son = S.ara.length < 2 ? sonBesinler(8) : [];
+  const bos = S.ara.length < 2;
+  const son = bos ? sonBesinler(8) : [];
+  const kayit = bos ? S.kayitliOgun : [];
   return `${sonuc.length ? `<div class="ara-sonuc">${sonuc.map((b, i) =>
       `<button class="ara-op" data-act="bes-sec:${i}"><span class="ib"><span class="name">${esc(b.ad)}</span>
         <span class="macro">${esc(b.grup)} · ${esc(b.pAd)} ${b.pGram} g</span></span>
        <span class="ara-sag">${Math.round(b.kcal * b.pGram / 100)} kcal</span></button>`).join("")}</div>` : ""}
     ${(S.ara.length >= 2 && !sonuc.length) ? `<p class="bos">Bulunamadı. Aşağıdan elle ekleyebilirsin.</p>` : ""}
+    ${kayit.length ? `<p class="sec" style="margin:16px 0 4px">Kayıtlı öğünler</p>
+      <div class="ara-sonuc" style="padding:0 13px">${kayit.map((m, i) => { const t = kayitToplam(m); return `<div class="item" data-act="kyt-ekle:${i}">
+        <div class="ib"><div class="it"><span class="name">${esc(m.ad)}</span>
+          <span class="time">${m.kalemler.length} kalem</span></div>
+          <div class="macro">${Math.round(t.kcal)} kcal · ${t.p.toFixed(1)} g protein</div></div>
+        <div class="uc"><button class="sil" data-act="kyt-sil:${i}" aria-label="sil">×</button></div></div>`; }).join("")}</div>` : ""}
     ${son.length ? `<p class="sec" style="margin:16px 0 4px">Son eklediklerin</p>
       <div class="ara-sonuc">${son.map((b, i) => `<button class="ara-op" data-act="bes-son:${i}">
         <span class="ib"><span class="name">${esc(b.ad)}</span><span class="macro">${b.gram} g</span></span>
@@ -1108,7 +1189,13 @@ function vAntrenman() {
       }
       const onceki = gecenAntrenman(s.spor);
       h += kart("Egzersizler", s.sablon ? esc(s.sablon) : "",
-        w.set.map((e, ei) => `<div class="gr">
+        w.set.map((e, ei) => {
+          const rekor = egzersizRekor(e.ad, k), simdi = e1rm(e.kg, e.tekrar);
+          const yeniRekor = simdi != null && (!rekor || simdi > rekor.v + 0.05);
+          const alt = [onceki[e.ad] ? "Geçen sefer " + setOzet(onceki[e.ad]) : "",
+                       rekor ? `Rekor ${rekor.kg} kg × ${rekor.tekrar} · 1RM ~${Math.round(rekor.v)} kg` : "",
+                       (simdi != null && !yeniRekor) ? `Bugün 1RM ~${Math.round(simdi)} kg` : ""].filter(Boolean).join(" · ");
+          return `<div class="gr">
           <div class="row" style="margin-bottom:7px">
             <div class="alan"><input type="text" data-set="${s.sid}:${ei}:ad" value="${esc(e.ad)}" placeholder="Egzersiz" style="text-align:left"></div>
             <button class="sil" data-act="set-sil:${s.sid}:${ei}" aria-label="sil">×</button></div>
@@ -1116,12 +1203,15 @@ function vAntrenman() {
             <div class="alan"><label class="lbl">Set</label><input type="number" inputmode="numeric" data-set="${s.sid}:${ei}:set" value="${esc(e.set)}" placeholder="—"></div>
             <div class="alan"><label class="lbl">Tekrar</label><input type="number" inputmode="numeric" data-set="${s.sid}:${ei}:tekrar" value="${esc(e.tekrar)}" placeholder="—"></div>
             <div class="alan"><label class="lbl">Kg</label><input type="number" inputmode="decimal" data-set="${s.sid}:${ei}:kg" value="${esc(e.kg)}" placeholder="—"></div></div>
-          ${onceki[e.ad] ? `<div class="macro">Geçen sefer: ${esc(onceki[e.ad])}</div>` : ""}</div>`).join("") +
+          ${yeniRekor ? `<div class="row wrapped" style="gap:7px;margin-top:8px"><span class="chip gold">Yeni rekor · 1RM ~${Math.round(simdi)} kg</span></div>` : ""}
+          ${alt ? `<div class="macro">${esc(alt)}</div>` : ""}</div>`; }).join("") +
         `<div class="row wrapped" style="gap:7px;margin-top:12px">
            <span class="sl" style="align-self:center;margin:0 4px 0 0">Dinlenme</span>
            ${[60, 90, 120, 180].map(sn => `<button class="chip" data-act="sayac:${sn}"
              style="cursor:pointer;padding:9px 12px">${sn < 120 ? sn + " sn" : (sn / 60) + " dk"}</button>`).join("")}</div>
-         <button class="btn ghost blok" data-act="set-ekle:${s.sid}" style="margin-top:10px">Egzersiz ekle</button>
+         <div class="row" style="margin-top:10px">
+           <button class="btn ghost" data-act="set-ekle:${s.sid}">Egzersiz ekle</button>
+           ${Object.keys(onceki).length ? `<button class="btn ghost" data-act="set-doldur:${s.sid}">Geçen seferi doldur</button>` : ""}</div>
          <p class="note" style="margin-top:10px">Her hafta ya bir tekrar ya biraz kilo ekle. Aynı ağırlıkla aynı tekrar, gelişme değil bakımdır.</p>`);
     }
   });
@@ -1187,7 +1277,9 @@ function programDuzenle() {
   }).join("");
 }
 
-/* Bir sporun en son yapılan seansından egzersiz → "3×10 @ 40 kg" özeti */
+/* Bir sporun en son yapılan seansındaki egzersizler → { ad: {set,tekrar,kg} }.
+   Metin değil nesne dönüyor: hem ekranda özet basılıyor hem "geçen seferi
+   doldur" düğmesi aynı kaydı satırlara yazıyor. */
 function gecenAntrenman(sporId) {
   const sidSpor = {};
   S.program.forEach(p => (p.seanslar || []).forEach(x => { sidSpor[x.sid] = x.spor; }));
@@ -1200,11 +1292,42 @@ function gecenAntrenman(sporId) {
       const set = sn[id].set;
       if (!Array.isArray(set) || !set.length) continue;
       const m = {};
-      set.forEach(e => { if (e.ad && (e.kg || e.tekrar)) m[e.ad] = `${e.set || "?"}×${e.tekrar || "?"}${e.kg ? " @ " + e.kg + " kg" : ""}`; });
+      set.forEach(e => { if (e.ad && (e.kg || e.tekrar)) m[e.ad] = { set: e.set || "", tekrar: e.tekrar || "", kg: e.kg || "" }; });
       if (Object.keys(m).length) return m;
     }
   }
   return {};
+}
+const setOzet = e => `${e.set || "?"}×${e.tekrar || "?"}${e.kg ? " @ " + e.kg + " kg" : ""}`;
+
+/* ---- Progresif yükleme ----
+   Tahmini 1RM (Epley): kg × (1 + tekrar/30). Mutlak doğru bir sayı değil,
+   karşılaştırma birimi — 5×80 ile 8×70'i aynı cetvele koyuyor. 30'un
+   üstündeki tekrarda formül anlamını yitiriyor, orada hesaplamıyoruz. */
+function e1rm(kg, tekrar) {
+  const w = sayi(kg), r = sayi(tekrar);
+  if (!(w > 0) || !(r > 0) || r > 30) return null;
+  return w * (1 + r / 30);
+}
+
+/* Bir egzersizin geçmişteki en iyi tahmini 1RM'i. hariç = hesaba katılmayacak
+   gün (bugünkü kayıt kendi rekorunu geçemez, yoksa hep "yeni rekor" yazar). */
+function egzersizRekor(ad, haric) {
+  const s = sadeAd(ad || "");
+  if (!s) return null;
+  let en = null;
+  for (const k in S.gunler) {
+    if (k === haric) continue;
+    const sn = (S.gunler[k].antrenman || {}).seans || {};
+    for (const id in sn) {
+      for (const e of (sn[id].set || [])) {
+        if (sadeAd(e.ad || "") !== s) continue;
+        const v = e1rm(e.kg, e.tekrar);
+        if (v != null && (!en || v > en.v)) en = { v, kg: e.kg, tekrar: e.tekrar, tarih: k };
+      }
+    }
+  }
+  return en;
 }
 
 /* =================== SEKME: İLERLEME =================== */
@@ -1231,6 +1354,22 @@ function vIlerleme() {
     `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${antrSayi}</div><div class="sl">Seans</div></div>
       <div class="sc"><div class="sn">${suGun}</div><div class="sl">Su tuttu</div></div>
       <div class="sc"><div class="sn">${kcalGun}</div><div class="sl">Kalori tuttu</div></div></div>`);
+
+  /* İki haftalık trend hedefle uyuşmuyorsa kaloriyi yeniden ayarlamayı öner.
+     Formül insanı tahmin eder, terazi ölçer. */
+  const on = kaloriOneri();
+  if (on) {
+    const yon = on.gercek > 0.05 ? "arttı" : on.gercek < -0.05 ? "düştü" : "aynı kaldı";
+    h += kart("Kalori önerisi", "son 2 hafta",
+      `<div class="stat" style="margin-bottom:12px">
+        <div class="sc"><div class="sn">${on.gercek > 0 ? "+" : ""}${on.gercek.toFixed(2)}</div><div class="sl">kg / hafta</div></div>
+        <div class="sc"><div class="sn">${on.beklenen > 0 ? "+" : ""}${on.beklenen.toFixed(2)}</div><div class="sl">Hedef hız</div></div>
+        <div class="sc"><div class="sn" style="color:var(--vurgu)">${on.yeniKcal}</div><div class="sl">Önerilen kcal</div></div></div>
+       <p class="note" style="margin-bottom:11px">Kilon haftada ${Math.abs(on.gercek).toFixed(2)} kg ${yon}, hedefin
+       ${on.beklenen === 0 ? "kilonu korumak" : Math.abs(on.beklenen).toFixed(2) + " kg " + (on.beklenen < 0 ? "vermek" : "almak")}.
+       Günlük hedefi ${on.duzeltme > 0 ? "+" : ""}${on.duzeltme} kcal değiştirmeyi dene ve iki hafta daha ölç.</p>
+       <button class="btn gold blok" data-act="kcal-oneri:${on.yeniKcal}">Hedefi ${on.yeniKcal} kcal yap</button>`);
+  }
 
   if (son) {
     const fSon = navy(son), fIlk = ilk ? navy(ilk) : null;
@@ -1283,16 +1422,66 @@ function vDaha() {
 
 const geriBtn = ad => `<button class="btn ghost blok" data-act="daha:" style="margin-bottom:14px">‹ ${ad}</button>`;
 
+/* ---- Alışveriş listesi ----
+   Şablon + seçili takviyeler + kullanıcının kendi kalemleri. Takviye grubu
+   kodda sabit değil, kullanıcının seçtiklerinden üretiliyor.               */
+function marketGruplari() {
+  const g = MARKET_SABLON.map(x => ({ k: x.k, i: x.i.slice() }));
+  if (S.takviyeler.length) g.push({ k: "Takviye", i: S.takviyeler.map(t => t.ad) });
+  if (S.marketEk.length) g.push({ k: "Kendi eklediklerin", i: S.marketEk.slice(), ozel: true });
+  return g;
+}
+
+/* Son 14 günde en az iki kez yediğin ama listede olmayan kalemler.
+   "Öğün planından alışveriş listesi" işini veritabanı tahminiyle değil,
+   gerçekten ne yediğinle yapıyoruz — uydurma çıkmıyor.                     */
+function marketOnerileri(n) {
+  const sinir = gunEkle(bugun(), -14), say = {};
+  Object.keys(S.gunler).filter(k => k >= sinir).forEach(k =>
+    (S.gunler[k].yenen || []).forEach(y => { if (y && y.ad) say[y.ad] = (say[y.ad] || 0) + 1; }));
+  const listede = new Set();
+  marketGruplari().forEach(gr => gr.i.forEach(x => listede.add(sadeAd(x))));
+  return Object.keys(say)
+    .filter(ad => say[ad] >= 2 && !listede.has(sadeAd(ad)))
+    .sort((a, b) => say[b] - say[a] || (a < b ? -1 : 1))
+    .slice(0, n || 8);
+}
+
 function dMarket() {
-  const tum = MARKET_SABLON.reduce((a, g) => a + g.i.length, 0);
-  const alinan = Object.values(S.market).filter(Boolean).length;
+  const gruplar = marketGruplari();
+  const tum = gruplar.reduce((a, g) => a + g.i.length, 0);
+  const alinan = gruplar.reduce((a, g) => a + g.i.filter(x => S.market[x]).length, 0);
   let h = `<header class="top"><p class="eyebrow">1 hafta</p><h1>Alışveriş</h1>
-   <p class="sub">${alinan} / ${tum} alındı</p></header>` + geriBtn("Daha");
-  MARKET_SABLON.forEach(g => {
-    h += `<p class="sec">${esc(g.k)}</p>` + kart("", "",
-      g.i.map(x => satir({ ad: x, on: !!S.market[x], act: "mk:" + x })).join(""));
-  });
-  h += `<button class="btn ghost blok" data-act="mk-sifirla">Listeyi sıfırla (yeni hafta)</button>`;
+   <p class="sub">${alinan} / ${tum} işaretli</p>
+   ${ilerleme(tum ? alinan / tum : 0, "var(--iyi)")}</header>` + geriBtn("Daha");
+
+  const oner = marketOnerileri(8);
+  if (oner.length)
+    h += kart("Sık yediklerin", "son 14 gün",
+      `<div class="row wrapped" style="gap:7px">${oner.map(ad =>
+        `<button class="chip" data-act="mk-oner:${esc(ad)}" style="cursor:pointer;padding:9px 12px">+ ${esc(ad)}</button>`).join("")}</div>
+       <p class="note" style="margin-top:10px">Listende olmayan ama düzenli yediğin şeyler. Dokununca listene eklenir.</p>`);
+
+  /* Katlanır gruplar: 100'den fazla kalem tek sayfada alt alta dizilirse
+     hiç kimse sonuna kadar inmiyor. İçinde işaret olan grup açık başlar. */
+  h += gruplar.map(g => {
+    const say = g.i.filter(x => S.market[x]).length;
+    const acik = S.mkAcik[g.k] === undefined ? say > 0 : !!S.mkAcik[g.k];
+    return kart("", "",
+      `<div class="item" data-act="mk-grup:${esc(g.k)}">
+         <div class="ib"><div class="it"><span class="name">${esc(g.k)}</span>
+           <span class="time">${say ? say + " / " + g.i.length : g.i.length + " kalem"}</span></div></div>
+         <div class="uc"><span class="ara-sag">${acik ? "⌄" : "›"}</span></div></div>
+       ${acik ? g.i.map(x => satir({ ad: x, on: !!S.market[x], act: "mk:" + x,
+           uc: g.ozel ? `<button class="sil" data-act="mk-ek-sil:${esc(x)}" aria-label="listeden çıkar">×</button>` : "" })).join("") : ""}`);
+  }).join("");
+
+  h += kart("Kendi kalemini ekle", "",
+    `<div class="row">
+       <div class="alan"><input type="text" data-fld="mkAd" value="${esc(S.f.mkAd || "")}"
+         placeholder="Ne lazım?" style="text-align:left" autocomplete="off"></div>
+       <button class="btn" data-act="mk-ek">Ekle</button></div>`);
+  h += `<button class="btn ghost blok" data-act="mk-sifirla" style="margin-top:12px">İşaretleri temizle (yeni hafta)</button>`;
   return h;
 }
 
@@ -1425,7 +1614,7 @@ function dYedek() {
   return `<header class="top"><p class="eyebrow">Verilerini koru</p><h1>Yedek</h1>
    <p class="sub">${S.sonYedek ? gunSayi + " gün önce yedekledin" : "Henüz yedek almadın"}</p></header>` + geriBtn("Daha") +
    kart("", "",
-    `<p class="note" style="margin-bottom:12px">Veriler yalnızca bu cihazda saklanıyor. Ayda bir yedek al — telefon değiştirirsen ya da tarayıcı verisi silinirse buradan geri yüklersin.</p>
+    `<p class="note" style="margin-bottom:12px">Veriler yalnızca bu cihazda saklanıyor. Ayda bir yedek al — telefon değiştirirsen ya da uygulama verisi silinirse buradan geri yüklersin.</p>
      <div class="row" style="margin-bottom:9px">
        <button class="btn gold" data-act="yedek-kopyala">Yedeği kopyala</button>
        <button class="btn" data-act="yedek-indir">Dosya indir</button></div>
@@ -1707,8 +1896,25 @@ document.addEventListener("click", e => {
     }
   }
   else if (a.startsWith("tak:")) { const id = par(1); g.takviye[id] = !g.takviye[id]; }
-  else if (a.startsWith("mk:")) { const x = a.slice(3); S.market[x] = !S.market[x]; }
-  else if (a === "mk-sifirla") { S.market = {}; toast("Liste sıfırlandı"); }
+  else if (a.startsWith("mk:")) { const x = a.slice(3); S.market[x] = !S.market[x]; Yerel.titre("Light"); }
+  else if (a.startsWith("mk-grup:")) {
+    const ad = a.slice(8), gr = marketGruplari().find(x => x.k === ad);
+    const say = gr ? gr.i.filter(x => S.market[x]).length : 0;
+    const acik = S.mkAcik[ad] === undefined ? say > 0 : !!S.mkAcik[ad];
+    S.mkAcik[ad] = !acik; return ciz();          // yalnız görünüm — kaydedilecek bir şey yok
+  }
+  else if (a.startsWith("mk-oner:")) { marketEkle(a.slice(8)); }
+  else if (a === "mk-ek") {
+    const ad = String(S.f.mkAd || "").trim();
+    if (!ad) { toast("Kalem adı yaz"); return; }
+    marketEkle(ad); S.f.mkAd = "";
+  }
+  else if (a.startsWith("mk-ek-sil:")) {
+    const x = a.slice(10);
+    S.marketEk = S.marketEk.filter(v => v !== x);
+    delete S.market[x];
+  }
+  else if (a === "mk-sifirla") { S.market = {}; toast("İşaretler temizlendi"); }
 
   /* ---- yemek ---- */
   else if (a.startsWith("yem-ac:")) { S.araHedef = par(1); S.ara = ""; S.f = {}; S.odakAra = true; }
@@ -1771,6 +1977,28 @@ document.addEventListener("click", e => {
     y.ad = ad; y.kcal = Math.round(kc); y.p = isFinite(pr) && pr >= 0 ? +pr.toFixed(1) : 0;
     S.araHedef = ""; S.f = {}; toast("Güncellendi");
   }
+  else if (a.startsWith("ogun-kaydet:")) {
+    const kayit = ogunKaydet(a.slice(12));
+    toast(kayit ? "Kaydedildi — yemek eklerken tek dokunuşla çıkacak" : "Önce bu öğüne bir şeyler ekle");
+  }
+  else if (a.startsWith("kyt-ekle:")) {
+    const m = S.kayitliOgun[parseInt(par(1), 10)];
+    if (!m) return;
+    m.kalemler.forEach(y => yemekEkle({ ad: y.ad, kcal: y.kcal, p: y.p, gram: y.gram }));
+    S.araHedef = ""; S.ara = ""; S.f = {};
+    toast(m.kalemler.length + " kalem eklendi");
+  }
+  else if (a.startsWith("kyt-sil:")) {
+    S.kayitliOgun.splice(parseInt(par(1), 10), 1);
+    toast("Kayıtlı öğün silindi");
+  }
+  else if (a.startsWith("yem-dun:")) {
+    const oid = a.slice(8);
+    const dun = ((S.gunler[gunEkle(bugun(), -1)] || {}).yenen || []).filter(y => y.ogun === oid);
+    if (!dun.length) { toast("Dün bu öğünde kayıt yok"); return; }
+    dun.forEach(y => yemekEkle({ ad: y.ad, kcal: y.kcal, p: y.p, gram: y.gram }, oid));
+    toast(dun.length + " kalem eklendi");
+  }
   else if (a.startsWith("yem-sil:")) {
     const uid = a.slice(8);
     g.yenen = g.yenen.filter(y => y.uid !== uid);
@@ -1786,6 +2014,27 @@ document.addEventListener("click", e => {
   else if (a.startsWith("set-sil:")) {
     const l = seansYaz(bugun(), par(1));
     (l.set || []).splice(parseInt(par(2), 10), 1);
+  }
+  /* Geçen seansın ağırlıklarını satırlara yazar. Sıfırdan yazmak yerine
+     üstüne bir tekrar / biraz kilo eklemek istiyorsun — asıl iş o. */
+  else if (a.startsWith("set-doldur:")) {
+    const sid = par(1), s = gunSeanslari(bugun()).find(x => x.sid === sid);
+    if (!s) return;
+    const onceki = gecenAntrenman(s.spor), l = seansYaz(bugun(), sid);
+    if (!Array.isArray(l.set)) l.set = [];
+    let n = 0;
+    l.set.forEach(e => {
+      const o = onceki[e.ad];
+      if (o) { e.set = o.set; e.tekrar = o.tekrar; e.kg = o.kg; n++; }
+    });
+    Object.keys(onceki).forEach(ad => {
+      if (l.set.some(e => e.ad === ad)) return;
+      const bosSatir = l.set.find(e => !e.ad);
+      if (bosSatir) Object.assign(bosSatir, { ad, ...onceki[ad] });
+      else l.set.push({ ad, ...onceki[ad] });
+      n++;
+    });
+    toast(n ? n + " egzersiz dolduruldu" : "Geçen seans kaydı yok");
   }
   else if (a.startsWith("seans-sil:")) {
     const gi = parseInt(par(1), 10), si = parseInt(par(2), 10);
@@ -1918,6 +2167,13 @@ document.addEventListener("click", e => {
     if (sb) { S.aliskanlik = { aktif: true, ad: sb.ad, birim: sb.birim, baslangic: bugun(), hafta1: sb.baslangic }; toast("Takip başladı"); }
   }
   else if (a === "alis-kapat") { S.aliskanlik = null; toast("Takip kapatıldı"); }
+  else if (a.startsWith("kcal-oneri:")) {
+    const v = parseInt(par(1), 10);
+    if (!(v > 0)) return;
+    /* Elle ayarlanmış sayılıyor: bir daha formül üzerine yazmasın. */
+    S.profil.kcal = v; S.profil.kcalElle = true; S.profil.kcalAyarTarih = bugun();
+    toast("Günlük hedef " + v + " kcal · iki hafta böyle git");
+  }
   else if (a === "sifirla") {
     if (!S.f.silOnay) { S.f.silOnay = true; toast("Emin misen düğmeye bir daha bas"); ciz(); return; }
     localStorage.removeItem(ANAHTAR);
@@ -1961,9 +2217,24 @@ function sporSeanslariniSil(id) {
   S.program.forEach(p => { p.seanslar = (p.seanslar || []).filter(s => s.spor !== id); });
 }
 
-function yemekEkle(y) {
+function yemekEkle(y, ogunId) {
   const g = gun();
-  g.yenen.push({ uid: "y" + Date.now() + Math.round(Math.random() * 1e4), ogun: S.araHedef || "genel", ...y });
+  g.yenen.push({ uid: "y" + Date.now() + Math.round(Math.random() * 1e4) + g.yenen.length,
+                 ogun: ogunId || S.araHedef || "genel", ...y });
+}
+
+/* Alışveriş listesine kalem ekle. Ad iki yerden geliyor: kullanıcının yazdığı
+   metin ve "sık yediklerin" önerisi. data-act'ı ":" ile böldüğümüz için ad
+   içindeki iki nokta temizleniyor. */
+function marketEkle(ad) {
+  const t = String(ad).replace(/:/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
+  if (!t) return;
+  const s = sadeAd(t);
+  if (marketGruplari().some(g => g.i.some(x => sadeAd(x) === s))) { toast(t + " zaten listede"); return; }
+  if (S.marketEk.length >= 60) { toast("Kendi listen dolu (60)"); return; }
+  S.marketEk.push(t);
+  S.mkAcik["Kendi eklediklerin"] = true;
+  toast(t + " listeye eklendi");
 }
 
 /* Elle girilen yemek kullanıcının kendi listesine kaydedilir; bir daha

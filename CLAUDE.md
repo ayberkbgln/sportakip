@@ -6,7 +6,13 @@ yok. Kullanıcının verisi yalnızca kendi cihazında ve kendi iCloud alanında
 **İki hedefte çalışıyor:** `web/` klasörü tek başına buildsiz bir PWA; aynı klasör
 Capacitor kabuğunun içinde iOS uygulaması olarak da çalışıyor (App Store yolu).
 
-Arayüz metinleri Türkçe. Uygulama kickboksa değil, **her spora** göre kuruluyor: dövüş
+Arayüz metinleri şu an Türkçe. **Planlanan:** App Store sürümü İngilizce çıkacak, TR/EN
+seçmeli. Yeni metin yazarken bunu düşün — dize gövdeye gömülü olsun, ama cümleyi
+çeviriye uygun kur (dilbilgisi eki uydurma: "Dünü tekrarla" iyi, "Dünkü Kahvaltı'yı
+tekrarla" değil). Ayrıca **arayüzde "web/tarayıcı" kelimesi geçmesin** — kullanıcı için
+bu bir uygulama; "web" yalnız klasör adı.
+
+Uygulama kickboksa değil, **her spora** göre kuruluyor: dövüş
 sporları, ağırlık, kardiyo, takım sporları, esneklik. Öğün planı, takviyeler ve haftalık
 program kodda sabit değil — kurulum sihirbazında kullanıcıdan alınıp cihaza yazılıyor.
 
@@ -135,6 +141,7 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
     "suHedef": 12,            // kaç bardak
     "bardakMl": 250,          // bardak boyutu; günlük hedef = suHedef × bardakMl
     "kcalElle": false,
+    "kcalAyarTarih": "",      // son kalori önerisinin uygulandığı gün
     "antrSaat": "18:00",      // kafein uyarısı bunu kullanır
     "tamam": false            // false ise kurulum sihirbazı çalışır
   },
@@ -166,8 +173,11 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
     }
   },
   "olcumler": [ { "tarih": "2026-08-11", "kilo": 0, "bel": 0, "boyun": 0, "kalca": 0 } ],
-  "market": { "Yumurta": true },
+  "market": { "Yumurta": true },        // alışverişte işaretli kalemler
+  "marketEk": ["Lahmacun"],             // kullanıcının listeye eklediği kendi kalemleri
   "ozelBesinler": [],
+  "kayitliOgun": [ { "id": "m…", "ad": "Kahvaltı · Yulaf +2",
+                     "kalemler": [ { "ad": "…", "kcal": 0, "p": 0, "gram": 0 } ] } ],
   "sonYedek": null
 }
 ```
@@ -200,6 +210,15 @@ Notlar:
   programı düzenlemek geçmişi bozmaz. Programdan silinen seansın geçmiş kaydı
   yerinde kalır, sadece artık gösterilmez.
 - `olcumler` **günde tek kayıt** tutar; aynı güne ikinci giriş üzerine yazar.
+- `kayitliOgun` bir öğünün o günkü kalemlerinin kopyasıdır, canlı bağ değil. Kayıttan
+  sonra öğünü değiştirmek şablonu etkilemez — bilerek böyle, "her zamanki kahvaltım"
+  sabit kalsın. En fazla 30 kayıt tutulur, yenisi başa eklenir.
+- `marketEk` yalnız **kullanıcının kendi eklediği** kalemleri tutar. `MARKET_SABLON`
+  ve takviye grubu koddan/durumdan üretilir, oraya yazılmaz. `market` ise işaret
+  haritası — "İşaretleri temizle" yalnız onu boşaltır, `marketEk` yerinde kalır.
+- `profil.kcalAyarTarih` kalori önerisinin tekrarını engeller: bir öneri uygulandıktan
+  sonra 14 gün yeni öneri çıkmaz. Olmasaydı arka arkaya basan kullanıcı hedefini her
+  dokunuşta 300 kcal aşağı çekerdi.
 - `gunler` sınırsız büyür. Yemek kaydıyla birlikte 5 yılda ~5-8 MB; localStorage kotası
   (genelde 5-10 MB) için sınırda. Sorun çıkarsa eski günleri arşivle, silme.
 - Şema göçleri `duzelt()` içinde ve **kalıcı**: `semaDegisti` işaretliyse `yukle()`
@@ -226,7 +245,7 @@ Notlar:
 | `TAKVIYELER` | 22 takviye. `etiket.kafein` (mg) ve `etiket.tokKarin` uyarı motorunu besler. |
 | `OGUN_SABLON` | 1/2/3/4/5/6 öğün ve 16:8 düzenleri; `p` = başlangıç ağırlığı. |
 | `ALISKANLIK_SABLON`, `AZALT_EGRISI` | Bırakma modülü ve haftalık azaltma eğrisi. |
-| `MARKET_SABLON` | Alışveriş listesi iskeleti. |
+| `MARKET_SABLON` | Alışveriş listesi iskeleti — 15 grup, market reyon sırasında. |
 | `REHBER` | Rehber içeriği. `kosul` alanı süzme yapar (aşağıya bak). |
 
 `REHBER[].kosul`: `null` = herkese; `"kreatin"` gibi bir takviye id'si = o takviye
@@ -280,9 +299,10 @@ ayrım paletten, tipografi ölçeğinden ve kompozisyondan geliyor.
 | Bölüm | İçerik |
 |---|---|
 | `DEPO` | `Depo.oku/yaz/eskiOku`. Depolamaya tek erişim noktası. |
-| `YARDIMCILAR` | `iso`, `trT`, `haftaBasi`, `esc`, `sayi`, `navy`, `bmr`, `hedefHesapla`, `aliskanlikDurum`, `besinAra`, `gunToplam`, `haftaButce`, `butceMesaj`, `uyarilar` |
-| `ÖĞÜNLER` | `ogunSlotlari`, `ogunOran`, `yeniOid`, `ogunKur`, `ogunDuzenle` |
-| `SEANSLAR` | `gunSeanslari`, `gunSporAdlari`, `gunToplamSure`, `yeniSid`, `seansOku`, `seansYaz`, `antrenmanYapildi`, `yapilanSeans`, `programDuzenle`, `gecenAntrenman`, `sporSeanslariniSil` |
+| `YARDIMCILAR` | `iso`, `trT`, `haftaBasi`, `esc`, `sayi`, `navy`, `bmr`, `hedefHesapla`, `kiloOrtalama`, `kaloriOneri`, `aliskanlikDurum`, `besinAra`, `gunToplam`, `haftaButce`, `butceMesaj`, `uyarilar` |
+| `ÖĞÜNLER` | `ogunSlotlari`, `ogunOran`, `yeniOid`, `ogunKur`, `ogunDuzenle`, `ogunKaydet`, `kayitToplam` |
+| `SEANSLAR` | `gunSeanslari`, `gunSporAdlari`, `gunToplamSure`, `yeniSid`, `seansOku`, `seansYaz`, `antrenmanYapildi`, `yapilanSeans`, `programDuzenle`, `gecenAntrenman`, `setOzet`, `e1rm`, `egzersizRekor`, `sporSeanslariniSil` |
+| `ALIŞVERİŞ` | `marketGruplari`, `marketOnerileri`, `marketEkle` |
 | `DURUM` | `varsayilan()`, `S`, `KALICI`, `yukle()`, `duzelt()`, `goc()`, `kaydet()`, `kaydetGecikmeli()`, `kurulumGerek()`, `gun()`, `toast()` |
 | `PARÇALAR` | `kart()`, `satir()`, `alan()`, `secOp()`, `uyariKutu()`, `tally()`, `ilerleme()`, `halka()`, `grafik()` |
 | `KURULUM` | `vKurulum()` + `kAdim0…kAdim7`, `adimGecerli()`, `adimUygula()` |
@@ -339,6 +359,20 @@ günler bilerek hesaba katılmaz; katarsan uygulamayı hafta ortasında kuran ku
 günlerde sıfır kalori yemiş sayılır ve saçma bir bütçe çıkar.
 
 **Rehber maddesi eklemek** → `REHBER` dizisi, `kosul` alanını doğru ayarla.
+
+**Alışveriş listesine kalem/grup eklemek** → `MARKET_SABLON`. Grup sırası market
+reyonlarını takip ediyor, araya girerken bunu boz­ma. Takviye grubunu koda yazma —
+`marketGruplari()` onu `S.takviyeler`'den üretiyor. Ekranda gruplar katlanıyor
+(`S.mkAcik`, kalıcı değil); içinde işaret olan grup açık başlar.
+
+**Kalori uyarlaması** → `kaloriOneri()`. 7 günlük iki pencerenin kilo ortalamasını
+karşılaştırır, `HAFTALIK_BEKLENTI` ile kıyaslar, 1 kg ≈ 7700 kcal üzerinden günlük
+düzeltme önerir (±300 ile sınırlı, bazal metabolizmanın altına inmez). Öneri
+kendiliğinden uygulanmaz; `kcalAyarTarih` 14 gün susturur.
+
+**Progresif yükleme** → `e1rm()` (Epley) ve `egzersizRekor()`. Rekor hesabında
+**bugünü hariç tut**, yoksa kayıt kendi rekorunu geçemez ve her satır "yeni rekor"
+yazar. `set-doldur` geçen seansın ağırlıklarını satırlara yazıyor.
 
 **Bugün ekranı** → hero halka + `.izgara` içinde `.kutu` döşemeleri. Yeni bir döşeme
 eklerken `kutular.push(...)` sırasına gir; detay gerekiyorsa `data-act="panel:xxx"` koy
@@ -401,6 +435,13 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Öğün sayısı 1'e indirilip 6'ya çıkarılıyor; paylar ve slot hedefleri tutuyor
 - [ ] Yemek ekleme paneli açılıyor, arama/miktar/düzenleme adımları ekranda kalıyor
 - [ ] Yedekle → sil → geri yükle turu çalışıyor
+- [ ] Alışverişte grup açılıp kapanıyor, kendi kalemin ekleniyor/siliniyor,
+      "işaretleri temizle" `marketEk`'e dokunmuyor
+- [ ] Bir öğün kaydedilip panelden tek dokunuşla geri ekleniyor; "dünü tekrarla" doğru
+      öğüne yazıyor
+- [ ] Aynı egzersizde ağırlık artınca "yeni rekor" çıkıyor, artmayınca çıkmıyor
+- [ ] Test sunucusu `stil.css`'i **text/css** olarak servis ediyor — yanlış MIME'de
+      sayfa stilsiz açılır ve düzen kontrolleri boşuna geçer
 - [ ] Türkçe karakterler bozulmadı
 - [ ] İkon değiştiyse dört boyut da (180/192/512 + magaza/icon-1024) yenilendi ve
       1024'lük alfa kanalsız — Apple alfa kanallı ikonu reddediyor

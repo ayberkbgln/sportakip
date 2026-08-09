@@ -175,15 +175,38 @@ const ALISKANLIK_SABLON = [
 const AZALT_EGRISI = [1, 0.6, 0.35, 0.2, 0.12, 0.08, 0.05];
 
 /* ---------- Market kategorileri ----------
-   Liste öğün planından türetilemeyen temel kalemler için iskelet.          */
+   Sıra market reyonlarını takip ediyor: önce manav, sonra kasap, şarküteri,
+   süt reyonu, kuru gıda, en sonda içecek. Böylece liste dükkânda yukarıdan
+   aşağı okunuyor, geri dönüp durmuyorsun.
+
+   Ekranda hepsi birden basılmıyor — her grup katlanır (`dMarket`), üstte de
+   son iki haftada gerçekten yediklerinden çıkan öneriler duruyor. Kullanıcı
+   kendi kalemini de ekleyebiliyor (`S.marketEk`), takviye grubu da seçili
+   takviyelerden kendiliğinden üretiliyor; burada sabit liste yok.          */
 const MARKET_SABLON = [
-  { k: "Protein",       i: ["Yumurta", "Tavuk göğsü", "Kıyma", "Balık", "Ton balığı", "Hindi"] },
-  { k: "Süt ürünü",     i: ["Süzme yoğurt", "Yoğurt", "Beyaz peynir", "Süt", "Kefir"] },
-  { k: "Karbonhidrat",  i: ["Tam buğday ekmek", "Bulgur", "Pirinç", "Makarna", "Mercimek", "Yulaf", "Patates"] },
-  { k: "Meyve",         i: ["Muz", "Elma", "Portakal", "Hurma", "Mevsim meyvesi"] },
-  { k: "Sebze",         i: ["Domates, salatalık, yeşillik", "Mevsim sebzesi", "Soğan, sarımsak, limon", "Brokoli"] },
-  { k: "Yağ",           i: ["Zeytinyağı", "Badem / ceviz", "Fıstık ezmesi", "Avokado"] },
-  { k: "İçecek",        i: ["Maden suyu", "Çay", "Kahve"] }
+  { k: "Sebze",             i: ["Domates", "Salatalık", "Yeşillik / marul", "Soğan", "Sarımsak", "Biber",
+                                "Brokoli", "Ispanak", "Havuç", "Kabak", "Patates", "Mantar", "Mevsim sebzesi"] },
+  { k: "Meyve",             i: ["Muz", "Elma", "Portakal", "Çilek", "Karpuz / kavun", "Üzüm",
+                                "Avokado", "Limon", "Mevsim meyvesi"] },
+  { k: "Et ve tavuk",       i: ["Tavuk göğsü", "Tavuk but", "Dana kıyma", "Dana kuşbaşı", "Biftek / bonfile",
+                                "Hindi", "Kuzu"] },
+  { k: "Balık",             i: ["Somon", "Levrek / çipura", "Hamsi", "Ton balığı (konserve)", "Karides"] },
+  { k: "Şarküteri",         i: ["Yumurta", "Hindi füme", "Tavuk salam", "Pastırma", "Sucuk"] },
+  { k: "Süt ürünü",         i: ["Süt", "Yoğurt", "Süzme yoğurt", "Kefir", "Ayran", "Beyaz peynir",
+                                "Kaşar", "Lor / çökelek", "Krem peynir"] },
+  { k: "Kahvaltılık",       i: ["Yulaf", "Zeytin", "Bal", "Reçel", "Tahin", "Pekmez", "Fıstık ezmesi",
+                                "Mısır gevreği"] },
+  { k: "Ekmek ve unlu",     i: ["Tam buğday ekmek", "Ekmek", "Lavaş / tortilla", "Yufka", "Galeta / grissini"] },
+  { k: "Tahıl ve bakliyat", i: ["Pirinç", "Bulgur", "Makarna", "Kuskus", "Kinoa", "Mercimek", "Nohut",
+                                "Kuru fasulye", "Un"] },
+  { k: "Konserve ve hazır", i: ["Domates salçası", "Mısır konservesi", "Bezelye", "Barbunya", "Hazır çorba"] },
+  { k: "Yağ, sos, baharat", i: ["Zeytinyağı", "Ayçiçek yağı", "Sirke", "Hardal", "Ketçap", "Soya sosu",
+                                "Tuz", "Karabiber", "Pul biber", "Kekik", "Kimyon", "Nane"] },
+  { k: "Kuruyemiş",         i: ["Badem", "Ceviz", "Fındık", "Antep fıstığı", "Kaju", "Kuru üzüm",
+                                "Hurma", "Kuru kayısı"] },
+  { k: "Dondurulmuş",       i: ["Dondurulmuş sebze", "Dondurulmuş meyve", "Dondurulmuş balık"] },
+  { k: "Atıştırmalık",      i: ["Bitter çikolata", "Protein bar", "Mısır patlağı", "Kraker"] },
+  { k: "İçecek",            i: ["Maden suyu", "Su (damacana)", "Çay", "Kahve", "Bitki çayı", "Şekersiz gazoz"] }
 ];
 
 /* ---------- Rehber ----------
@@ -199,7 +222,7 @@ const REHBER = [
   { b: "Ölçüm — hep aynı şekilde", kosul: null, s: [
     ["Ne zaman", "Sabah, aç karnına, tuvaletten sonra, antrenmandan önce."],
     ["Bel", "Göbek deliği hizasından. Mezura yere paralel, karnı İÇE ÇEKMEDEN, normal nefes verdikten sonra."],
-    ["Boyun", "Adem elmasının hemen altından. Mezura önde hafif aşağı eğimli, sıkmadan."],
+    ["Boyun", "Gırtlağın hemen altından, boynun en dar yerinden. Mezura önde hafif aşağı eğimli, sıkmadan."],
     ["Kalça", "En geniş yerinden, ayaklar bitişik. (Kadınlarda Navy formülü bunu da kullanır.)"],
     ["Kaç kez", "Her ölçüyü 2 kez al, ortalamasını gir. 1 cm hata ~1 puan kaydırır."],
     ["Yorumlama", "4 haftada bel 2-3 cm inmişse doğru yoldasın — tartı ne derse desin."],
