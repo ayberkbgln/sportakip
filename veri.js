@@ -119,6 +119,13 @@ const TAKVIYELER = [
    Oranlar kalori hedefine göre ölçeklenir; gramaj kullanıcıya kalır.
    p = o öğünün günlük kalorinin yüzdesi                                    */
 const OGUN_SABLON = [
+  { id: "1ogun", ad: "Tek öğün", d: "Günün tamamı tek öğünde (OMAD)",
+    ogunler: [
+      { ad: "Öğün", saat: "18:00", p: 1 }] },
+  { id: "2ogun", ad: "2 öğün", d: "Kahvaltı atlanır ya da iki büyük öğün",
+    ogunler: [
+      { ad: "İlk öğün", saat: "12:30", p: 0.45 },
+      { ad: "Son öğün", saat: "19:30", p: 0.55 }] },
   { id: "3ogun", ad: "3 öğün", d: "Sade — kahvaltı, öğle, akşam",
     ogunler: [
       { ad: "Kahvaltı", saat: "08:00", p: 0.30 },

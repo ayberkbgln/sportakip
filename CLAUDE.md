@@ -48,7 +48,7 @@ sabitleri kullanıyor.
    ekranların hiçbiri depolamayı tanımamalı. Bu ayrımı bozma.
 6. **`ANAHTAR` sabitini keyfî değiştirme** (`"fitplan-v2"`). Şema gerçekten kırılacaksa
    önce geçiş kodu yaz, sonra sürümü artır — `goc()` fonksiyonu buna örnek.
-7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v7` → `plan-v8`).
+7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v8` → `plan-v9`).
    Artırmazsan kullanıcı eski sürümde takılı kalır — iOS önbelleği inatçıdır.
    Yeni bir dosya eklersen `DOSYALAR` listesine de eklemeyi unutma.
 8. **Türkçe karakterler.** Dosyalar UTF-8. `charset` meta etiketini silme.
@@ -133,7 +133,14 @@ Notlar:
 
 - Tarihler her zaman **yerel** `YYYY-AA-GG`. `iso()` saat dilimi kaymasını düzeltir —
   `toISOString()`'i doğrudan kullanma, gün kayar.
-- `ogunler[].p` o öğünün günlük kalorinin oranı; slot hedefleri buradan türer.
+- `ogunler[].p` bir **ağırlıktır**, mutlak oran değil. Gerçek pay `ogunOran()` ile
+  okunurken normalleştirilir (`p / toplamP`). Böylece kullanıcı yüzdeleri elle
+  değiştirirken toplamı 100'de tutmak zorunda kalmıyor. Şablonlar 1'e topladığı
+  için eski kayıtlar aynen çalışır.
+- Öğün sayısı **1'den başlar** — tek öğün yiyen de (OMAD) sık yiyen de kendi düzenini
+  kurar. Öğünler eklenip çıkarılabilir, yeniden adlandırılabilir, sıralanabilir.
+- Bir öğün silinince ona bağlı `yenen` kayıtları öksüz kalır; Yemek sekmesi bunları
+  "Öğün dışı" kartında gösterir. Görünmez kalmamalılar, çünkü günlük toplama giriyorlar.
 - `takviyeler[].gunler` boş dizi = her gün. Doluysa `getDay()` değerlerini içerir.
 - `gunler[].yenen` düz bir liste; `ogun` alanı hangi slota ait olduğunu söyler.
   Öğün "yendi mi" diye kutucuk yok — ne yediğin kayıtlı, toplamlar oradan çıkıyor.
@@ -166,7 +173,7 @@ Notlar:
 | `LOG_ALAN` | Antrenman günlüğü alan etiketleri. |
 | `GUC_SABLON` | Ağırlık antrenmanı egzersiz şablonları. |
 | `TAKVIYELER` | 22 takviye. `etiket.kafein` (mg) ve `etiket.tokKarin` uyarı motorunu besler. |
-| `OGUN_SABLON` | 3/4/5/6 öğün ve 16:8 düzenleri; `p` = günlük kalorinin oranı. |
+| `OGUN_SABLON` | 1/2/3/4/5/6 öğün ve 16:8 düzenleri; `p` = başlangıç ağırlığı. |
 | `ALISKANLIK_SABLON`, `AZALT_EGRISI` | Bırakma modülü ve haftalık azaltma eğrisi. |
 | `MARKET_SABLON` | Alışveriş listesi iskeleti. |
 | `REHBER` | Rehber içeriği. `kosul` alanı süzme yapar (aşağıya bak). |
@@ -223,6 +230,7 @@ ayrım paletten, tipografi ölçeğinden ve kompozisyondan geliyor.
 |---|---|
 | `DEPO` | `Depo.oku/yaz/eskiOku`. Depolamaya tek erişim noktası. |
 | `YARDIMCILAR` | `iso`, `trT`, `haftaBasi`, `esc`, `sayi`, `navy`, `bmr`, `hedefHesapla`, `aliskanlikDurum`, `besinAra`, `gunToplam`, `haftaButce`, `butceMesaj`, `uyarilar` |
+| `ÖĞÜNLER` | `ogunSlotlari`, `ogunOran`, `yeniOid`, `ogunKur`, `ogunDuzenle` |
 | `SEANSLAR` | `gunSeanslari`, `gunSporAdlari`, `gunToplamSure`, `yeniSid`, `seansOku`, `seansYaz`, `antrenmanYapildi`, `yapilanSeans`, `programDuzenle`, `gecenAntrenman`, `sporSeanslariniSil` |
 | `DURUM` | `varsayilan()`, `S`, `KALICI`, `yukle()`, `duzelt()`, `goc()`, `kaydet()`, `kaydetGecikmeli()`, `kurulumGerek()`, `gun()`, `toast()` |
 | `PARÇALAR` | `kart()`, `satir()`, `alan()`, `secOp()`, `uyariKutu()`, `tally()`, `ilerleme()`, `halka()`, `grafik()` |
@@ -262,8 +270,14 @@ alanını mg olarak doldur, uyarı motoru gerisini halleder.
 sıra önemli:** arama eşit alakadaki sonuçları veritabanı sırasına göre eler, o yüzden
 yaygın kalemi grubun başına yaz.
 
-**Öğün düzeni eklemek** → `OGUN_SABLON` dizisine bir kayıt; `p` değerlerinin toplamı 1
-olmalı.
+**Öğün düzeni eklemek** → `OGUN_SABLON` dizisine bir kayıt. `p` değerlerinin toplamı 1
+olsun ki düzenleyicide yüzdeler 100 görünsün — zorunlu değil, okurken normalleşiyor.
+
+**Öğün düzenini değiştirmek** → `ogunDuzenle()` tek bileşen; kurulum sihirbazının
+6. adımı ve Ayarlar onu basıyor. Ekleme `ogun-ekle`, alan yazımı
+`data-ogun="sıra:alan"`, sıralama `ogun-tasi:sıra:yön`, eşitleme `ogun-esit`.
+`ogunKur()` şablon uygularken var olan id'leri sırayla yeniden kullanır — böylece
+düzeni değiştiren kullanıcının o günkü kayıtları öğünlerine bağlı kalır.
 
 **Kalori/protein formülü** → `hedefHesapla()`. Şu an Mifflin-St Jeor × aktivite × hedef
 çarpanı, ve kalori bazal metabolizmanın altına inmiyor.
@@ -318,6 +332,7 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Sayı alanlarına **tuş tuş** yazılıyor (page.fill() bu hatayı yakalamaz)
 - [ ] Kurulum sihirbazı baştan sona geçiliyor (erkek ve kadın akışı ayrı ayrı)
 - [ ] Bir güne birden çok seans eklenip sıralanıyor; her seans kendi kaydını tutuyor
+- [ ] Öğün sayısı 1'e indirilip 6'ya çıkarılıyor; paylar ve slot hedefleri tutuyor
 - [ ] Yemek ekleme paneli açılıyor, arama/miktar/düzenleme adımları ekranda kalıyor
 - [ ] Yedekle → sil → geri yükle turu çalışıyor
 - [ ] Türkçe karakterler bozulmadı

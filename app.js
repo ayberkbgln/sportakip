@@ -603,9 +603,12 @@ function kAdim4() {
 }
 
 function kAdim5() {
-  return kart("", "",
-    `<div class="sec-lst">${OGUN_SABLON.map(o => secOp("k-ogun:" + o.id, S.f.ogunSablon === o.id, o.ad, o.d)).join("")}</div>
-     <p class="note" style="margin-top:12px">Öğün saatlerini ve isimlerini sonradan Yemek sekmesinden değiştirebilirsin. Hedef kalorin öğünlere orantılı dağıtılır.</p>`);
+  let h = kart("", "",
+    `<div class="sec-lst">${OGUN_SABLON.map(o => secOp("k-ogun:" + o.id, S.f.ogunSablon === o.id, o.ad, o.d)).join("")}</div>`);
+  if (S.ogunler.length)
+    h += `<p class="sec">Düzenle</p>` + kart("", "", ogunDuzenle() +
+      `<p class="note" style="margin-top:8px">Adları, saatleri ve payları değiştirebilir, öğün ekleyip çıkarabilirsin. Sonradan Ayarlar'dan da düzenlenir.</p>`);
+  return h;
 }
 
 function kAdim6() {
@@ -717,7 +720,7 @@ function vYemek() {
   ogunSlotlari().forEach(o => {
     const kalemler = g.yenen.filter(y => y.ogun === o.id);
     const sK = kalemler.reduce((a, y) => a + y.kcal, 0), sP = kalemler.reduce((a, y) => a + y.p, 0);
-    const hedefK = p.kcal ? Math.round(p.kcal * o.p) : null;
+    const hedefK = p.kcal ? Math.round(p.kcal * ogunOran(o)) : null;
     /* Slot hedefini belirgin biçimde aşınca sayıyı boya — yoksa fark edilmiyor */
     const slotAsti = hedefK && sK > hedefK * 1.15;
     h += kart(esc(o.ad) + (o.saat ? " · " + esc(o.saat) : ""),
@@ -732,11 +735,68 @@ function vYemek() {
       `<button class="btn ghost blok" data-act="yem-ac:${esc(o.id)}">Yemek ekle</button>`);
   });
 
+  /* Öğün düzeni değişince eski kayıtlar hiçbir slota denk gelmeyebilir.
+     Görünmez kalmasınlar — toplamlara zaten giriyorlar. */
+  const bilinen = new Set(ogunSlotlari().map(o => o.id));
+  const oksuz = g.yenen.filter(y => !bilinen.has(y.ogun));
+  if (oksuz.length)
+    h += kart("Öğün dışı", `${oksuz.reduce((a, y) => a + y.kcal, 0)} kcal`,
+      oksuz.map(y => `<div class="item" data-act="yem-duzenle:${esc(y.uid)}">
+        <div class="ib"><div class="it"><span class="name">${esc(y.ad)}</span>${y.gram ? `<span class="time">${y.gram} g</span>` : ""}</div>
+        <div class="macro">${y.kcal} kcal · ${(+y.p).toFixed(1)} g protein</div></div>
+        <div class="uc"><button class="sil" data-act="yem-sil:${esc(y.uid)}" aria-label="sil">×</button></div></div>`).join("") +
+      `<p class="note" style="margin-top:10px">Bu kayıtlar artık var olmayan bir öğüne aitti. Silebilir ya da olduğu gibi bırakabilirsin — günlük toplama dahiller.</p>`);
+
   return h;
 }
 
 const ogunSlotlari = () => S.ogunler.length
   ? S.ogunler : [{ id: "genel", ad: "Bugün yediklerim", saat: "", p: 1 }];
+
+/* p bir ağırlıktır, mutlak oran değil: kullanıcı yüzdeleri elle değiştirdiğinde
+   toplam 100 tutmak zorunda kalmasın diye okurken normalleştiriyoruz. Şablonlar
+   zaten 1'e toplandığı için eski kayıtlar aynen çalışır. */
+function ogunOran(o) {
+  const t = ogunSlotlari().reduce((a, x) => a + (+x.p > 0 ? +x.p : 0), 0);
+  if (!t) return 1 / ogunSlotlari().length;
+  return (+o.p > 0 ? +o.p : 0) / t;
+}
+const yeniOid = () => "o" + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
+
+/* Öğün düzeni düzenleyici — kurulum sihirbazı ve Ayarlar aynı bileşeni kullanır.
+   Öğün sayısı 1'den başlar; tek öğün yiyen de sık yiyen de kendi düzenini kurar. */
+function ogunDuzenle() {
+  const hedefK = S.profil.kcal;
+  /* Kutuda yazdığın sayı aynen saklanır; "Hedef" sütunu ise normalleştirilmiş
+     gerçek payı gösterir. Böylece ne yazdığınla ne olduğu ayrı ayrı okunur. */
+  const yuzde = o => Math.round((+o.p > 0 ? +o.p : 0) * 100);
+  const toplamYuzde = S.ogunler.reduce((a, o) => a + yuzde(o), 0);
+  return `${S.ogunler.map((o, i) => `<div class="seans">
+      <div class="seans-bas">
+        <span class="seans-no">${i + 1}</span>
+        <input type="text" data-ogun="${i}:ad" value="${esc(o.ad)}" placeholder="Öğün adı"
+          style="text-align:left;flex:1;min-width:0;padding:8px 10px;font-size:14px">
+        <span class="seans-ara">
+          ${i > 0 ? `<button class="seans-ok" data-act="ogun-tasi:${i}:-1" aria-label="yukarı taşı">↑</button>` : ""}
+          ${i < S.ogunler.length - 1 ? `<button class="seans-ok" data-act="ogun-tasi:${i}:1" aria-label="aşağı taşı">↓</button>` : ""}
+          ${S.ogunler.length > 1 ? `<button class="sil" data-act="ogun-sil:${i}" aria-label="kaldır">×</button>` : ""}
+        </span></div>
+      <div class="row">
+        <div class="alan"><label class="lbl">Saat</label>
+          <input type="time" data-ogun="${i}:saat" value="${esc(o.saat || "")}"></div>
+        <div class="alan"><label class="lbl">Pay %</label>
+          <input type="number" inputmode="numeric" data-ogun="${i}:p" value="${yuzde(o)}"></div>
+        <div class="alan"><label class="lbl">Hedef</label>
+          <input type="text" id="og-hedef-${i}" value="${hedefK ? Math.round(hedefK * ogunOran(o)) + " kcal" : "—"}" readonly
+            style="text-align:center;color:var(--vurgu);border-style:dashed"></div>
+      </div></div>`).join("")}
+    <div class="row" style="margin-top:10px">
+      <button class="btn ghost" data-act="ogun-ekle">+ Öğün ekle</button>
+      <button class="btn ghost" data-act="ogun-esit">Eşit dağıt</button></div>
+    <p class="note" style="margin-top:10px">Paylar günlük kalorinin dağılımı. Toplam
+    <strong id="og-toplam">${toplamYuzde}%</strong> — 100 tutmasa da sorun değil, oranlar
+    orantılı dağıtılır ve gerçek hedef sağdaki sütunda görünür.</p>`;
+}
 
 /* ---------------------------------------------------------------------
    Yemek ekleme paneli.
@@ -1143,9 +1203,10 @@ function dAyar() {
       : `<p class="note" style="margin-bottom:11px">Azaltmak istediğin bir şey varsa buradan açabilirsin.</p>
          <div class="sec-lst" style="margin-bottom:11px">${ALISKANLIK_SABLON.filter(x => x.id !== "ozel").map(x => secOp("alis-ac:" + x.id, false, x.ad, "Haftada " + x.baslangic + " " + x.birim + " ile başlar")).join("")}</div>`);
 
-  h += kart("Öğün düzeni", S.ogunler.length + " öğün",
+  h += kart("Öğün düzeni", S.ogunler.length + " öğün", ogunDuzenle());
+  h += kart("Hazır düzenler", "",
     `<div class="sec-lst">${OGUN_SABLON.map(o => secOp("ayar-ogun:" + o.id, false, o.ad, o.d)).join("")}</div>
-     <p class="note" style="margin-top:11px">Düzeni değiştirmek geçmiş kayıtları silmez, sadece bundan sonraki öğün slotlarını değiştirir.</p>`);
+     <p class="note" style="margin-top:11px">Hazır bir düzen seçmek yukarıdaki listenin üzerine yazar. Geçmiş kayıtlar silinmez.</p>`);
 
   h += kart("Sporlar", S.sporlar.length + " seçili",
     `<div class="sec-lst">${SPORLAR.map(s => secOp("ayar-spor:" + s.id, S.sporlar.indexOf(s.id) !== -1, s.ad, SPOR_TIP_AD[s.tip])).join("")}</div>`);
@@ -1220,7 +1281,7 @@ function adimGecerli(a) {
     return null;
   }
   if (a === 3 && !S.sporlar.length) return "En az bir spor seç";
-  if (a === 5 && !S.f.ogunSablon) return "Bir öğün düzeni seç";
+  if (a === 5 && !S.ogunler.length) return "Bir öğün düzeni seç";
   return null;
 }
 
@@ -1238,7 +1299,7 @@ function adimUygula(a) {
     const h = hedefHesapla();
     if (h && !p.kcalElle) { p.kcal = h.kcal; p.protein = h.protein; p.suHedef = h.su; }
   }
-  if (a === 5 && S.f.ogunSablon) ogunKur(S.f.ogunSablon);
+  if (a === 5 && !S.ogunler.length) ogunKur(S.f.ogunSablon || "3ogun");
   if (a === 7 && S.f.alisId) {
     const sb = ALISKANLIK_SABLON.find(x => x.id === S.f.alisId);
     const h1 = sayi(S.f.alisHafta1) || (sb ? sb.baslangic : 14);
@@ -1264,10 +1325,13 @@ function ayarFormDoldur() {
           pDogum: p.dogumYili || "", pBoy: p.boy || "", pKilo: p.kilo || "", pAntrSaat: p.antrSaat || "" };
 }
 
+/* Şablon uygularken var olan id'leri sırayla yeniden kullanıyoruz; böylece
+   düzeni değiştiren kullanıcının o günkü kayıtları öğünlerine bağlı kalıyor. */
 function ogunKur(sablonId) {
   const s = OGUN_SABLON.find(x => x.id === sablonId);
   if (!s) return;
-  S.ogunler = s.ogunler.map((o, i) => ({ id: "o" + (i + 1), ad: o.ad, saat: o.saat, p: o.p }));
+  const eski = S.ogunler.map(o => o.id);
+  S.ogunler = s.ogunler.map((o, i) => ({ id: eski[i] || yeniOid(), ad: o.ad, saat: o.saat, p: o.p }));
 }
 
 function programOto() {
@@ -1322,7 +1386,7 @@ document.addEventListener("click", e => {
     kaydet(); return ciz();
   }
   if (a === "k-prog-oto") { programOto(); kaydet(); return ciz(); }
-  if (a.startsWith("k-ogun:")) { S.f.ogunSablon = par(1); return ciz(); }
+  if (a.startsWith("k-ogun:")) { S.f.ogunSablon = par(1); ogunKur(par(1)); kaydet(); return ciz(); }
   if (a.startsWith("k-tak:")) {
     const id = par(1), i = S.takviyeler.findIndex(t => t.id === id);
     if (i === -1) { const t = TAKVIYELER.find(x => x.id === id); S.takviyeler.push({ ...t, gunler: [] }); }
@@ -1499,6 +1563,27 @@ document.addEventListener("click", e => {
   else if (a.startsWith("ayar-hedefTip:")) { S.profil.hedef = par(1); if (!S.profil.kcalElle) { const h = hedefHesapla(); if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; } } }
   else if (a.startsWith("ayar-akt:")) { S.profil.aktivite = par(1); if (!S.profil.kcalElle) { const h = hedefHesapla(); if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; } } }
   else if (a.startsWith("ayar-ogun:")) { ogunKur(par(1)); toast("Öğün düzeni güncellendi"); }
+  else if (a === "ogun-ekle") {
+    if (S.ogunler.length >= 10) { toast("En fazla 10 öğün"); return; }
+    const son = S.ogunler[S.ogunler.length - 1];
+    S.ogunler.push({ id: yeniOid(), ad: "Yeni öğün", saat: son ? son.saat : "12:00",
+                     p: S.ogunler.length ? 1 / (S.ogunler.length + 1) : 1 });
+  }
+  else if (a.startsWith("ogun-sil:")) {
+    if (S.ogunler.length <= 1) { toast("En az bir öğün olmalı"); return; }
+    S.ogunler.splice(parseInt(par(1), 10), 1);
+  }
+  else if (a.startsWith("ogun-tasi:")) {
+    const i = parseInt(par(1), 10), yon = parseInt(par(2), 10), h2 = i + yon;
+    if (h2 >= 0 && h2 < S.ogunler.length) {
+      const t = S.ogunler[i]; S.ogunler[i] = S.ogunler[h2]; S.ogunler[h2] = t;
+    }
+  }
+  else if (a === "ogun-esit") {
+    const pay = 1 / Math.max(1, S.ogunler.length);
+    S.ogunler.forEach(o => { o.p = pay; });
+    toast("Paylar eşitlendi");
+  }
   else if (a.startsWith("ayar-spor:")) {
     const id = par(1), i = S.sporlar.indexOf(id);
     if (i === -1) S.sporlar.push(id);
@@ -1578,6 +1663,16 @@ function yedekJson(guzel) {
    çalışmadığı için imleç başa düşer ve kullanıcı "40" yazarken "04" görür.
    Onun yerine yalnızca hesaplanan düğümleri güncelliyoruz. */
 function canliGuncelle() {
+  const ogT = document.getElementById("og-toplam");
+  if (ogT) {
+    let toplam = 0;
+    S.ogunler.forEach((o, i) => {
+      const oran = ogunOran(o), el = document.getElementById("og-hedef-" + i);
+      toplam += Math.round((+o.p > 0 ? +o.p : 0) * 100);
+      if (el) el.value = S.profil.kcal ? Math.round(S.profil.kcal * oran) + " kcal" : "—";
+    });
+    ogT.textContent = toplam + "%";
+  }
   const yag = document.getElementById("on-yag");
   if (yag) yag.innerHTML = onizlemeYag();
   const kcal = document.getElementById("bg-kcal");
@@ -1613,6 +1708,21 @@ document.addEventListener("input", e => {
     const [sid, i, alan] = t.dataset.set.split(":");
     const l = seansYaz(bugun(), sid).set;
     if (l && l[i]) { l[i][alan] = t.value; kaydetGecikmeli(); }
+    return;
+  }
+  if (t.dataset.ogun) {
+    const [i, alan] = t.dataset.ogun.split(":");
+    const o = S.ogunler[i];
+    if (o) {
+      if (alan === "p") {
+        /* Yüzde olarak girilir, ağırlık olarak saklanır. Diğer öğünlerin
+           payını bozmamak için okurken normalleştiriliyor. */
+        const y = sayi(t.value);
+        o.p = y > 0 ? y / 100 : 0;
+        canliGuncelle();
+      } else o[alan] = t.value;
+      kaydetGecikmeli();
+    }
     return;
   }
   if (t.dataset.seans) {
