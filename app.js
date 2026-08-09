@@ -117,18 +117,61 @@ function aliskanlikHafta(k) {
   return t;
 }
 
-/* ---- Besin arama ---- */
+/* ---- Besin arama ----
+   Kelime kelime eşleşir: "izgara tavuk" yazınca "Tavuk göğsü, ızgara" bulunur.
+   Düz alt dizi araması bunu bulamıyordu. Önce tüm kelimelerin geçtiği kayıtlar
+   (VE), hiç sonuç yoksa en çok kelimesi geçenler (VEYA) döner.               */
+function ozelListe() {
+  return S.ozelBesinler.map(b => ({ ...b, grup: "Kendi eklediklerim", ara: sadeAd(b.ad), ozel: true }));
+}
+
 function besinAra(q) {
   const s = sadeAd(q).trim();
   if (s.length < 2) return [];
-  const hepsi = S.ozelBesinler.map(b => ({ ...b, grup: "Kendi eklediklerim", ara: sadeAd(b.ad), ozel: true })).concat(BESIN_LISTE);
-  const bas = [], ic = [];
-  for (const b of hepsi) {
-    const i = b.ara.indexOf(s);
-    if (i === 0) bas.push(b); else if (i > 0) ic.push(b);
-    if (bas.length > 40) break;
+  const kelimeler = s.split(/\s+/).filter(k => k.length);
+  const ozel = ozelListe();
+  const ozelAd = new Set(ozel.map(b => b.ara));
+  const hepsi = ozel.concat(BESIN_LISTE.filter(b => !ozelAd.has(b.ara)));
+
+  const puanla = (b, k) => {
+    const i = b.ara.indexOf(k);
+    if (i === -1) return -1;
+    const oncesi = i === 0 || /[^a-z0-9]/.test(b.ara[i - 1]);
+    const sonra = b.ara[i + k.length];
+    const sonrasi = sonra === undefined || /[^a-z0-9]/.test(sonra);
+    let p = i === 0 ? 100 : oncesi ? 60 : 20;
+    /* Tam kelime eşleşmesi ağır bassın: "süt" araması "Sütlaç"ı değil
+       "Süt, tam yağlı"yı öne almalı. */
+    if (oncesi && sonrasi) p += 70;
+    return p;
+  };
+
+  const ve = [], veya = [];
+  for (let idx = 0; idx < hepsi.length; idx++) {
+    const b = hepsi[idx];
+    let toplam = 0, eksik = false, tutan = 0;
+    for (const k of kelimeler) {
+      const p = puanla(b, k);
+      if (p < 0) eksik = true; else { toplam += p; tutan++; }
+    }
+    if (!tutan) continue;
+    /* Birebir ad en öne, kendi eklediklerin öncelikli. Ad uzunluğuna göre
+       ceza YOK: eşit alakada veritabanı sırası daha iyi bir işaret, çünkü her
+       grupta yaygın kalem önce yazılı. Uzunluğa bakınca "yumurta" araması
+       bütün yumurta yerine yumurta beyazını, "peynir" beyaz peynir yerine
+       krem peyniri öne alıyordu. */
+    const puan = toplam + (b.ozel ? 40 : 0) + (b.ara === s ? 300 : 0);
+    (eksik ? veya : ve).push({ b, puan, tutan, idx });
   }
-  return bas.concat(ic).slice(0, 40);
+  const sirala = l => l.sort((x, y) => y.tutan - x.tutan || y.puan - x.puan || x.idx - y.idx).map(x => x.b);
+  return (ve.length ? sirala(ve) : sirala(veya)).slice(0, 40);
+}
+
+/* Kayıtlı bir yemeği adından bul — düzenlerken gramaj hesabını geri kurmak için.
+   Besin adları veritabanında benzersiz. */
+function besinBul(ad) {
+  const s = sadeAd(ad);
+  return ozelListe().concat(BESIN_LISTE).find(b => b.ara === s) || null;
 }
 /* Son eklenen besinler — çoğu insan aynı 20 şeyi yiyor */
 function sonBesinler(n) {
@@ -242,6 +285,7 @@ let S = Object.assign(varsayilan(), {
   ara: "",            // besin arama kutusu
   araHedef: "",       // aramanın hangi öğüne ekleyeceği
   daha: "",           // Daha sekmesindeki alt sayfa
+  odakAra: false,     // panel açılınca arama kutusuna odaklan
   yedekMetin: ""
 });
 
@@ -599,8 +643,7 @@ function vYemek() {
        <p class="note" style="margin-top:8px">Bir gün taştıysan uygulama seni sıfırlamaz — kalan bütçeyi kalan günlere böler. Haftalık toplam, günlük mükemmellikten daha çok işe yarar.</p>`);
 
   /* Öğün slotları */
-  const slotlar = S.ogunler.length ? S.ogunler : [{ id: "genel", ad: "Bugün yediklerim", saat: "", p: 1 }];
-  slotlar.forEach(o => {
+  ogunSlotlari().forEach(o => {
     const kalemler = g.yenen.filter(y => y.ogun === o.id);
     const sK = kalemler.reduce((a, y) => a + y.kcal, 0), sP = kalemler.reduce((a, y) => a + y.p, 0);
     const hedefK = p.kcal ? Math.round(p.kcal * o.p) : null;
@@ -609,42 +652,89 @@ function vYemek() {
     h += kart(esc(o.ad) + (o.saat ? " · " + esc(o.saat) : ""),
       hedefK ? `<span${slotAsti ? ' style="color:var(--uyari)"' : ""}>${sK}</span> / ${hedefK} kcal` : `${sK} kcal`,
       (kalemler.length
-        ? kalemler.map(y => `<div class="item">
-            <div class="ib"><div class="it"><span class="name">${esc(y.ad)}</span><span class="time">${y.gram} g</span></div>
-            <div class="macro">${y.kcal} kcal · ${y.p.toFixed(1)} g protein</div></div>
+        ? kalemler.map(y => `<div class="item" data-act="yem-duzenle:${esc(y.uid)}">
+            <div class="ib"><div class="it"><span class="name">${esc(y.ad)}</span>${y.gram ? `<span class="time">${y.gram} g</span>` : ""}</div>
+            <div class="macro">${y.kcal} kcal · ${(+y.p).toFixed(1)} g protein</div></div>
             <div class="uc"><button class="sil" data-act="yem-sil:${esc(y.uid)}" aria-label="sil">×</button></div></div>`).join("")
         : `<p class="bos">Henüz bir şey eklemedin.</p>`) +
-      `<div class="macro" style="margin:8px 0 10px">Toplam ${sK} kcal · ${sP.toFixed(1)} g protein</div>
-       <button class="btn ghost blok" data-act="yem-ac:${esc(o.id)}">Yemek ekle</button>`);
+      (kalemler.length ? `<div class="macro" style="margin:10px 0 10px">Toplam ${sK} kcal · ${sP.toFixed(1)} g protein</div>` : "") +
+      `<button class="btn ghost blok" data-act="yem-ac:${esc(o.id)}">Yemek ekle</button>`);
   });
 
-  /* Arama paneli. Sonuç listesi ayrı bir kapta: yazarken tüm ekranı değil
-     yalnızca o kabı tazeliyoruz (bkz. canliGuncelle). */
-  if (S.araHedef) {
-    const hedefAd = (slotlar.find(o => o.id === S.araHedef) || {}).ad || "";
-    h += kart("Ekle → " + esc(hedefAd), "",
-      `<input type="text" data-ara="1" value="${esc(S.ara)}" placeholder="Besin ara — örn. tavuk, pilav, muz" style="text-align:left">
-       <div id="ara-liste">${araListeHtml()}</div>
-       <hr><p class="sec" style="margin:0 0 8px">Elle ekle</p>
-       <div class="row" style="margin-bottom:9px">${alan("elAd", "Ne yedin", "text")}</div>
-       <div class="row" style="margin-bottom:11px">${alan("elKcal", "kcal")}${alan("elP", "Protein g")}</div>
-       <div class="row"><button class="btn gold" data-act="el-ekle">Ekle</button>
-        <button class="btn ghost" data-act="ara-kapat">Kapat</button></div>`);
+  return h;
+}
+
+const ogunSlotlari = () => S.ogunler.length
+  ? S.ogunler : [{ id: "genel", ad: "Bugün yediklerim", saat: "", p: 1 }];
+
+/* ---------------------------------------------------------------------
+   Yemek ekleme paneli.
+
+   Sayfaya kart olarak eklenmiyor, sayfanın ÜSTÜNE oturuyor (position:fixed).
+   Önceden gramaj kartı uzun sayfanın en altına basılıyordu; kullanıcı bir
+   besine dokununca kart görüş alanının dışında kalıyor ve hiçbir şey olmamış
+   gibi görünüyordu. Panel sabit olduğu için o hata sınıfı tamamen kalkıyor.
+   --------------------------------------------------------------------- */
+function yemekPaneli() {
+  if (!S.araHedef) return "";
+  const hedefAd = (ogunSlotlari().find(o => o.id === S.araHedef) || {}).ad || "";
+  const perde = `<div class="perde" data-act="ara-kapat"></div>`;
+  const kapat = `<button class="sayfa-kapa" data-act="ara-kapat" aria-label="kapat">×</button>`;
+
+  /* 3. adım — elle girilen kalemi düzenle */
+  if (S.f.elleDuzenle)
+    return perde + `<div class="sayfa"><div class="tut"></div>
+      <div class="sayfa-bas"><p class="card-t">Düzenle</p>${kapat}</div>
+      <div class="sayfa-govde">
+        <div class="row" style="margin-bottom:10px">${alan("elAd", "Ne yedin", "text")}</div>
+        <div class="row">${alan("elKcal", "kcal")}${alan("elP", "Protein g")}</div>
+      </div>
+      <div class="sayfa-alt"><div class="row">
+        <button class="btn ghost" data-act="besin-iptal">Geri</button>
+        <button class="btn gold" data-act="el-guncelle">Kaydet</button></div></div></div>`;
+
+  /* 2. adım — miktar */
+  if (S.f.besin) {
+    const b = S.f.besin, c = besinHesap();
+    const carpanlar = [0.5, 1, 1.5, 2, 3];
+    const secili = sayi(S.f.besinGram);
+    const chipler = carpanlar.map(x => {
+      const gr = Math.round(b.pGram * x);
+      const on = Math.abs(secili - gr) < 0.5;
+      const kesir = { 0.5: "½", 1.5: "1½" }[x] || String(x);
+      const etiket = `${kesir} ${b.ozel ? "porsiyon" : b.pAd}`;
+      return `<button class="chip ${on ? "gold" : ""}" data-act="porsiyon:${gr}">${esc(etiket)}${b.ozel ? "" : ` · ${gr} g`}</button>`;
+    }).join("");
+    return perde + `<div class="sayfa"><div class="tut"></div>
+      <div class="sayfa-bas"><p class="card-t">${S.f.duzenleUid ? "Düzenle" : "Miktar"}</p>${kapat}</div>
+      <div class="sayfa-govde">
+        <p class="panel-ad">${esc(b.ad)}</p>
+        <p class="macro" style="margin:0 0 14px">${esc(b.grup)}${b.ozel ? "" : ` · 100 g'da ${b.kcal} kcal, ${b.p} g protein`}</p>
+        <div class="row wrapped" style="gap:7px;margin-bottom:14px">${chipler}</div>
+        ${b.ozel ? "" : `<div class="row" style="margin-bottom:14px">${alan("besinGram", "Gram")}</div>`}
+        <div class="stat">
+          <div class="sc"><div class="sn" id="bg-kcal" style="color:var(--vurgu)">${c.kcal}</div><div class="sl">kcal</div></div>
+          <div class="sc"><div class="sn" id="bg-p">${c.p}</div><div class="sl">Protein g</div></div>
+          <div class="sc"><div class="sn" id="bg-ky">${c.ky}</div><div class="sl">Karb / Yağ</div></div></div>
+      </div>
+      <div class="sayfa-alt"><div class="row">
+        <button class="btn ghost" data-act="besin-iptal">Geri</button>
+        <button class="btn gold" data-act="besin-ekle">${S.f.duzenleUid ? "Kaydet" : "Ekle"}</button></div></div></div>`;
   }
 
-  /* Seçilen besin için gramaj */
-  if (S.f.besin) {
-    const c = besinHesap();
-    h += kart("Miktar", esc(S.f.besin.ad),
-      `<div class="row" style="margin-bottom:11px">${alan("besinGram", "Gram")}</div>
-       <div class="stat" style="margin-bottom:12px">
-         <div class="sc"><div class="sn" id="bg-kcal" style="color:var(--vurgu)">${c.kcal}</div><div class="sl">kcal</div></div>
-         <div class="sc"><div class="sn" id="bg-p">${c.p}</div><div class="sl">Protein g</div></div>
-         <div class="sc"><div class="sn" id="bg-ky">${c.ky}</div><div class="sl">Karb / Yağ</div></div></div>
-       <div class="row"><button class="btn gold" data-act="besin-ekle">Ekle</button>
-        <button class="btn ghost" data-act="besin-iptal">Vazgeç</button></div>`);
-  }
-  return h;
+  /* 1. adım — arama */
+  return perde + `<div class="sayfa"><div class="tut"></div>
+    <div class="sayfa-bas"><p class="card-t">${esc(hedefAd)} · yemek ekle</p>${kapat}</div>
+    <div class="sayfa-govde">
+      <input type="text" data-ara="1" value="${esc(S.ara)}" placeholder="Ara — tavuk, pilav, muz…"
+        style="text-align:left" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div id="ara-liste">${araListeHtml()}</div>
+      <p class="sec">Listede yoksa elle ekle</p>
+      <div class="row" style="margin-bottom:9px">${alan("elAd", "Ne yedin", "text")}</div>
+      <div class="row" style="margin-bottom:11px">${alan("elKcal", "kcal")}${alan("elP", "Protein g")}</div>
+      <button class="btn blok" data-act="el-ekle">Elle ekle ve kaydet</button>
+      <p class="note" style="margin-top:9px">Elle eklediğin yemek listene kaydedilir, bir dahaki sefere aramada çıkar.</p>
+    </div></div>`;
 }
 
 function araListeHtml() {
@@ -977,6 +1067,7 @@ const ADLAR = { bugun: "Bugün", yemek: "Yemek", antrenman: "Antrenman", ilerlem
 
 function ciz() {
   const app = document.getElementById("app");
+  document.body.classList.toggle("kilit", !!S.araHedef);
   if (kurulumGerek()) { app.innerHTML = `<div class="wrap solo">${vKurulum()}</div>`; return; }
   const v = { bugun: vBugun, yemek: vYemek, antrenman: vAntrenman, ilerleme: vIlerleme, daha: vDaha }[S.tab]();
   app.innerHTML = `<div class="wrap">${v}</div>
@@ -984,7 +1075,15 @@ function ciz() {
      `<button class="tab ${S.tab === id ? "on" : ""}" data-act="tab:${id}" aria-label="${ADLAR[id]}">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
        stroke-linecap="round" stroke-linejoin="round"><path d="${IKON[id]}"/></svg><span>${ADLAR[id]}</span></button>`).join("")}
-   </div></nav>`;
+   </div></nav>
+   ${yemekPaneli()}`;
+
+  /* Panel yeni açıldıysa arama kutusuna odaklan — kullanıcı hemen yazmaya başlasın */
+  if (S.odakAra) {
+    S.odakAra = false;
+    const inp = app.querySelector("[data-ara]");
+    if (inp) inp.focus();
+  }
 }
 
 /* Kurulum sihirbazı adım doğrulaması */
@@ -1140,34 +1239,69 @@ document.addEventListener("click", e => {
   else if (a === "mk-sifirla") { S.market = {}; toast("Liste sıfırlandı"); }
 
   /* ---- yemek ---- */
-  else if (a.startsWith("yem-ac:")) { S.araHedef = par(1); S.ara = ""; S.f.besin = null; }
-  else if (a === "ara-kapat") { S.araHedef = ""; S.ara = ""; S.f.besin = null; }
+  else if (a.startsWith("yem-ac:")) { S.araHedef = par(1); S.ara = ""; S.f = {}; S.odakAra = true; }
+  else if (a === "ara-kapat") { S.araHedef = ""; S.ara = ""; S.f = {}; }
   else if (a.startsWith("bes-sec:")) {
     const b = besinAra(S.ara)[parseInt(par(1), 10)];
     if (b) { S.f.besin = b; S.f.besinGram = String(b.pGram); }
   }
+  else if (a.startsWith("porsiyon:")) { S.f.besinGram = par(1); }
   else if (a.startsWith("bes-son:")) {
     const b = sonBesinler(8)[parseInt(par(1), 10)];
-    if (b) { yemekEkle({ ad: b.ad, kcal: b.kcal, p: b.p, gram: b.gram }); toast(b.ad + " eklendi"); }
+    if (b) { yemekEkle({ ad: b.ad, kcal: b.kcal, p: b.p, gram: b.gram }); S.ara = ""; S.odakAra = true; toast(b.ad + " eklendi"); }
   }
   else if (a === "besin-ekle") {
     const b = S.f.besin, gr = sayi(S.f.besinGram);
     if (!b) return;
-    if (!(gr > 0 && gr <= 5000)) { toast("Gramajı gir"); return; }
-    yemekEkle({ ad: b.ad, kcal: Math.round(b.kcal * gr / 100), p: +(b.p * gr / 100).toFixed(1), gram: Math.round(gr) });
-    S.f.besin = null; S.ara = ""; toast(b.ad + " eklendi");
+    if (!(gr > 0 && gr <= 5000)) { toast("Miktarı gir"); return; }
+    const yeni = { ad: b.ad, kcal: Math.round(b.kcal * gr / 100), p: +(b.p * gr / 100).toFixed(1), gram: Math.round(gr) };
+    if (S.f.duzenleUid) {
+      const y = g.yenen.find(x => x.uid === S.f.duzenleUid);
+      if (y) Object.assign(y, yeni);
+      S.araHedef = ""; S.f = {}; toast("Güncellendi");
+    } else {
+      yemekEkle(yeni);
+      S.f = {}; S.ara = ""; S.odakAra = true; toast(b.ad + " eklendi");
+    }
   }
-  else if (a === "besin-iptal") { S.f.besin = null; }
+  else if (a === "besin-iptal") {
+    if (S.f.duzenleUid || S.f.elleDuzenle) { S.araHedef = ""; S.f = {}; }
+    else { S.f = {}; S.odakAra = true; }
+  }
   else if (a === "el-ekle") {
     const ad = String(S.f.elAd || "").trim(), kc = sayi(S.f.elKcal), pr = sayi(S.f.elP);
     if (!ad) { toast("Ne yediğini yaz"); return; }
-    if (!(kc >= 0)) { toast("Kalori gir"); return; }
-    yemekEkle({ ad, kcal: Math.round(kc), p: isFinite(pr) ? +pr.toFixed(1) : 0, gram: 0 });
-    S.f.elAd = ""; S.f.elKcal = ""; S.f.elP = ""; toast(ad + " eklendi");
+    if (!(kc >= 0 && kc <= 20000)) { toast("Kalori gir"); return; }
+    const pro = isFinite(pr) && pr >= 0 ? +pr.toFixed(1) : 0;
+    ozelBesinKaydet(ad, Math.round(kc), pro);
+    yemekEkle({ ad, kcal: Math.round(kc), p: pro, gram: 100 });
+    S.f = {}; S.ara = ""; S.odakAra = true;
+    toast(ad + " eklendi ve listene kaydedildi");
+  }
+  else if (a.startsWith("yem-duzenle:")) {
+    const y = g.yenen.find(x => x.uid === a.slice(12));
+    if (!y) return;
+    S.araHedef = y.ogun; S.ara = "";
+    const b = y.gram > 0 ? besinBul(y.ad) : null;
+    /* Gramajı bilinen ve veritabanında bulunan kalem miktar adımında açılır;
+       elle girilmiş eski kayıtlar doğrudan kcal/protein olarak düzenlenir. */
+    S.f = b ? { besin: b, besinGram: String(y.gram), duzenleUid: y.uid }
+            : { elleDuzenle: y.uid, elAd: y.ad, elKcal: String(y.kcal), elP: String(y.p) };
+  }
+  else if (a === "el-guncelle") {
+    const y = g.yenen.find(x => x.uid === S.f.elleDuzenle);
+    const ad = String(S.f.elAd || "").trim(), kc = sayi(S.f.elKcal), pr = sayi(S.f.elP);
+    if (!y) return;
+    if (!ad) { toast("Ne yediğini yaz"); return; }
+    if (!(kc >= 0 && kc <= 20000)) { toast("Kalori gir"); return; }
+    y.ad = ad; y.kcal = Math.round(kc); y.p = isFinite(pr) && pr >= 0 ? +pr.toFixed(1) : 0;
+    S.araHedef = ""; S.f = {}; toast("Güncellendi");
   }
   else if (a.startsWith("yem-sil:")) {
     const uid = a.slice(8);
     g.yenen = g.yenen.filter(y => y.uid !== uid);
+    if (S.f.duzenleUid === uid || S.f.elleDuzenle === uid) { S.araHedef = ""; S.f = {}; }
+    toast("Silindi");
   }
 
   /* ---- antrenman ---- */
@@ -1282,6 +1416,16 @@ document.addEventListener("click", e => {
 function yemekEkle(y) {
   const g = gun();
   g.yenen.push({ uid: "y" + Date.now() + Math.round(Math.random() * 1e4), ogun: S.araHedef || "genel", ...y });
+}
+
+/* Elle girilen yemek kullanıcının kendi listesine kaydedilir; bir daha
+   yazmasın, aramada çıksın. Girilen değerler "1 porsiyon = 100 g" kabul
+   edilir, böylece gramaj hesabı veritabanı kalemleriyle aynı yoldan geçer. */
+function ozelBesinKaydet(ad, kcal, p) {
+  const s = sadeAd(ad);
+  const kayit = { ad, kcal, p, k: 0, y: 0, pAd: "porsiyon", pGram: 100 };
+  const i = S.ozelBesinler.findIndex(b => sadeAd(b.ad) === s);
+  if (i === -1) S.ozelBesinler.push(kayit); else S.ozelBesinler[i] = kayit;
 }
 function yedekJson(guzel) {
   const d = {}; KALICI.forEach(a => d[a] = S[a]);

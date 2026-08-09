@@ -307,6 +307,50 @@ hr{height:1px;background:var(--cizgi);margin:16px 0;border:none;}
 .grafik .kilavuz{stroke:var(--cizgi);stroke-width:1;stroke-dasharray:2 4;}
 .grafik .etiket{fill:var(--sonuk);font-family:var(--mono);font-size:9px;}
 
+/* ---------- alttan açılan panel ----------
+   Yemek ekleme akışı sayfaya kart olarak eklenmiyor, üstüne oturuyor.
+   Sabit konumlu olduğu için içerik kullanıcının altından kaymıyor. */
+body.kilit{overflow:hidden;}
+
+.perde{
+  position:fixed;inset:0;z-index:50;background:rgba(4,5,7,.74);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  animation:solgun .22s both;
+}
+@keyframes solgun{from{opacity:0}to{opacity:1}}
+
+.sayfa{
+  position:fixed;left:0;right:0;bottom:0;z-index:51;
+  max-width:520px;margin:0 auto;max-height:90vh;
+  display:flex;flex-direction:column;
+  background:var(--yuzey);border:1px solid var(--cizgi);border-bottom:none;
+  border-radius:26px 26px 0 0;box-shadow:0 -24px 70px -24px rgba(0,0,0,.95);
+  padding-bottom:env(safe-area-inset-bottom);
+  animation:kalk .32s cubic-bezier(.2,.85,.3,1) both;
+}
+@keyframes kalk{from{transform:translateY(100%)}to{transform:none}}
+.tut{width:38px;height:4px;border-radius:99px;background:var(--cizgi-parlak);margin:9px auto 2px;flex:none;}
+.sayfa-bas{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 18px 12px;border-bottom:1px solid var(--cizgi);flex:none;
+}
+.sayfa-bas .card-t{margin:0;}
+.sayfa-kapa{
+  flex:none;width:32px;height:32px;border-radius:50%;border:1px solid var(--cizgi);
+  background:var(--yuzey2);color:var(--soluk);font-size:19px;line-height:1;cursor:pointer;
+  font-family:var(--mono);display:flex;align-items:center;justify-content:center;
+}
+.sayfa-kapa:active{color:var(--metin);background:var(--yuzey3);}
+.sayfa-govde{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 18px 18px;flex:1;min-height:0;}
+.sayfa-govde .sec{margin-top:20px;}
+.sayfa-alt{padding:12px 18px 16px;border-top:1px solid var(--cizgi);background:var(--yuzey);flex:none;}
+.sayfa .ara-sonuc{max-height:none;}
+.panel-ad{font-size:19px;font-weight:700;letter-spacing:-.02em;margin:0 0 5px;line-height:1.25;}
+
+/* porsiyon kısayolları — dokunulabilir olduğu belli olsun */
+.sayfa .chip{cursor:pointer;background:var(--zemin);padding:9px 12px;font-size:9.5px;}
+.sayfa .chip.gold{background:var(--vurgu-sis);}
+
 /* ---------- alt menü ---------- */
 nav{
   position:fixed;left:0;right:0;bottom:0;z-index:40;

@@ -48,7 +48,7 @@ sabitleri kullanıyor.
    ekranların hiçbiri depolamayı tanımamalı. Bu ayrımı bozma.
 6. **`ANAHTAR` sabitini keyfî değiştirme** (`"fitplan-v2"`). Şema gerçekten kırılacaksa
    önce geçiş kodu yaz, sonra sürümü artır — `goc()` fonksiyonu buna örnek.
-7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v5` → `plan-v6`).
+7. **`sw.js` içindeki `CACHE` adını her dağıtımda artır** (`plan-v6` → `plan-v7`).
    Artırmazsan kullanıcı eski sürümde takılı kalır — iOS önbelleği inatçıdır.
    Yeni bir dosya eklersen `DOSYALAR` listesine de eklemeyi unutma.
 8. **Türkçe karakterler.** Dosyalar UTF-8. `charset` meta etiketini silme.
@@ -60,7 +60,11 @@ sabitleri kullanıyor.
 11. **Cinsiyete göre vücut yağ formülü.** Navy yöntemi kadınlarda farklı katsayılar
     kullanır ve **kalça ölçüsü** ister. `navy()` içindeki bu ayrımı tek formüle indirgeme —
     indirgersen kadın kullanıcılarda sessizce yanlış sonuç üretirsin.
-12. **`input` olayında `ciz()` çağırma.** Tüm ekranı yeniden basmak yazarken odağı
+12. **Panel (`.sayfa`) `.wrap` içinde basılmaz.** `.wrap` `position:relative` +
+    `z-index` taşıdığı için bir yığın bağlamı yaratıyor; panel onun içine girerse
+    `z-index:51` o bağlamda hapsolur ve alt menü panelin üstüne biner. `ciz()`
+    paneli `nav`'dan sonra, `.wrap`'in dışına basıyor — orada bırak.
+13. **`input` olayında `ciz()` çağırma.** Tüm ekranı yeniden basmak yazarken odağı
     kaybettirir; `input type="number"` üzerinde `setSelectionRange` da çalışmadığı için
     imleç başa düşer ve kullanıcı "40" yazarken "04" görür. Canlı hesap gerekiyorsa
     `canliGuncelle()` gibi yalnız ilgili düğümü tazeleyen bir yol yaz.
@@ -161,6 +165,16 @@ Satır biçimi: `[ad, kcal, protein, karbonhidrat, yağ, porsiyonAdı, porsiyonG
 ekle, başka yeri güncelleme gerekmez. `BESIN_LISTE` düzleştirilmiş, aranabilir hâli;
 `sadeAd()` Türkçe karakterleri sadeleştirir (ı→i, ş→s …) ki arama "sut" yazınca da bulsun.
 
+`besinAra()` kelime kelime eşleşir: "izgara tavuk" → "Tavuk göğsü, ızgara". Önce tüm
+kelimelerin geçtiği kayıtlar, hiç sonuç yoksa en çok kelimesi geçenler döner. Puanlama
+ad başı > kelime başı > orta, tam kelime eşleşmesine ek puan; eşitliği veritabanı sırası
+bozar. Ad uzunluğuna göre ceza **yok** — vardı ve "yumurta" aramasında bütün yumurta
+yerine yumurta beyazını öne alıyordu.
+
+Kullanıcının elle girdiği yemek `S.ozelBesinler`'e yazılır ve sonraki aramalarda çıkar.
+Girilen değerler "1 porsiyon = 100 g" kabul edilir, böylece gramaj hesabı veritabanı
+kalemleriyle aynı yoldan geçer.
+
 Değerler yaklaşık referans değerlerdir. **Uydurma sayı ekleme** — emin değilsen kalemi
 hiç ekleme, kullanıcı zaten elle girebiliyor.
 
@@ -195,6 +209,7 @@ ayrım paletten, tipografi ölçeğinden ve kompozisyondan geliyor.
 | `PARÇALAR` | `kart()`, `satir()`, `alan()`, `secOp()`, `uyariKutu()`, `tally()`, `ilerleme()`, `halka()`, `grafik()` |
 | `KURULUM` | `vKurulum()` + `kAdim0…kAdim7`, `adimGecerli()`, `adimUygula()` |
 | `SEKMELER` | `vBugun`, `vYemek`, `vAntrenman`, `vIlerleme`, `vDaha` (+ `dMarket`, `dRehber`, `dTakviye`, `dAyar`, `dYedek`) |
+| `PANEL` | `yemekPaneli()` — üç adımlı yemek ekleme (`ara` → `miktar` → kaydet), `araListeHtml()`, `besinHesap()`, `ozelBesinKaydet()` |
 | `ÇİZ` | `ciz()` — kurulum gerekiyorsa alt menüsüz sihirbazı basar ve çıkar |
 | `OLAYLAR` | Delege edilmiş `click`, `input`, `change` dinleyicileri |
 
@@ -219,7 +234,9 @@ seçilir; `"set"` koyarsan egzersiz tablosu çıkar.
 **Takviye eklemek** → `TAKVIYELER` dizisine bir satır. Kafein içeriyorsa `etiket.kafein`
 alanını mg olarak doldur, uyarı motoru gerisini halleder.
 
-**Besin eklemek** → `besinler.js` içinde uygun grubun içine bir satır.
+**Besin eklemek** → `besinler.js` içinde uygun grubun içine bir satır. **Grup içindeki
+sıra önemli:** arama eşit alakadaki sonuçları veritabanı sırasına göre eler, o yüzden
+yaygın kalemi grubun başına yaz.
 
 **Öğün düzeni eklemek** → `OGUN_SABLON` dizisine bir kayıt; `p` değerlerinin toplamı 1
 olmalı.
@@ -276,5 +293,6 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Koyu tema kontrastı bozulmadı
 - [ ] Sayı alanlarına **tuş tuş** yazılıyor (page.fill() bu hatayı yakalamaz)
 - [ ] Kurulum sihirbazı baştan sona geçiliyor (erkek ve kadın akışı ayrı ayrı)
+- [ ] Yemek ekleme paneli açılıyor, arama/miktar/düzenleme adımları ekranda kalıyor
 - [ ] Yedekle → sil → geri yükle turu çalışıyor
 - [ ] Türkçe karakterler bozulmadı
