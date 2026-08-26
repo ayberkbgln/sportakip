@@ -7,6 +7,7 @@
 const HEDEFLER = [
   { id: "yag",   ad: "Yağ kaybı",      d: "Kaloriyi kısıp kası koru",        kcal: 0.80, protein: 2.0 },
   { id: "kas",   ad: "Kas kazanımı",   d: "Kontrollü kalori fazlası",         kcal: 1.10, protein: 1.8 },
+  { id: "recomp",ad: "Yağ yak + kas kazan", d: "Hafif açık + yüksek protein (vücut yenileme)", kcal: 0.90, protein: 2.2 },
   { id: "koru",  ad: "Formu koru",     d: "Kilonu tut, alışkanlığı sürdür",   kcal: 1.00, protein: 1.6 },
   { id: "perf",  ad: "Performans",     d: "Antrenman kalitesi önce gelsin",   kcal: 1.05, protein: 1.8 }
 ];
@@ -65,8 +66,96 @@ const GUC_SABLON = {
   "Çekiş":       ["Barfiks", "Kürek çekiş", "Face pull", "Biceps"],
   "Bacak":       ["Squat", "Romen deadlift", "Bacak press", "Baldır"],
   "Üst vücut":   ["Bench press", "Kürek çekiş", "Omuz press", "Barfiks"],
-  "Alt vücut":   ["Squat", "Hip thrust", "Lunge", "Baldır"]
+  "Alt vücut":   ["Squat", "Hip thrust", "Lunge", "Baldır"],
+  "Ev A":        ["Şınav", "Squat", "Glute bridge", "Plank"],
+  "Ev B":        ["Pike şınav", "Lunge", "Superman", "Leg raise"]
 };
+
+/* ---------- Egzersiz kütüphanesi ----------
+   Hareketin nasıl yapıldığı, hangi bölgeyi çalıştırdığı ve nerede
+   yapılabildiği. Set/tekrar önerisi hareketin üstüne değil kullanıcının
+   HEDEFİNE göre veriliyor (setOner, app.js) — aynı squat, yağ kaybında
+   başka, kas kazanımında başka çalışılır.
+
+   Öneriler ölçülere göre DEĞİL hedef + ekipmana göre. Vücut ölçüsünden
+   "sana bu hareket uygun" çıkarmak fizyoterapistlik taslamak olur; ağrı ve
+   sakatlık uygulamanın işi değil, uzmanın işi. Genel form ipucu veriyoruz,
+   teşhis değil.
+
+   yer: "salon" | "ev" | "ikisi". Ev = ekipmansız ya da tek dambıl.        */
+const BOLGE_AD = { gogus: "Göğüs", sirt: "Sırt", omuz: "Omuz", kol: "Kol", bacak: "Bacak", karin: "Karın" };
+
+const EGZERSIZLER = [
+  { ad: "Bench press", bolge: "gogus", yer: "salon",
+    nasil: "Sırtın bankta, ayakların yerde. Kürek kemiklerini geriye sık, barı göğüs alt hizasına indir, dirsekler gövdeyle ~45° açıda itip kalk." },
+  { ad: "Incline dumbbell press", bolge: "gogus", yer: "salon",
+    nasil: "Bank 30-45° eğimde. Dambılları göğüs üst hizasından yukarı it, indirirken dirsekleri kontrollü aç. Üst göğüsü hedefler." },
+  { ad: "Şınav", bolge: "gogus", yer: "ikisi",
+    nasil: "Eller omuz genişliğinde, gövde düz bir çizgi. Göğsün yere yaklaşana kadar in, itip kalk. Zorsa dizlerin yerde başla; kolaysa ayakları yükselt." },
+  { ad: "Dips", bolge: "gogus", yer: "salon",
+    nasil: "Paralel barda, hafif öne eğil. Dirsekler 90° olana kadar in, itip kalk. Omuzda batma hissi olursa derinliği azalt." },
+  { ad: "Kablo crossover", bolge: "gogus", yer: "salon",
+    nasil: "Kablolar üstte, bir adım önde dur. Kolları hafif dirsek kırık, geniş bir yay çizerek önde birleştir. Sıkışmayı bir saniye tut." },
+
+  { ad: "Barfiks", bolge: "sirt", yer: "ikisi",
+    nasil: "Bara omuzdan biraz geniş tutun. Göğsünü bara doğru çek, üstte çeneni geçir, kontrollü in. Çıkamıyorsan lastik bantla ya da negatif tekrarlarla başla." },
+  { ad: "Lat çekiş", bolge: "sirt", yer: "salon",
+    nasil: "Barı omuzdan geniş tut, göğsün üst kısmına çek. Dirsekler aşağı-geriye; omuzları kulaklardan uzak tut, gövdeyi sallama." },
+  { ad: "Kürek çekiş", bolge: "sirt", yer: "salon",
+    nasil: "Kalçadan öne eğil, sırt düz. Barı karın hizana çek, kürek kemiklerini birbirine yaklaştır, kontrollü bırak." },
+  { ad: "Dumbbell row", bolge: "sirt", yer: "ikisi",
+    nasil: "Bir elin ve dizin bankta (evde sandalyede). Dambılı kalça yönüne doğru çek, sırtı düz tut, gövdeyi döndürme." },
+  { ad: "Superman", bolge: "sirt", yer: "ev",
+    nasil: "Yüzüstü yat, kollar önde. Kollarını ve bacaklarını aynı anda yerden kaldır, iki saniye tut, yavaş bırak. Bel çevresini güçlendirir." },
+
+  { ad: "Omuz press", bolge: "omuz", yer: "ikisi",
+    nasil: "Dambıllar omuz hizasında, dik dur. Yukarı doğru bası yap, tepede dirsekleri kilitleme. Beli aşırı çukurlaştırma — karnı sık." },
+  { ad: "Lateral raise", bolge: "omuz", yer: "ikisi",
+    nasil: "Hafif dambıllarla yanlara, omuz hizasına kadar kaldır. Dirsekler hafif kırık, omuz silkme yok. Hafif ağırlık + temiz form." },
+  { ad: "Face pull", bolge: "omuz", yer: "salon",
+    nasil: "Halat yüz hizasında. Dirsekleri geniş tutarak halatı yüzüne doğru çek, kürekleri sık. Arka omuz ve duruş için birebir." },
+  { ad: "Pike şınav", bolge: "omuz", yer: "ev",
+    nasil: "Kalça yukarıda ters V pozisyonu. Başını öne-aşağı indirip omuzlarla it. Omuz presinin ekipmansız hâli; kolaylaşınca ayakları yükselt." },
+
+  { ad: "Biceps curl", bolge: "kol", yer: "ikisi",
+    nasil: "Dirsekler gövdeye sabit. Dambılı savurmadan kaldır, yavaş indir. İndirme kaldırmadan uzun sürsün." },
+  { ad: "Hammer curl", bolge: "kol", yer: "ikisi",
+    nasil: "Avuçlar birbirine bakar. Dirsek sabit, dambılı çekiç tutar gibi kaldır. Ön kolu da çalıştırır." },
+  { ad: "Triceps pushdown", bolge: "kol", yer: "salon",
+    nasil: "Kablo üstte, dirsekler gövdeye yapışık. Barı aşağı it, dirsekten aç-kapa; omuzdan güç alma." },
+  { ad: "Sandalye dips", bolge: "kol", yer: "ev",
+    nasil: "Sırtın sandalyeye dönük, eller kenarda. Dirseklerden 90° in, itip kalk. Bacakları uzattıkça zorlaşır." },
+
+  { ad: "Squat", bolge: "bacak", yer: "ikisi",
+    nasil: "Ayaklar omuz genişliğinde, topuklar yerde. Kalçayı geriye-aşağı gönder, dizler ayak ucu yönünde. Göğüs dik, derinlik rahat gittiğin kadar." },
+  { ad: "Goblet squat", bolge: "bacak", yer: "ikisi",
+    nasil: "Dambılı göğsünün önünde iki elle tut, squat yap. Ağırlık önde olduğu için formu kendiliğinden düzeltir — squat öğrenmenin en iyi yolu." },
+  { ad: "Bacak press", bolge: "bacak", yer: "salon",
+    nasil: "Ayaklar platformda omuz genişliğinde. Dizleri göğse doğru indir, itip kalk; tepede dizleri kilitleme, beli yastıktan ayırma." },
+  { ad: "Romen deadlift", bolge: "bacak", yer: "ikisi",
+    nasil: "Bar/dambıl bacak önünde, dizler hafif kırık. Kalçadan geriye eğil, ağırlık bacağa sürtünerek insin, arka bacakta gerilmeyi hissedince kalk. Sırt hep düz." },
+  { ad: "Lunge", bolge: "bacak", yer: "ikisi",
+    nasil: "Bir adım öne çık, arka diz yere yaklaşsın, öne bastığın topukla geri it. Gövde dik; denge için önce ağırlıksız." },
+  { ad: "Bulgarian split squat", bolge: "bacak", yer: "ikisi",
+    nasil: "Arka ayak bankta/sandalyede. Öndeki bacakla in-kalk. Tek bacak kuvveti ve denge — zorlu ama değerli." },
+  { ad: "Bacak curl", bolge: "bacak", yer: "salon",
+    nasil: "Makinede topukları kalçaya doğru çek, yavaş bırak. Arka bacağı izole eder; koşucular ihmal etmesin." },
+  { ad: "Hip thrust", bolge: "bacak", yer: "salon",
+    nasil: "Sırt üstü bankta, bar kalçada. Kalçayı yukarı it, tepede kalçayı sık, çeneni göğse yakın tut." },
+  { ad: "Glute bridge", bolge: "bacak", yer: "ev",
+    nasil: "Sırt üstü yat, dizler kırık. Kalçayı yukarı it, tepede iki saniye sık. Hip thrust'ın ekipmansız hâli." },
+  { ad: "Baldır", bolge: "bacak", yer: "ikisi",
+    nasil: "Basamak kenarında parmak ucunda yüksel, topuğu basamağın altına kadar indir. Tam açıklıkta ve yavaş çalış." },
+
+  { ad: "Plank", bolge: "karin", yer: "ev",
+    nasil: "Dirsekler omuz altında, gövde düz çizgi. Kalça düşmesin, nefes almaya devam et. Süreyi her hafta biraz uzat." },
+  { ad: "Crunch", bolge: "karin", yer: "ev",
+    nasil: "Sırt üstü, dizler kırık. Kürek kemiklerini yerden kaldıracak kadar kıvrıl, boynundan çekme; yukarıda nefes ver." },
+  { ad: "Leg raise", bolge: "karin", yer: "ev",
+    nasil: "Sırt üstü, eller kalça altında. Bacakları düz kaldırıp yavaş indir; bel yerden kalkıyorsa dizleri kır." },
+  { ad: "Mountain climber", bolge: "karin", yer: "ev",
+    nasil: "Şınav pozisyonunda dizleri sırayla göğse çek. Tempoyu artırınca kardiyoya döner — ısınma için de iyi." }
+];
 
 /* ---------- Takviye kütüphanesi ----------
    etiket alanları uyarı motorunu besler:
@@ -214,8 +303,9 @@ const MARKET_SABLON = [
 ];
 
 /* ---------- Rehber ----------
-   kosul: bu maddenin gösterilmesi için gereken takviye/spor id'si.
-   Boşsa herkese gösterilir.                                                */
+   kosul: null = herkese; takviye id'si = o takviye seçiliyse; "@kafein" =
+   kafeinli takviye varsa; "@guc" gibi = o tipte spor seçiliyse; "#recomp"
+   gibi = profildeki hedef oysa.                                            */
 const REHBER = [
   { b: "Nasıl başlanır", kosul: null, s: [
     ["Sırayı bozma", "Yirmi maddeyi aynı anda uygularsan iki haftada bırakırsın. 1. hafta sadece su ve uyku. 2. hafta öğün planı. 3. hafta antrenman hacmi."],
@@ -231,6 +321,17 @@ const REHBER = [
     ["Kaç kez", "Her ölçüyü 2 kez al, ortalamasını gir. 1 cm hata ~1 puan kaydırır."],
     ["Yorumlama", "4 haftada bel 2-3 cm inmişse doğru yoldasın — tartı ne derse desin."],
     ["Hata payı", "Navy yöntemi ±3-4 puan sapabilir. Mutlak değere değil trende bak."]] },
+
+  { b: "Yağ yakarken kas kazanmak", kosul: "#recomp", s: [
+    ["Bu gerçekçi mi", "Evet ama herkes için değil. En iyi yeni başlayanlarda, uzun aradan dönenlerde ve yağ oranı yüksekken çalışır. Yıllardır düzenli çalışan birinde ikisi aynı anda çok yavaş ilerler."],
+    ["Terazi yalan söyler", "Yağ giderken kas gelirse kilo yerinde sayar. İlerlemeyi tartıdan değil bel ölçüsünden, fotoğraftan ve kaldırdığın ağırlıktan takip et."],
+    ["İki kaldıraç", "Protein hedefini her gün tuttur (kg başına ~2.2 g) ve antrenmanda her hafta ya bir tekrar ya biraz kilo ekle. Bu ikisi olmadan hafif açık sadece yavaş zayıflamadır."],
+    ["Sabır", "Ayda 0.5-1 kg yağ kaybı + görünür kuvvet artışı bu hedefte başarıdır. Daha hızlısını istiyorsan hedefi ikiye böl: önce yağ, sonra kas."]] },
+
+  { b: "Evde antrenman", kosul: "@guc", s: [
+    ["Ekipman şart değil", "Şınav, squat, lunge, glute bridge, plank ile tüm vücudu çalıştırırsın. Programda \"Ev A / Ev B\" şablonları hazır; Egzersizler sayfasında nasıl yapılacağı yazıyor."],
+    ["Zorlaştırma mantığı", "Evde ağırlık artıramazsın, o yüzden tekrarı artır, tempoyu yavaşlat (3 saniyede in), ya da açıyı zorlaştır (ayaklar yüksekte şınav). Kolaylaşan hareket ilerletilmemiş harekettir."],
+    ["Tek dambıl çok şey değiştirir", "Goblet squat, dumbbell row, omuz press, Romen deadlift — tek bir ayarlanabilir dambılla ev antrenmanı yıllarca yeter."]] },
 
   { b: "Kalori ve protein", kosul: null, s: [
     ["Hedef nereden geliyor", "Mifflin-St Jeor formülüyle bazal metabolizman hesaplanıyor, aktivite düzeyinle çarpılıyor, hedefine göre açık ya da fazla ekleniyor. Ayarlar'dan elle değiştirebilirsin."],

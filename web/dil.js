@@ -1476,3 +1476,145 @@ const BESIN_EN = {
 "Tuz": "Salt"
 
 };
+
+/* ---------------------------------------------------------------------
+   Egzersiz kütüphanesi, "yağ yak + kas kazan" hedefi ve başlangıç kartı.
+   VERI_EN birleşiminden SONRA eklenir ki buradaki karşılıklar geçerli olsun.
+   --------------------------------------------------------------------- */
+Object.assign(SOZLUK, {
+
+/* hedef */
+"Yağ yak + kas kazan": "Lose fat + build muscle",
+"Hafif açık + yüksek protein (vücut yenileme)": "Slight deficit + high protein (recomposition)",
+
+/* set önerileri — hedefe göre */
+"3 set × 12-15 tekrar · 45-60 sn dinlenme": "3 sets × 12-15 reps · 45-60 s rest",
+"3-4 set × 6-12 tekrar · 90-120 sn dinlenme": "3-4 sets × 6-12 reps · 90-120 s rest",
+"3-4 set × 8-12 tekrar · ~90 sn dinlenme": "3-4 sets × 8-12 reps · ~90 s rest",
+"4-6 set × 3-6 tekrar · 2-3 dk dinlenme": "4-6 sets × 3-6 reps · 2-3 min rest",
+"3 set × 8-12 tekrar · 90 sn dinlenme": "3 sets × 8-12 reps · 90 s rest",
+
+/* kütüphane arayüzü */
+"Nasıl yapılır, hangi bölge, set önerisi": "How to do them, muscle groups, set suggestions",
+"Nasıl yapılır · hangi bölge · senin hedefine göre set": "How to · muscle group · sets for your goal",
+"{n} hareket": "{n} exercises",
+"Bölge": "Muscle group", "Nerede": "Where",
+"Hepsi": "All", "Salon": "Gym", "Ev": "Home",
+"Senin hedefin için": "For your goal",
+"Bugünkü seansa ekle": "Add to today's session",
+"Bu süzgeçle hareket yok.": "No exercises match this filter.",
+"{a} zaten seansta": "{a} is already in the session",
+"{a} bugünkü seansa eklendi": "{a} added to today's session",
+"nasıl yapılır": "how to",
+"Öneriler hedefe ve ekipmana göre genel bilgidir, ders değildir. Bir harekette ağrı oluyorsa o hareketi yapma ve bir uzmana danış.":
+  "Suggestions are general guidance by goal and equipment, not coaching. If an exercise hurts, don't do it and ask a professional.",
+
+/* bölgeler ve yeni hareket adları */
+"Göğüs": "Chest", "Sırt": "Back", "Omuz": "Shoulders", "Kol": "Arms",
+"Şınav": "Push-up", "Pike şınav": "Pike push-up", "Sandalye dips": "Chair dips",
+"Kablo crossover": "Cable crossover", "Bacak curl": "Leg curl",
+"Ev A": "Home A", "Ev B": "Home B",
+
+/* hareket tarifleri */
+"Sırtın bankta, ayakların yerde. Kürek kemiklerini geriye sık, barı göğüs alt hizasına indir, dirsekler gövdeyle ~45° açıda itip kalk.":
+  "Back on the bench, feet on the floor. Squeeze your shoulder blades back, lower the bar to your lower chest, press up with elbows at ~45° to your torso.",
+"Bank 30-45° eğimde. Dambılları göğüs üst hizasından yukarı it, indirirken dirsekleri kontrollü aç. Üst göğüsü hedefler.":
+  "Bench at 30-45°. Press the dumbbells up from upper-chest level, open the elbows under control on the way down. Targets the upper chest.",
+"Eller omuz genişliğinde, gövde düz bir çizgi. Göğsün yere yaklaşana kadar in, itip kalk. Zorsa dizlerin yerde başla; kolaysa ayakları yükselt.":
+  "Hands shoulder-width, body in a straight line. Lower until your chest nears the floor, press up. Too hard? Start on your knees; too easy? Elevate your feet.",
+"Paralel barda, hafif öne eğil. Dirsekler 90° olana kadar in, itip kalk. Omuzda batma hissi olursa derinliği azalt.":
+  "On parallel bars, lean slightly forward. Lower until elbows hit 90°, press up. If your shoulder pinches, reduce the depth.",
+"Kablolar üstte, bir adım önde dur. Kolları hafif dirsek kırık, geniş bir yay çizerek önde birleştir. Sıkışmayı bir saniye tut.":
+  "Cables high, stand one step forward. With a slight elbow bend, sweep your arms together in a wide arc. Hold the squeeze for a second.",
+"Bara omuzdan biraz geniş tutun. Göğsünü bara doğru çek, üstte çeneni geçir, kontrollü in. Çıkamıyorsan lastik bantla ya da negatif tekrarlarla başla.":
+  "Grip slightly wider than shoulders. Pull your chest toward the bar, chin over at the top, lower under control. Can't do one yet? Start with a band or negative reps.",
+"Barı omuzdan geniş tut, göğsün üst kısmına çek. Dirsekler aşağı-geriye; omuzları kulaklardan uzak tut, gövdeyi sallama.":
+  "Grip wider than shoulders, pull the bar to your upper chest. Elbows down and back; keep shoulders away from your ears, don't swing.",
+"Kalçadan öne eğil, sırt düz. Barı karın hizana çek, kürek kemiklerini birbirine yaklaştır, kontrollü bırak.":
+  "Hinge forward from the hips, back flat. Pull the bar to your stomach, squeeze the shoulder blades together, lower under control.",
+"Bir elin ve dizin bankta (evde sandalyede). Dambılı kalça yönüne doğru çek, sırtı düz tut, gövdeyi döndürme.":
+  "One hand and knee on a bench (a chair at home). Pull the dumbbell toward your hip, keep your back flat, don't rotate the torso.",
+"Yüzüstü yat, kollar önde. Kollarını ve bacaklarını aynı anda yerden kaldır, iki saniye tut, yavaş bırak. Bel çevresini güçlendirir.":
+  "Lie face down, arms forward. Lift arms and legs off the floor together, hold two seconds, lower slowly. Strengthens the lower back.",
+"Dambıllar omuz hizasında, dik dur. Yukarı doğru bası yap, tepede dirsekleri kilitleme. Beli aşırı çukurlaştırma — karnı sık.":
+  "Dumbbells at shoulder height, stand tall. Press overhead without locking the elbows at the top. Don't over-arch your lower back — brace your core.",
+"Hafif dambıllarla yanlara, omuz hizasına kadar kaldır. Dirsekler hafif kırık, omuz silkme yok. Hafif ağırlık + temiz form.":
+  "With light dumbbells, raise to the sides up to shoulder height. Slight elbow bend, no shrugging. Light weight, clean form.",
+"Halat yüz hizasında. Dirsekleri geniş tutarak halatı yüzüne doğru çek, kürekleri sık. Arka omuz ve duruş için birebir.":
+  "Rope at face height. Pull it toward your face with elbows wide, squeeze the shoulder blades. Great for rear delts and posture.",
+"Kalça yukarıda ters V pozisyonu. Başını öne-aşağı indirip omuzlarla it. Omuz presinin ekipmansız hâli; kolaylaşınca ayakları yükselt.":
+  "Inverted-V position, hips high. Lower your head forward-down and press back up with the shoulders. The no-equipment shoulder press; elevate your feet as it gets easier.",
+"Dirsekler gövdeye sabit. Dambılı savurmadan kaldır, yavaş indir. İndirme kaldırmadan uzun sürsün.":
+  "Elbows pinned to your sides. Curl without swinging, lower slowly. The way down should take longer than the way up.",
+"Avuçlar birbirine bakar. Dirsek sabit, dambılı çekiç tutar gibi kaldır. Ön kolu da çalıştırır.":
+  "Palms facing each other. Elbows fixed, curl like holding a hammer. Works the forearms too.",
+"Kablo üstte, dirsekler gövdeye yapışık. Barı aşağı it, dirsekten aç-kapa; omuzdan güç alma.":
+  "Cable high, elbows glued to your sides. Push the bar down, open and close from the elbow only; don't borrow from the shoulders.",
+"Sırtın sandalyeye dönük, eller kenarda. Dirseklerden 90° in, itip kalk. Bacakları uzattıkça zorlaşır.":
+  "Back to a chair, hands on its edge. Lower to 90° at the elbows, press up. Straighter legs make it harder.",
+"Ayaklar omuz genişliğinde, topuklar yerde. Kalçayı geriye-aşağı gönder, dizler ayak ucu yönünde. Göğüs dik, derinlik rahat gittiğin kadar.":
+  "Feet shoulder-width, heels down. Send the hips back and down, knees tracking over the toes. Chest up, go as deep as feels comfortable.",
+"Dambılı göğsünün önünde iki elle tut, squat yap. Ağırlık önde olduğu için formu kendiliğinden düzeltir — squat öğrenmenin en iyi yolu.":
+  "Hold a dumbbell at your chest with both hands and squat. The front load self-corrects your form — the best way to learn the squat.",
+"Ayaklar platformda omuz genişliğinde. Dizleri göğse doğru indir, itip kalk; tepede dizleri kilitleme, beli yastıktan ayırma.":
+  "Feet shoulder-width on the platform. Lower your knees toward your chest and press back; don't lock out at the top or lift your lower back off the pad.",
+"Bar/dambıl bacak önünde, dizler hafif kırık. Kalçadan geriye eğil, ağırlık bacağa sürtünerek insin, arka bacakta gerilmeyi hissedince kalk. Sırt hep düz.":
+  "Bar/dumbbells in front of your thighs, knees slightly bent. Hinge back from the hips, let the weight slide down your legs, stand up when you feel the hamstring stretch. Back stays flat.",
+"Bir adım öne çık, arka diz yere yaklaşsın, öne bastığın topukla geri it. Gövde dik; denge için önce ağırlıksız.":
+  "Step forward, let the back knee approach the floor, push back through the front heel. Torso upright; go bodyweight first for balance.",
+"Arka ayak bankta/sandalyede. Öndeki bacakla in-kalk. Tek bacak kuvveti ve denge — zorlu ama değerli.":
+  "Rear foot on a bench/chair. Lower and rise with the front leg. Single-leg strength and balance — tough but worth it.",
+"Makinede topukları kalçaya doğru çek, yavaş bırak. Arka bacağı izole eder; koşucular ihmal etmesin.":
+  "On the machine, curl your heels toward your glutes, release slowly. Isolates the hamstrings; runners shouldn't skip it.",
+"Sırt üstü bankta, bar kalçada. Kalçayı yukarı it, tepede kalçayı sık, çeneni göğse yakın tut.":
+  "Upper back on a bench, bar over your hips. Drive the hips up, squeeze the glutes at the top, keep your chin tucked.",
+"Sırt üstü yat, dizler kırık. Kalçayı yukarı it, tepede iki saniye sık. Hip thrust'ın ekipmansız hâli.":
+  "Lie on your back, knees bent. Drive the hips up, squeeze for two seconds at the top. The no-equipment hip thrust.",
+"Basamak kenarında parmak ucunda yüksel, topuğu basamağın altına kadar indir. Tam açıklıkta ve yavaş çalış.":
+  "On a step's edge, rise onto your toes, lower the heel below the step. Full range, slow tempo.",
+"Dirsekler omuz altında, gövde düz çizgi. Kalça düşmesin, nefes almaya devam et. Süreyi her hafta biraz uzat.":
+  "Elbows under shoulders, body in a straight line. Don't let the hips sag, keep breathing. Add a little time every week.",
+"Sırt üstü, dizler kırık. Kürek kemiklerini yerden kaldıracak kadar kıvrıl, boynundan çekme; yukarıda nefes ver.":
+  "On your back, knees bent. Curl just enough to lift the shoulder blades, don't pull on your neck; exhale at the top.",
+"Sırt üstü, eller kalça altında. Bacakları düz kaldırıp yavaş indir; bel yerden kalkıyorsa dizleri kır.":
+  "On your back, hands under your hips. Raise straight legs and lower slowly; bend the knees if your lower back lifts.",
+"Şınav pozisyonunda dizleri sırayla göğse çek. Tempoyu artırınca kardiyoya döner — ısınma için de iyi.":
+  "From a push-up position, drive the knees to your chest alternately. Speed it up and it becomes cardio — good for warm-ups too.",
+
+/* başlangıç kartı */
+"Buradan başla": "Start here",
+"Yediğini ekle — aşağıdaki yeşil düğme. Tahmin etme, ara; listede yoksa elle gir.":
+  "Log what you eat — the green button below. Don't guess, search; add manually if it's not listed.",
+"Su içtikçe mavi kutudaki + işaretine bas.": "Tap + in the blue box as you drink water.",
+"Antrenmanı yapınca seansı işaretle — setleri girersen rekorlarını da takip ederiz.":
+  "Check the session off when you train — enter your sets and we'll track your PRs too.",
+"Rehber'i aç": "Open the guide", "Anladım": "Got it",
+
+/* rehber: recomp */
+"Yağ yakarken kas kazanmak": "Building muscle while losing fat",
+"Bu gerçekçi mi": "Is this realistic",
+"Evet ama herkes için değil. En iyi yeni başlayanlarda, uzun aradan dönenlerde ve yağ oranı yüksekken çalışır. Yıllardır düzenli çalışan birinde ikisi aynı anda çok yavaş ilerler.":
+  "Yes, but not for everyone. It works best for beginners, people returning after a long break, and at higher body-fat levels. If you've trained consistently for years, both at once move very slowly.",
+"Terazi yalan söyler": "The scale lies",
+"Yağ giderken kas gelirse kilo yerinde sayar. İlerlemeyi tartıdan değil bel ölçüsünden, fotoğraftan ve kaldırdığın ağırlıktan takip et.":
+  "If muscle comes in as fat goes out, the scale barely moves. Track progress by waist measurement, photos and the weight you lift — not the scale.",
+"İki kaldıraç": "The two levers",
+"Protein hedefini her gün tuttur (kg başına ~2.2 g) ve antrenmanda her hafta ya bir tekrar ya biraz kilo ekle. Bu ikisi olmadan hafif açık sadece yavaş zayıflamadır.":
+  "Hit your protein target every day (~2.2 g per kg) and add a rep or a little weight every week. Without those two, a slight deficit is just slow weight loss.",
+"Sabır": "Patience",
+"Ayda 0.5-1 kg yağ kaybı + görünür kuvvet artışı bu hedefte başarıdır. Daha hızlısını istiyorsan hedefi ikiye böl: önce yağ, sonra kas.":
+  "0.5-1 kg of fat lost per month plus visible strength gains is success here. Want it faster? Split the goal: fat first, then muscle.",
+
+/* rehber: evde antrenman */
+"Evde antrenman": "Training at home",
+"Ekipman şart değil": "No equipment required",
+"Şınav, squat, lunge, glute bridge, plank ile tüm vücudu çalıştırırsın. Programda \"Ev A / Ev B\" şablonları hazır; Egzersizler sayfasında nasıl yapılacağı yazıyor.":
+  "Push-ups, squats, lunges, glute bridges and planks cover the whole body. The \"Home A / Home B\" templates are ready in your schedule; the Exercises page shows how to do each one.",
+"Zorlaştırma mantığı": "How to progress",
+"Evde ağırlık artıramazsın, o yüzden tekrarı artır, tempoyu yavaşlat (3 saniyede in), ya da açıyı zorlaştır (ayaklar yüksekte şınav). Kolaylaşan hareket ilerletilmemiş harekettir.":
+  "You can't add plates at home, so add reps, slow the tempo (3 seconds down), or make the angle harder (feet-elevated push-ups). An exercise that got easy is an exercise you haven't progressed.",
+"Tek dambıl çok şey değiştirir": "One dumbbell changes a lot",
+"Goblet squat, dumbbell row, omuz press, Romen deadlift — tek bir ayarlanabilir dambılla ev antrenmanı yıllarca yeter.":
+  "Goblet squats, dumbbell rows, shoulder presses, Romanian deadlifts — a single adjustable dumbbell keeps home training useful for years."
+
+});

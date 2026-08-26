@@ -173,7 +173,7 @@ function hedefHesapla() {
    değişim hızına bakıp günlük kaloriye düzeltme öneriyoruz. Günlük tartı
    dalgalanması su ve tuzdur; karar 7 günlük ortalamalardan çıkıyor.
    Öneri kendiliğinden uygulanmaz — kabul etmek kullanıcının.               */
-const HAFTALIK_BEKLENTI = { yag: -0.5, kas: 0.25, koru: 0, perf: 0 };   // kg / hafta
+const HAFTALIK_BEKLENTI = { yag: -0.5, kas: 0.25, recomp: -0.25, koru: 0, perf: 0 };   // kg / hafta
 
 function kiloOrtalama(bitis, gunSayi) {
   const bas = gunEkle(bitis, -(gunSayi - 1));
@@ -205,6 +205,27 @@ function kaloriOneri() {
 
 /* Bugünün programı ve sporu */
 const sporBul = id => SPORLAR.find(s => s.id === id) || null;
+
+/* ---- Egzersiz kütüphanesi ----
+   Ada göre bulur; kayıt hangi dilde yazılmışsa yakalasın diye hem Türkçe
+   hem çevrilmiş adla karşılaştırır. Set/tekrar önerisi kullanıcının
+   HEDEFİNE göre — hareket başına ayrı reçete tutmuyoruz. */
+function kutBul(ad) {
+  const a = sadeAd(ad || "");
+  if (!a) return null;
+  return EGZERSIZLER.find(x => sadeAd(x.ad) === a || sadeAd(T(x.ad)) === a) || null;
+}
+function setOner() {
+  const h = S.profil.hedef;
+  if (h === "kas")    return T("3-4 set × 6-12 tekrar · 90-120 sn dinlenme");
+  if (h === "recomp") return T("3-4 set × 8-12 tekrar · ~90 sn dinlenme");
+  if (h === "perf")   return T("4-6 set × 3-6 tekrar · 2-3 dk dinlenme");
+  if (h === "yag")    return T("3 set × 12-15 tekrar · 45-60 sn dinlenme");
+  return T("3 set × 8-12 tekrar · 90 sn dinlenme");
+}
+const yerAd = y => y === "salon" ? T("Salon") : y === "ev" ? T("Ev") : T("Salon") + " · " + T("Ev");
+/* Bugünün ilk güç seansı — kütüphaneden tek dokunuşla egzersiz eklemek için */
+const bugunGucSeansi = () => gunSeanslari(bugun()).find(x => ((sporBul(x.spor) || {}).log || []).indexOf("set") !== -1) || null;
 
 /* ---- Seanslar ----
    Bir gün birden fazla seans taşıyabilir ve sıra önemlidir: ısınma koşusu →
@@ -427,6 +448,7 @@ function varsayilan() {
     ozelBesinler: [],
     kayitliOgun: [],     // [{ id, ad, kalemler:[{ad,kcal,p,gram}] }] — tek dokunuşla eklenen öğün
     barkod: {},          // kod → { ad, kcal, p, k, y, pAd, pGram, sonGram } — cihazda kalan kişisel eşleme
+    ipucuKapali: false,  // Bugün'deki başlangıç kartı kapatıldı mı
     sonYedek: null
   };
 }
@@ -446,7 +468,7 @@ let S = Object.assign(varsayilan(), {
 
 const KALICI = ["surum","guncelleme","profil","kurulumAdim","sporlar","program","ogunler","takviyeler",
                 "aliskanlik","gunler","olcumler","market","marketEk","ozelBesinler","kayitliOgun",
-                "barkod","sonYedek"];
+                "barkod","ipucuKapali","sonYedek"];
 
 let semaDegisti = false;
 
@@ -831,6 +853,17 @@ function vBugun() {
 
   uyarilar(k).forEach(u => { h += uyariKutu(u); });
 
+  /* İlk günlerde yol gösteren kart — üç işi tek tek söylüyor. Kapatınca
+     bir daha çıkmıyor; 7 günden fazla kaydı olan zaten öğrenmiştir. */
+  if (!S.ipucuKapali && Object.keys(S.gunler).length <= 7)
+    h += kart(T("Buradan başla"), "",
+      `<p class="note" style="margin-bottom:6px">1 · ${T("Yediğini ekle — aşağıdaki yeşil düğme. Tahmin etme, ara; listede yoksa elle gir.")}</p>
+       <p class="note" style="margin-bottom:6px">2 · ${T("Su içtikçe mavi kutudaki + işaretine bas.")}</p>
+       <p class="note" style="margin-bottom:11px">3 · ${T("Antrenmanı yapınca seansı işaretle — setleri girersen rekorlarını da takip ederiz.")}</p>
+       <div class="row">
+         <button class="btn ghost" data-act="panel-git:daha:rehber">${T("Rehber'i aç")}</button>
+         <button class="btn" data-act="ipucu-kapat">${T("Anladım")}</button></div>`);
+
   /* Hero — günün kalorisi */
   h += `<div class="hero">
     ${halka(top.kcal, p.kcal, top.p, p.protein)}
@@ -1079,6 +1112,17 @@ function panelHtml() {
       `<button class="btn gold blok" data-act="panel-git:antrenman:">${T("Detay gir")}</button>`);
   }
 
+  if (S.panel === "nasil") {
+    const eg = kutBul(S.f.nasilAd);
+    if (eg) return panelSar(T(eg.ad),
+      `<div class="row wrapped" style="gap:7px;margin-bottom:12px">
+         <span class="chip gold">${T(BOLGE_AD[eg.bolge])}</span>
+         <span class="chip">${yerAd(eg.yer)}</span></div>
+       <p class="gv" style="margin:0 0 12px">${esc(T(eg.nasil))}</p>
+       <p class="macro">${T("Senin hedefin için")}: ${setOner()}</p>`,
+      `<button class="btn ghost blok" data-act="panel-git:daha:kutuphane">${T("Egzersizler")}</button>`);
+  }
+
   if (S.panel === "aliskanlik" && S.aliskanlik) {
     const d = aliskanlikDurum(k), hafta = aliskanlikHafta(k), asti = hafta > d.limit;
     return panelSar(T(S.aliskanlik.ad),
@@ -1257,6 +1301,8 @@ function vAntrenman() {
           return `<div class="gr">
           <div class="row" style="margin-bottom:9px">
             <div class="alan"><input type="text" data-set="${s.sid}:${ei}:ad" value="${esc(e.ad)}" placeholder="${T("Egzersiz")}" style="text-align:left"></div>
+            ${kutBul(e.ad) ? `<button class="chip" data-act="nasil:${s.sid}:${ei}" aria-label="${T("nasıl yapılır")}"
+              style="cursor:pointer;padding:9px 13px;flex:none">?</button>` : ""}
             <button class="sil" data-act="set-sil:${s.sid}:${ei}" aria-label="${T("egzersizi sil")}">×</button></div>
           <div class="setr-bas"><span>Set</span><span>${T("Tekrar")}</span><span>Kg</span><span></span></div>
           ${setler.map((st, si) => `<div class="setr${st.ok ? " ok" : ""}">
@@ -1284,7 +1330,9 @@ function vAntrenman() {
   /* Haftalık program */
   h += `<p class="sec">${T("Haftalık program")}</p>`;
   h += kart("", "", programDuzenle() +
-    `<button class="btn ghost blok" data-act="spor-duzenle" style="margin-top:14px">${T("Sporları düzenle")}</button>`);
+    `<div class="row" style="margin-top:14px">
+       <button class="btn ghost" data-act="spor-duzenle">${T("Sporları düzenle")}</button>
+       <button class="btn ghost" data-act="panel-git:daha:kutuphane">${T("Egzersizler")}</button></div>`);
 
   /* Haftalık hacim — progresif yükleme gerçekten oluyor mu, aylık ölçekte.
      Tek seansa bakınca göremezsin; hacim eğrisi yatay gidiyorsa ilerlemiyorsun. */
@@ -1545,12 +1593,13 @@ function vIlerleme() {
 
 /* =================== SEKME: DAHA =================== */
 function vDaha() {
-  if (S.daha) return { market: dMarket, rehber: dRehber, takviye: dTakviye, ayar: dAyar, yedek: dYedek }[S.daha]();
+  if (S.daha) return { market: dMarket, kutuphane: dKutuphane, rehber: dRehber, takviye: dTakviye, ayar: dAyar, yedek: dYedek }[S.daha]();
   const say = Object.values(S.market).filter(Boolean).length;
   let h = `<header class="top"><p class="eyebrow">${T("Menü")}</p><h1>${T("Daha")}</h1>
    <p class="sub">${T("Liste, rehber ve ayarlar")}</p></header>`;
   h += kart("", "",
     [["market", T("Alışveriş listesi"), say ? Tf("{n} kalem işaretli", { n: say }) : T("Haftalık market listesi")],
+     ["kutuphane", T("Egzersizler"), T("Nasıl yapılır, hangi bölge, set önerisi")],
      ["rehber", T("Rehber"), T("Kafan karıştığında buraya bak")],
      ["takviye", T("Takviyeler"), Tf("{n} takviye seçili", { n: S.takviyeler.length })],
      ["ayar", T("Ayarlar"), T("Hedefler, profil, program")],
@@ -1628,6 +1677,47 @@ function dMarket() {
   return h;
 }
 
+/* ---- Egzersiz kütüphanesi sayfası ----
+   Bölge + yer süzgeci, dokununca açılan tarif, hedefe göre set önerisi.
+   Bugünkü programda güç seansı varsa hareket tek dokunuşla o seansa eklenir. */
+function dKutuphane() {
+  const b = S.f.kutB || "hepsi", y = S.f.kutY || "hepsi";
+  const liste = EGZERSIZLER.map((e, i) => ({ ...e, i }))
+    .filter(e => (b === "hepsi" || e.bolge === b) && (y === "hepsi" || e.yer === y || e.yer === "ikisi"));
+  const guc = bugunGucSeansi();
+
+  let h = `<header class="top"><p class="eyebrow">${Tf("{n} hareket", { n: EGZERSIZLER.length })}</p><h1>${T("Egzersizler")}</h1>
+   <p class="sub">${T("Nasıl yapılır · hangi bölge · senin hedefine göre set")}</p></header>` + geriBtn("Daha");
+
+  h += kart("", "",
+    `<label class="lbl sol">${T("Bölge")}</label>
+     <div class="row wrapped" style="gap:7px;margin-bottom:11px">
+       ${["hepsi"].concat(Object.keys(BOLGE_AD)).map(x =>
+         `<button class="chip ${b === x ? "gold" : ""}" data-act="kut-b:${x}"
+           style="cursor:pointer;padding:9px 12px">${x === "hepsi" ? T("Hepsi") : T(BOLGE_AD[x])}</button>`).join("")}</div>
+     <label class="lbl sol">${T("Nerede")}</label>
+     <div class="row wrapped" style="gap:7px">
+       ${[["hepsi", T("Hepsi")], ["salon", T("Salon")], ["ev", T("Ev")]].map(([x, ad]) =>
+         `<button class="chip ${y === x ? "gold" : ""}" data-act="kut-y:${x}"
+           style="cursor:pointer;padding:9px 12px">${ad}</button>`).join("")}</div>
+     <p class="note" style="margin-top:11px">${T("Öneriler hedefe ve ekipmana göre genel bilgidir, ders değildir. Bir harekette ağrı oluyorsa o hareketi yapma ve bir uzmana danış.")}</p>`);
+
+  h += kart("", "", liste.map(e => {
+    const acik = S.f.kutAcik === e.i;
+    return `<div class="item" data-act="kut-ac:${e.i}">
+      <div class="ib"><div class="it"><span class="name">${esc(T(e.ad))}</span>
+        <span class="time">${T(BOLGE_AD[e.bolge])}</span></div>
+        <div class="desc">${yerAd(e.yer)}</div></div>
+      <div class="uc"><span class="ara-sag">${acik ? "⌄" : "›"}</span></div></div>
+    ${acik ? `<div class="gr" style="padding-top:4px">
+      <div class="gv">${esc(T(e.nasil))}</div>
+      <div class="macro" style="margin-top:8px">${T("Senin hedefin için")}: ${setOner()}</div>
+      ${guc ? `<button class="btn ghost blok" data-act="kut-ekle:${e.i}" style="margin-top:10px">${T("Bugünkü seansa ekle")}</button>` : ""}
+    </div>` : ""}`;
+  }).join("") || `<p class="bos">${T("Bu süzgeçle hareket yok.")}</p>`);
+  return h;
+}
+
 function dRehber() {
   /* kosul: takviye id'si, "@kafein" (kafeinli takviye varsa) ya da
      "@guc" / "@dovus" / "@kardiyo" (o tipte spor seçiliyse) */
@@ -1637,6 +1727,7 @@ function dRehber() {
     if (!b.kosul) return true;
     if (b.kosul === "@kafein") return kafeinVar;
     if (b.kosul[0] === "@") return tipler.has(b.kosul.slice(1));
+    if (b.kosul[0] === "#") return S.profil.hedef === b.kosul.slice(1);
     return S.takviyeler.some(t => t.id === b.kosul);
   };
   let h = `<header class="top"><p class="eyebrow">${T("Nasıl kullanılır")}</p><h1>${T("Rehber")}</h1>
@@ -1928,6 +2019,9 @@ function kurulumFormDoldur() {
     const son = [...S.olcumler].sort((x, y) => x.tarih < y.tarih ? 1 : -1)[0];
     if (son) { S.f.bel = son.bel || ""; S.f.boyun = son.boyun || ""; S.f.kalca = son.kalca || ""; }
   }
+  /* Öğün adımı boş kutularla açılmasın: en yaygın düzen ön-seçili gelir,
+     kullanıcı isterse değiştirir. Bir zorunlu dokunuş eksilir. */
+  if (a === 5 && !S.ogunler.length) { ogunKur("3ogun"); S.f.ogunSablon = "3ogun"; }
 }
 function ayarFormDoldur() {
   const p = S.profil;
@@ -2007,6 +2101,35 @@ document.addEventListener("click", e => {
     const sb = ALISKANLIK_SABLON.find(x => x.id === S.f.alisId);
     if (sb && S.f.alisHafta1 == null) S.f.alisHafta1 = String(sb.baslangic);
     return ciz(); }
+
+  /* ---- egzersiz kütüphanesi ---- */
+  if (a.startsWith("kut-b:")) { S.f.kutB = par(1); S.f.kutAcik = null; return ciz(); }
+  if (a.startsWith("kut-y:")) { S.f.kutY = par(1); S.f.kutAcik = null; return ciz(); }
+  if (a.startsWith("kut-ac:")) {
+    const i = parseInt(par(1), 10);
+    S.f.kutAcik = S.f.kutAcik === i ? null : i;
+    return ciz();
+  }
+  if (a.startsWith("kut-ekle:")) {
+    const eg = EGZERSIZLER[parseInt(par(1), 10)], seans = bugunGucSeansi();
+    if (!eg || !seans) return;
+    const l = seansYaz(bugun(), seans.sid);
+    if (!Array.isArray(l.set)) l.set = [];
+    const ad = T(eg.ad);
+    if (l.set.some(x => sadeAd(x.ad) === sadeAd(ad))) { toast(Tf("{a} zaten seansta", { a: ad })); return; }
+    const bos = l.set.find(x => !x.ad);
+    if (bos) { bos.ad = ad; if (!Array.isArray(bos.setler)) bos.setler = bosSetler(); }
+    else l.set.push({ ad, setler: bosSetler() });
+    toast(Tf("{a} bugünkü seansa eklendi", { a: ad }));
+    kaydet(); return ciz();
+  }
+  if (a.startsWith("nasil:")) {
+    const e = (seansOku(bugun(), par(1)).set || [])[parseInt(par(2), 10)];
+    if (!e || !kutBul(e.ad)) return;
+    S.f.nasilAd = e.ad; S.panel = "nasil";
+    return ciz();
+  }
+  if (a === "ipucu-kapat") { S.ipucuKapali = true; kaydet(); return ciz(); }
 
   /* ---- dil ---- */
   if (a.startsWith("dil:")) {

@@ -193,6 +193,7 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
                      "kalemler": [ { "ad": "…", "kcal": 0, "p": 0, "gram": 0 } ] } ],
   "barkod": { "869…": { "ad": "…", "kcal": 0, "p": 0, "k": 0, "y": 0,
                         "pAd": "porsiyon", "pGram": 0, "sonGram": 0 } },
+  "ipucuKapali": false,                 // Bugün'deki "Buradan başla" kartı kapatıldı mı
   "sonYedek": null
 }
 ```
@@ -260,11 +261,12 @@ Notlar:
 
 | Sabit | İçerik |
 |---|---|
-| `HEDEFLER` | Yağ kaybı / kas / koruma / performans. `kcal` çarpanı ve `protein` g/kg. |
+| `HEDEFLER` | Yağ kaybı / kas / **recomp (yağ yak + kas kazan)** / koruma / performans. `kcal` çarpanı ve `protein` g/kg. Recomp = 0.90 çarpan + 2.2 g/kg; "iki hedefi birden seç" diye çoklu seçim YOK — açık ve fazla aynı anda uygulanamaz, recomp bu ikilemin doğru cevabı. |
 | `AKTIVITE` | Mifflin-St Jeor çarpanları. |
 | `SPORLAR` | 20 spor. `tip` (dovus/guc/kardiyo/takim/esneklik) ve `log` alanları. |
 | `LOG_ALAN` | Antrenman günlüğü alan etiketleri. |
-| `GUC_SABLON` | Ağırlık antrenmanı egzersiz şablonları. |
+| `GUC_SABLON` | Ağırlık antrenmanı egzersiz şablonları ("Ev A/B" dahil — adlar `EGZERSIZLER` ile eşleşmeli ki ? düğmesi çıksın). |
+| `EGZERSIZLER`, `BOLGE_AD` | Egzersiz kütüphanesi: 32 hareket; `bolge`, `yer` (salon/ev/ikisi), `nasil` tarifi. Set önerisi hareket başına değil `setOner()` ile HEDEFE göre. Ölçüye göre hareket önerisi bilerek yok — vücut ölçüsünden uygunluk çıkarmak uzman işi, uyarı metni bunu söylüyor. |
 | `TAKVIYELER` | 24 takviye. `etiket.kafein` (mg) ve `etiket.tokKarin` uyarı motorunu besler. Sade L-karnitin kafeinsizdir; kafeinli thermo sürümler ayrı "termojenik" kalemidir — birleştirme, sade kullanana yanlış uyarı çıkar. |
 | `OGUN_SABLON` | 1/2/3/4/5/6 öğün ve 16:8 düzenleri; `p` = başlangıç ağırlığı. |
 | `ALISKANLIK_SABLON`, `AZALT_EGRISI` | Bırakma modülü ve haftalık azaltma eğrisi. |
@@ -273,7 +275,7 @@ Notlar:
 
 `REHBER[].kosul`: `null` = herkese; `"kreatin"` gibi bir takviye id'si = o takviye
 seçiliyse; `"@kafein"` = kafeinli takviye varsa; `"@guc"` / `"@dovus"` / `"@kardiyo"` =
-o tipte spor seçiliyse.
+o tipte spor seçiliyse; `"#recomp"` gibi `#` öneki = profildeki hedef oysa.
 
 ### `dil.js` — dil katmanı
 
@@ -395,6 +397,12 @@ günlerde sıfır kalori yemiş sayılır ve saçma bir bütçe çıkar.
 
 **Rehber maddesi eklemek** → `REHBER` dizisi, `kosul` alanını doğru ayarla.
 
+**Egzersiz eklemek** → `EGZERSIZLER` dizisine bir satır (`ad`, `bolge`, `yer`, `nasil`)
+ve İngilizceleri `dil.js`'e. Ad `GUC_SABLON`daki yazımla birebir aynıysa seans
+satırında ? düğmesi kendiliğinden çıkar (`kutBul` T'li adla da eşleşir). Kütüphane
+sayfası `dKutuphane()`; "Bugünkü seansa ekle" `bugunGucSeansi()`ne yazar, aynı ad
+ikinci kez eklenmez.
+
 **Alışveriş listesine kalem/grup eklemek** → `MARKET_SABLON`. Grup sırası market
 reyonlarını takip ediyor, araya girerken bunu boz­ma. Takviye grubunu koda yazma —
 `marketGruplari()` onu `S.takviyeler`'den üretiyor. Ekranda gruplar katlanıyor
@@ -490,6 +498,10 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Bir öğün kaydedilip panelden tek dokunuşla geri ekleniyor; "dünü tekrarla" doğru
       öğüne yazıyor
 - [ ] Aynı egzersizde ağırlık artınca "yeni rekor" çıkıyor, artmayınca çıkmıyor
+- [ ] Kütüphane: süzgeçler çalışıyor, tarif açılıyor, "bugünkü seansa ekle" güç
+      seansı olan günde çıkıyor ve aynı hareketi iki kez eklemiyor; seans
+      satırındaki ? paneli açıyor
+- [ ] "Buradan başla" kartı yeni kullanıcıda çıkıyor, kapatınca kalıcı gidiyor
 - [ ] Setler ayrı ayrı giriliyor, set ekleniyor/siliniyor, seti işaretleyince dinlenme
       sayacı başlıyor; eski tek satırlı kayıtlar set listesine açılmış
 - [ ] Haftalık hacim kartı iki haftadan az veriyle çıkmıyor, tonaj elle doğrulandı
