@@ -255,7 +255,7 @@ Notlar:
 | `SPORLAR` | 20 spor. `tip` (dovus/guc/kardiyo/takim/esneklik) ve `log` alanları. |
 | `LOG_ALAN` | Antrenman günlüğü alan etiketleri. |
 | `GUC_SABLON` | Ağırlık antrenmanı egzersiz şablonları. |
-| `TAKVIYELER` | 22 takviye. `etiket.kafein` (mg) ve `etiket.tokKarin` uyarı motorunu besler. |
+| `TAKVIYELER` | 24 takviye. `etiket.kafein` (mg) ve `etiket.tokKarin` uyarı motorunu besler. Sade L-karnitin kafeinsizdir; kafeinli thermo sürümler ayrı "termojenik" kalemidir — birleştirme, sade kullanana yanlış uyarı çıkar. |
 | `OGUN_SABLON` | 1/2/3/4/5/6 öğün ve 16:8 düzenleri; `p` = başlangıç ağırlığı. |
 | `ALISKANLIK_SABLON`, `AZALT_EGRISI` | Bırakma modülü ve haftalık azaltma eğrisi. |
 | `MARKET_SABLON` | Alışveriş listesi iskeleti — 15 grup, market reyon sırasında. |
