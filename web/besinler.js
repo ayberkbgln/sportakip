@@ -615,14 +615,24 @@ const BESIN_GRUP = {
 };
 
 /* Grupları tek bir aranabilir diziye çevirir. Ad araması için küçük harfli,
-   Türkçe karakterleri sadeleştirilmiş bir anahtar da hazırlanır. */
-const BESIN_LISTE = (() => {
+   Türkçe karakterleri sadeleştirilmiş bir anahtar da hazırlanır.
+
+   Liste AKTİF DİLE göre kurulur: EN modda adlar dil.js'teki BESIN_EN
+   haritasından gelir, karşılığı olmayan ad Türkçe kalır (kırılmaz). Dil
+   değişince dilAyarla() listeyi yeniden kurar; arama da o dilde çalışır. */
+let BESIN_LISTE = [];
+function besinListeKur() {
+  const en = DIL === "en" && typeof BESIN_EN === "object";
+  const c = s => en ? (BESIN_EN[s] || s) : s;
   const out = [];
   for (const grup in BESIN_GRUP)
-    for (const [ad, kcal, p, k, y, pAd, pGram] of BESIN_GRUP[grup])
-      out.push({ ad, kcal, p, k, y, pAd, pGram, grup, ara: sadeAd(ad) });
-  return out;
-})();
+    for (const [ad, kcal, p, k, y, pAd, pGram] of BESIN_GRUP[grup]) {
+      const gAd = c(ad);
+      out.push({ ad: gAd, kcal, p, k, y, pAd: c(pAd), pGram, grup: c(grup), ara: sadeAd(gAd) });
+    }
+  BESIN_LISTE = out;
+}
+besinListeKur();
 
 function sadeAd(s) {
   return String(s).toLocaleLowerCase("tr")

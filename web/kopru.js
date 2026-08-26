@@ -161,11 +161,11 @@ async function tarayiciBarkod() {
     cerceve.className = "tarayici-hedef";
     const not = document.createElement("p");
     not.className = "tarayici-not";
-    not.textContent = "Barkodu çerçeveye getir";
+    not.textContent = T("Barkodu çerçeveye getir");
     const kapa = document.createElement("button");
     kapa.type = "button";
     kapa.className = "tarayici-kapa";
-    kapa.textContent = "Vazgeç";
+    kapa.textContent = T("Vazgeç");
     kapa.addEventListener("click", () => { iptal = true; });
     kap.appendChild(cerceve); kap.appendChild(not); kap.appendChild(kapa);
     document.body.appendChild(kap);

@@ -84,7 +84,7 @@ async function bulutSenkron() {
   const karma = birlestir(kalici(), uzak);
   KALICI.forEach(x => { if (karma[x] !== undefined) S[x] = karma[x]; });
   duzelt();
-  if (JSON.stringify(kalici()) !== once) { kaydet(); ciz(); toast("iCloud'dan güncellendi"); }
+  if (JSON.stringify(kalici()) !== once) { kaydet(); ciz(); toast(T("iCloud'dan güncellendi")); }
 }
 
 /* =================== YARDIMCILAR =================== */
@@ -96,8 +96,13 @@ const GUN_KISA = ["Paz","Pzt","Sal","Çar","Per","Cum","Cmt"];
 const iso = d => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
 const bugun = () => iso(new Date());
 const tarihMs = s => new Date(s + "T00:00:00").getTime();
-const trT = s => { const d = new Date(s + "T00:00:00"); return d.getDate() + " " + AYLAR[d.getMonth()] + " " + d.getFullYear(); };
-const trKisa = s => { const d = new Date(s + "T00:00:00"); return d.getDate() + " " + AYLAR[d.getMonth()].slice(0, 3); };
+/* Tarih biçimi dile göre: TR "6 Ağustos 2026", EN "August 6, 2026" */
+const trT = s => { const d = new Date(s + "T00:00:00");
+  return DIL === "en" ? T(AYLAR[d.getMonth()]) + " " + d.getDate() + ", " + d.getFullYear()
+                      : d.getDate() + " " + AYLAR[d.getMonth()] + " " + d.getFullYear(); };
+const trKisa = s => { const d = new Date(s + "T00:00:00");
+  return DIL === "en" ? T(AYLAR[d.getMonth()]).slice(0, 3) + " " + d.getDate()
+                      : d.getDate() + " " + AYLAR[d.getMonth()].slice(0, 3); };
 const haftaninGunu = s => new Date(s + "T00:00:00").getDay();
 
 /* Haftanın başı = pazartesi */
@@ -207,7 +212,7 @@ const sporBul = id => SPORLAR.find(s => s.id === id) || null;
    boş liste dinlenme günü demektir. Her seansın kalıcı bir sid'i var, günlük
    kayıt buna bağlanıyor — programı düzenlemek geçmiş kaydı bozmasın diye. */
 const gunSeanslari = k => ((S.program[haftaninGunu(k)] || {}).seanslar) || [];
-const gunSporAdlari = k => gunSeanslari(k).map(s => (sporBul(s.spor) || {}).ad).filter(Boolean);
+const gunSporAdlari = k => gunSeanslari(k).map(s => T((sporBul(s.spor) || {}).ad)).filter(Boolean);
 const gunToplamSure = k => gunSeanslari(k).reduce((a, s) => a + (+s.sure || 0), 0);
 const yeniSid = () => "s" + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
 
@@ -240,10 +245,10 @@ function aliskanlikDurum(k) {
   const a = S.aliskanlik;
   if (!a || !a.aktif) return null;
   const f = Math.floor((tarihMs(k) - tarihMs(a.baslangic)) / 864e5);
-  if (f < 0) return { hafta: 0, limit: a.hafta1, ad: "Başlamadan önce" };
+  if (f < 0) return { hafta: 0, limit: a.hafta1, ad: T("Başlamadan önce") };
   const h = Math.floor(f / 7);
   const c = AZALT_EGRISI[Math.min(h, AZALT_EGRISI.length - 1)];
-  return { hafta: h + 1, limit: Math.max(1, Math.round(a.hafta1 * c)), ad: (h + 1) + ". hafta" };
+  return { hafta: h + 1, limit: Math.max(1, Math.round(a.hafta1 * c)), ad: Tf("{n}. hafta", { n: h + 1 }) };
 }
 function aliskanlikHafta(k) {
   let t = 0;
@@ -256,7 +261,7 @@ function aliskanlikHafta(k) {
    Düz alt dizi araması bunu bulamıyordu. Önce tüm kelimelerin geçtiği kayıtlar
    (VE), hiç sonuç yoksa en çok kelimesi geçenler (VEYA) döner.               */
 function ozelListe() {
-  return S.ozelBesinler.map(b => ({ ...b, grup: "Kendi eklediklerim", ara: sadeAd(b.ad), ozel: true }));
+  return S.ozelBesinler.map(b => ({ ...b, grup: T("Kendi eklediklerim"), ara: sadeAd(b.ad), ozel: true }));
 }
 
 function besinAra(q) {
@@ -357,14 +362,18 @@ function haftaButce(k) {
 /* Haftalık bütçeyi insan diline çevirir */
 function butceMesaj(hb) {
   const hedef = S.profil.kcal;
+  const v = n => `<strong style="color:var(--vurgu)">${n} kcal</strong>`;
   if (!hb.kayitliGun)
-    return `Bu haftanın ilk kaydı. Günlük hedefin <strong style="color:var(--vurgu)">${hedef} kcal</strong>.`;
-  const atlandi = hb.atlanan ? ` ${hb.atlanan} gün kayıt girmemişsin, o günler hesaba katılmadı.` : "";
+    return Tf("Bu haftanın ilk kaydı. Günlük hedefin {v}.", { v: v(hedef) });
+  const a = hb.atlanan ? Tf(" {n} gün kayıt girmemişsin, o günler hesaba katılmadı.", { n: hb.atlanan }) : "";
   if (hb.gunlukOneri < hedef * 0.85)
-    return `Bu hafta fazladan yemişsin. Kalan ${hb.kalanGun} güne yayılınca günde <strong style="color:var(--vurgu)">${hb.gunlukOneri} kcal</strong> kalıyor — aç kalman gerekmiyor, sadece toparla.${atlandi}`;
+    return Tf("Bu hafta fazladan yemişsin. Kalan {n} güne yayılınca günde {v} kalıyor — aç kalman gerekmiyor, sadece toparla.{a}",
+              { n: hb.kalanGun, v: v(hb.gunlukOneri), a });
   if (hb.gunlukOneri > hedef * 1.15)
-    return `Bu hafta hedefinin altında kalmışsın. Kalan ${hb.kalanGun} günde günde <strong style="color:var(--vurgu)">${hb.gunlukOneri} kcal</strong> yiyebilirsin.${atlandi}`;
-  return `Yolunda gidiyor. Kalan ${hb.kalanGun} gün için günde <strong style="color:var(--vurgu)">${hb.gunlukOneri} kcal</strong>.${atlandi}`;
+    return Tf("Bu hafta hedefinin altında kalmışsın. Kalan {n} günde günde {v} yiyebilirsin.{a}",
+              { n: hb.kalanGun, v: v(hb.gunlukOneri), a });
+  return Tf("Yolunda gidiyor. Kalan {n} gün için günde {v}.{a}",
+            { n: hb.kalanGun, v: v(hb.gunlukOneri), a });
 }
 
 /* ---- Uyarı motoru ----
@@ -379,16 +388,16 @@ function uyarilar(k) {
   const antrenmanVar = gunSeanslari(k).length > 0;
 
   if (toplam > 400)
-    out.push({ tip: "kirmizi", m: `Bugünkü takviyelerde toplam ${toplam} mg kafein var. Sağlıklı yetişkinde yaygın kabul gören günlük sınır 400 mg — kahve ve çayı da buna ekle.` });
+    out.push({ tip: "kirmizi", m: Tf("Bugünkü takviyelerde toplam {n} mg kafein var. Sağlıklı yetişkinde yaygın kabul gören günlük sınır 400 mg — kahve ve çayı da buna ekle.", { n: toplam }) });
   else if (kafeinli.length > 1)
-    out.push({ tip: "sari", m: `Bugün ${kafeinli.length} kafeinli takviye planlı (${toplam} mg). İkisini aynı güne koyma; birini başka güne al.` });
+    out.push({ tip: "sari", m: Tf("Bugün {n} kafeinli takviye planlı ({m} mg). İkisini aynı güne koyma; birini başka güne al.", { n: kafeinli.length, m: toplam }) });
 
   if (toplam > 0 && antrSaat >= 17 && antrenmanVar)
-    out.push({ tip: "sari", m: `Antrenmanın ${S.profil.antrSaat} — kafeinin yarılanma ömrü 5-6 saat. Antrenmandan hemen önce alırsan gece yarısı hâlâ yarısı kanında olur. Kafeinli ürünü sabaha al.` });
+    out.push({ tip: "sari", m: Tf("Antrenmanın {t} — kafeinin yarılanma ömrü 5-6 saat. Antrenmandan hemen önce alırsan gece yarısı hâlâ yarısı kanında olur. Kafeinli ürünü sabaha al.", { t: S.profil.antrSaat }) });
 
   const acKarnina = tk.filter(t => (t.etiket || {}).tokKarin);
   if (acKarnina.length)
-    out.push({ tip: "sari", m: `${acKarnina.map(t => t.ad).join(", ")} — yağda çözünür, aç karnına emilimi düşer. Öğünle birlikte al.` });
+    out.push({ tip: "sari", m: Tf("{a} — yağda çözünür, aç karnına emilimi düşer. Öğünle birlikte al.", { a: acKarnina.map(t => T(t.ad)).join(", ") }) });
 
   return out;
 }
@@ -398,7 +407,8 @@ function varsayilan() {
   return {
     surum: 2,
     guncelleme: 0,
-    profil: { cinsiyet: "", dogumYili: null, boy: null, kilo: null, aktivite: "", hedef: "",
+    profil: { dil: "",   // "" = cihaz dili; "tr" | "en" = elle seçim
+              cinsiyet: "", dogumYili: null, boy: null, kilo: null, aktivite: "", hedef: "",
               kcal: null, protein: null, suHedef: 12, bardakMl: 250, kcalElle: false,
               kcalAyarTarih: "",   // son kalori önerisinin uygulandığı gün
               antrSaat: "18:00", dinlenme: 90, tamam: false,
@@ -560,7 +570,7 @@ function kaydet() {
   const k = bugun();
   if (S.gunler[k]) S.gunler[k].d = Date.now();
   S.guncelleme = Date.now();
-  if (!Depo.yaz(kalici())) toast("Kaydedilemedi — depolama dolu olabilir");
+  if (!Depo.yaz(kalici())) toast(T("Kaydedilemedi — depolama dolu olabilir"));
 }
 let kaydetT;
 function kaydetGecikmeli() { clearTimeout(kaydetT); kaydetT = setTimeout(kaydet, 400); }
@@ -648,7 +658,7 @@ function halka(kcal, hedefKcal, protein, hedefProtein) {
       <div class="halka-l">/ ${hedefKcal || "—"} kcal</div>
     </div></div>
    <div class="halka-alt">
-     <span><i style="background:${renk}"></i>Kalori</span>
+     <span><i style="background:${renk}"></i>${T("Kalori")}</span>
      <span><i style="background:var(--iyi)"></i>Protein ${Math.round(protein)} / ${hedefProtein || "—"} g</span>
    </div>`;
 }
@@ -658,7 +668,7 @@ function halka(kcal, hedefKcal, protein, hedefProtein) {
    gibi büyük sayılarda 0 — "12480.0 kg" okunmuyor. */
 function grafik(noktalar, birim, basamak) {
   const bs = basamak == null ? 1 : basamak;
-  if (noktalar.length < 2) return `<p class="bos">Grafik için en az iki ölçüm gerekiyor.</p>`;
+  if (noktalar.length < 2) return `<p class="bos">${T("Grafik için en az iki ölçüm gerekiyor.")}</p>`;
   const W = 440, H = 150, sol = 38, sag = 10, ust = 14, alt = 22;
   const dgr = noktalar.map(n => n.deger);
   let min = Math.min(...dgr), max = Math.max(...dgr);
@@ -675,7 +685,7 @@ function grafik(noktalar, birim, basamak) {
   const ilkSon = `<text class="etiket" x="${sol}" y="${H - 4}">${esc(trKisa(noktalar[0].tarih))}</text>
     <text class="etiket" x="${W - sag}" y="${H - 4}" text-anchor="end">${esc(trKisa(noktalar[noktalar.length - 1].tarih))}</text>`;
   return `<svg class="grafik" viewBox="0 0 ${W} ${H}" role="img"
-    aria-label="${esc(noktalar[0].deger + " " + birim + " değerinden " + noktalar[noktalar.length - 1].deger + " " + birim + " değerine değişim")}">
+    aria-label="${esc(Tf("{a} {b} değerinden {c} {b} değerine değişim", { a: noktalar[0].deger, b: birim, c: noktalar[noktalar.length - 1].deger }))}">
     <defs><linearGradient id="gr-dolgu" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#D2FF3E" stop-opacity=".22"/>
       <stop offset="100%" stop-color="#D2FF3E" stop-opacity="0"/></linearGradient></defs>
@@ -691,59 +701,64 @@ function vKurulum() {
   const altlar = ["Hesaplar bunlara dayanıyor","İsteğe bağlı — atlayabilirsin","Kalori hedefin buradan çıkacak",
                   "Birden fazla seçebilirsin","Hangi gün ne yapıyorsun","Günde kaç öğün yiyorsun",
                   "Kullandıklarını işaretle","Varsa — yoksa atla"];
-  let h = `<header class="top"><p class="eyebrow">Kurulum · ${a + 1}/${ADIM_SAYI}</p>
-   <h1>${basliklar[a]}</h1><p class="sub">${altlar[a]}</p>
+  let h = `<header class="top"><p class="eyebrow">${T("Kurulum")} · ${a + 1}/${ADIM_SAYI}</p>
+   <h1>${T(basliklar[a])}</h1><p class="sub">${T(altlar[a])}</p>
    <div class="adimlar">${Array.from({ length: ADIM_SAYI }, (_, i) => `<div class="adim ${i <= a ? "on" : ""}"></div>`).join("")}</div></header>`;
 
   h += [kAdim0, kAdim1, kAdim2, kAdim3, kAdim4, kAdim5, kAdim6, kAdim7][a]();
 
   const sonAdim = a === ADIM_SAYI - 1;
   h += `<div class="row" style="margin-top:14px">
-    ${a > 0 ? `<button class="btn ghost" data-act="k-geri">Geri</button>` : ""}
-    <button class="btn gold" data-act="k-ileri">${sonAdim ? "Bitir ve başla" : "Devam"}</button></div>`;
+    ${a > 0 ? `<button class="btn ghost" data-act="k-geri">${T("Geri")}</button>` : ""}
+    <button class="btn gold" data-act="k-ileri">${sonAdim ? T("Bitir ve başla") : T("Devam")}</button></div>`;
   if ([1, 6, 7].indexOf(a) !== -1)
-    h += `<button class="btn ghost blok" data-act="k-atla" style="margin-top:9px">Bu adımı atla</button>`;
+    h += `<button class="btn ghost blok" data-act="k-atla" style="margin-top:9px">${T("Bu adımı atla")}</button>`;
   return h;
 }
 
 function kAdim0() {
   const p = S.profil;
   return kart("", "",
-    `<label class="lbl sol">Cinsiyet</label>
+    `<label class="lbl sol">Dil / Language</label>
+     <div class="row" style="margin-bottom:13px">
+       <button class="btn ${DIL === "tr" ? "gold" : "ghost"}" data-act="dil:tr">Türkçe</button>
+       <button class="btn ${DIL === "en" ? "gold" : "ghost"}" data-act="dil:en">English</button></div>
+     <label class="lbl sol">${T("Cinsiyet")}</label>
      <div class="sec-lst" style="margin-bottom:13px">
-       ${secOp("k-cins:e", p.cinsiyet === "e", "Erkek", "")}
-       ${secOp("k-cins:k", p.cinsiyet === "k", "Kadın", "")}</div>
-     <div class="row" style="margin-bottom:11px">${alan("dogumYili", "Doğum yılı")}${alan("boy", "Boy cm")}${alan("kilo", "Kilo kg")}</div>
-     <p class="note">Vücut yağ oranı formülü cinsiyete göre değişiyor ve kadınlarda kalça ölçüsünü de kullanıyor. Bu yüzden soruyoruz — başka hiçbir yere gitmiyor.</p>`);
+       ${secOp("k-cins:e", p.cinsiyet === "e", T("Erkek"), "")}
+       ${secOp("k-cins:k", p.cinsiyet === "k", T("Kadın"), "")}</div>
+     <div class="row" style="margin-bottom:11px">${alan("dogumYili", T("Doğum yılı"))}${alan("boy", T("Boy cm"))}${alan("kilo", T("Kilo kg"))}</div>
+     <p class="note">${T("Vücut yağ oranı formülü cinsiyete göre değişiyor ve kadınlarda kalça ölçüsünü de kullanıyor. Bu yüzden soruyoruz — başka hiçbir yere gitmiyor.")}</p>`);
 }
 
 function kAdim1() {
   const kadin = S.profil.cinsiyet === "k";
   return kart("", "",
-    `<div class="row" style="margin-bottom:11px">${alan("bel", "Bel cm")}${alan("boyun", "Boyun cm")}${kadin ? alan("kalca", "Kalça cm") : ""}</div>
-     <p class="note">Bel: göbek deliği hizasından, karnı içe çekmeden, normal nefes verdikten sonra.
-     Boyun: gırtlağın hemen altından, boynun en dar yerinden${kadin ? "" : " (adem elmasının altı)"}.${
-       kadin ? " Kalça: en geniş yerinden, ayaklar bitişik." : ""}<br><br>
-     Bunları girmezsen uygulama yine çalışır — sadece vücut yağ oranı hesaplanmaz, kilo takibi devam eder.</p>`);
+    `<div class="row" style="margin-bottom:11px">${alan("bel", T("Bel cm"))}${alan("boyun", T("Boyun cm"))}${kadin ? alan("kalca", T("Kalça cm")) : ""}</div>
+     <p class="note">${T("Bel: göbek deliği hizasından, karnı içe çekmeden, normal nefes verdikten sonra.")}
+     ${kadin ? T("Boyun: gırtlağın hemen altından, boynun en dar yerinden.")
+             : T("Boyun: gırtlağın hemen altından, boynun en dar yerinden (adem elmasının altı).")}${
+       kadin ? " " + T("Kalça: en geniş yerinden, ayaklar bitişik.") : ""}<br><br>
+     ${T("Bunları girmezsen uygulama yine çalışır — sadece vücut yağ oranı hesaplanmaz, kilo takibi devam eder.")}</p>`);
 }
 
 function kAdim2() {
   const p = S.profil, h = hedefHesapla();
   return kart("", "",
-    `<label class="lbl sol">Hedef</label>
+    `<label class="lbl sol">${T("Hedef")}</label>
      <div class="sec-lst" style="margin-bottom:15px">
-       ${HEDEFLER.map(x => secOp("k-hedef:" + x.id, p.hedef === x.id, x.ad, x.d)).join("")}</div>
-     <label class="lbl sol">Aktivite düzeyi</label>
+       ${HEDEFLER.map(x => secOp("k-hedef:" + x.id, p.hedef === x.id, T(x.ad), T(x.d))).join("")}</div>
+     <label class="lbl sol">${T("Aktivite düzeyi")}</label>
      <div class="sec-lst" style="margin-bottom:13px">
-       ${AKTIVITE.map(x => secOp("k-akt:" + x.id, p.aktivite === x.id, x.ad, x.d)).join("")}</div>
-     <label class="lbl sol">Antrenmanın genelde saat kaçta</label>
+       ${AKTIVITE.map(x => secOp("k-akt:" + x.id, p.aktivite === x.id, T(x.ad), T(x.d))).join("")}</div>
+     <label class="lbl sol">${T("Antrenmanın genelde saat kaçta")}</label>
      <input type="time" data-fld="antrSaat" value="${esc(p.antrSaat || "18:00")}" style="margin-bottom:11px">
-     ${h ? `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${h.kcal}</div><div class="sl">kcal / gün</div></div>
-       <div class="sc"><div class="sn">${h.protein}</div><div class="sl">g protein</div></div>
-       <div class="sc"><div class="sn">${(h.suMl / 1000).toFixed(1)}</div><div class="sl">litre su</div></div></div>
-       <p class="note" style="margin-top:10px">Günlük harcaman yaklaşık ${h.tdee} kcal.
-       Su hedefi ${h.su} × ${bardakMl()} ml. Bu hedefleri ve bardak boyutunu sonradan Ayarlar'dan değiştirebilirsin.</p>`
-      : `<p class="note">Hedef ve aktiviteyi seçince kalori hedefin hesaplanacak.</p>`}`);
+     ${h ? `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${h.kcal}</div><div class="sl">${T("kcal / gün")}</div></div>
+       <div class="sc"><div class="sn">${h.protein}</div><div class="sl">${T("g protein")}</div></div>
+       <div class="sc"><div class="sn">${(h.suMl / 1000).toFixed(1)}</div><div class="sl">${T("litre su")}</div></div></div>
+       <p class="note" style="margin-top:10px">${Tf("Günlük harcaman yaklaşık {t} kcal. Su hedefi {s} × {ml} ml. Bu hedefleri ve bardak boyutunu sonradan Ayarlar'dan değiştirebilirsin.",
+         { t: h.tdee, s: h.su, ml: bardakMl() })}</p>`
+      : `<p class="note">${T("Hedef ve aktiviteyi seçince kalori hedefin hesaplanacak.")}</p>`}`);
 }
 
 function kAdim3() {
@@ -751,47 +766,46 @@ function kAdim3() {
   SPORLAR.forEach(s => { (gruplar[s.tip] = gruplar[s.tip] || []).push(s); });
   let h = "";
   for (const t in gruplar)
-    h += `<p class="sec">${SPOR_TIP_AD[t]}</p>` + kart("", "",
-      `<div class="sec-lst">${gruplar[t].map(s => secOp("k-spor:" + s.id, S.sporlar.indexOf(s.id) !== -1, s.ad, "")).join("")}</div>`);
+    h += `<p class="sec">${T(SPOR_TIP_AD[t])}</p>` + kart("", "",
+      `<div class="sec-lst">${gruplar[t].map(s => secOp("k-spor:" + s.id, S.sporlar.indexOf(s.id) !== -1, T(s.ad), "")).join("")}</div>`);
   return h;
 }
 
 function kAdim4() {
-  if (!S.sporlar.length) return kart("", "", `<p class="bos">Önce bir önceki adımda spor seç.</p>`);
+  if (!S.sporlar.length) return kart("", "", `<p class="bos">${T("Önce bir önceki adımda spor seç.")}</p>`);
   return kart("", "",
-    `<button class="btn ghost blok" data-act="k-prog-oto" style="margin-bottom:14px">Otomatik doldur</button>` +
+    `<button class="btn ghost blok" data-act="k-prog-oto" style="margin-bottom:14px">${T("Otomatik doldur")}</button>` +
     programDuzenle() +
-    `<p class="note" style="margin-top:12px">Bir güne birden fazla seans ekleyebilirsin ve sıra korunur —
-     ısınma koşusu, sonra kickboks, sonra ağırlık gibi. Dinlenme günleri gün yüzdesi hesabından düşer.</p>`);
+    `<p class="note" style="margin-top:12px">${T("Bir güne birden fazla seans ekleyebilirsin ve sıra korunur — ısınma koşusu, sonra kickboks, sonra ağırlık gibi. Dinlenme günleri gün yüzdesi hesabından düşer.")}</p>`);
 }
 
 function kAdim5() {
   let h = kart("", "",
-    `<div class="sec-lst">${OGUN_SABLON.map(o => secOp("k-ogun:" + o.id, S.f.ogunSablon === o.id, o.ad, o.d)).join("")}</div>`);
+    `<div class="sec-lst">${OGUN_SABLON.map(o => secOp("k-ogun:" + o.id, S.f.ogunSablon === o.id, T(o.ad), T(o.d))).join("")}</div>`);
   if (S.ogunler.length)
-    h += `<p class="sec">Düzenle</p>` + kart("", "", ogunDuzenle() +
-      `<p class="note" style="margin-top:8px">Adları, saatleri ve payları değiştirebilir, öğün ekleyip çıkarabilirsin. Sonradan Ayarlar'dan da düzenlenir.</p>`);
+    h += `<p class="sec">${T("Düzenle")}</p>` + kart("", "", ogunDuzenle() +
+      `<p class="note" style="margin-top:8px">${T("Adları, saatleri ve payları değiştirebilir, öğün ekleyip çıkarabilirsin. Sonradan Ayarlar'dan da düzenlenir.")}</p>`);
   return h;
 }
 
 function kAdim6() {
   const secili = id => S.takviyeler.some(t => t.id === id);
   return kart("", "",
-    `<div class="sec-lst">${TAKVIYELER.map(t => secOp("k-tak:" + t.id, secili(t.id), t.ad,
-      t.doz + " · " + t.saat + ((t.etiket || {}).kafein ? " · " + t.etiket.kafein + " mg kafein" : ""))).join("")}</div>
-     <p class="note" style="margin-top:12px">Dozları ve hangi günler alacağını Daha → Takviyeler'den ayarlarsın. Takviye ilaç değildir ve ilacın yerine geçmez.</p>`);
+    `<div class="sec-lst">${TAKVIYELER.map(t => secOp("k-tak:" + t.id, secili(t.id), T(t.ad),
+      T(t.doz) + " · " + T(t.saat) + ((t.etiket || {}).kafein ? " · " + t.etiket.kafein + " " + T("mg kafein") : ""))).join("")}</div>
+     <p class="note" style="margin-top:12px">${T("Dozları ve hangi günler alacağını Daha → Takviyeler'den ayarlarsın. Takviye ilaç değildir ve ilacın yerine geçmez.")}</p>`);
 }
 
 function kAdim7() {
   const a = S.aliskanlik;
   return kart("", "",
     `<div class="sec-lst" style="margin-bottom:13px">
-      ${ALISKANLIK_SABLON.map(x => secOp("k-alis:" + x.id, S.f.alisId === x.id, x.ad, x.id === "ozel" ? "" : "Kademeli azaltma takvimi kurulur")).join("")}</div>
+      ${ALISKANLIK_SABLON.map(x => secOp("k-alis:" + x.id, S.f.alisId === x.id, T(x.ad), x.id === "ozel" ? "" : T("Kademeli azaltma takvimi kurulur"))).join("")}</div>
      ${S.f.alisId ? `<div class="row" style="margin-bottom:11px">
-        ${S.f.alisId === "ozel" ? alan("alisAd", "Ne", "text") : ""}
-        ${alan("alisHafta1", "Şu an haftada kaç")}</div>
-      <p class="note">İlk hafta bu sayı üst sınırın olur, sonra her hafta düşer. Amaç sıfırlamak değil — bırakılabilir bir eğimle inmek.</p>`
-      : `<p class="note">Azaltmak istediğin bir şey varsa seç. Uygulama haftalık bir üst sınır koyar ve her hafta düşürür. İstemiyorsan bu adımı atla.</p>`}`);
+        ${S.f.alisId === "ozel" ? alan("alisAd", T("Ne"), "text") : ""}
+        ${alan("alisHafta1", T("Şu an haftada kaç"))}</div>
+      <p class="note">${T("İlk hafta bu sayı üst sınırın olur, sonra her hafta düşer. Amaç sıfırlamak değil — bırakılabilir bir eğimle inmek.")}</p>`
+      : `<p class="note">${T("Azaltmak istediğin bir şey varsa seç. Uygulama haftalık bir üst sınır koyar ve her hafta düşürür. İstemiyorsan bu adımı atla.")}</p>`}`);
 }
 
 /* =================== SEKME: BUGÜN =================== */
@@ -810,10 +824,10 @@ function vBugun() {
   /* Sıkışık başlık: gün, spor ve gün yüzdesi tek satırda. Uzun yığın yerine
      hero halka + dokunulabilir kutu ızgarası — ekran kaydırmadan okunuyor. */
   let h = `<header class="top sik">
-    <div class="bas-sol"><p class="eyebrow">${GUN_AD[haftaninGunu(k)]} · ${trKisa(k)}</p>
-      <h1>${dinlenme ? "Dinlenme" : esc(adlar.join(" + "))}</h1></div>
+    <div class="bas-sol"><p class="eyebrow">${T(GUN_AD[haftaninGunu(k)])} · ${trKisa(k)}</p>
+      <h1>${dinlenme ? T("Dinlenme") : esc(adlar.join(" + "))}</h1></div>
     <div class="bas-sag"><div class="rozet">%${Math.round(biten / toplamIs * 100)}</div>
-      <span class="sl">Gün</span></div></header>`;
+      <span class="sl">${T("Gün")}</span></div></header>`;
 
   uyarilar(k).forEach(u => { h += uyariKutu(u); });
 
@@ -821,23 +835,23 @@ function vBugun() {
   h += `<div class="hero">
     ${halka(top.kcal, p.kcal, top.p, p.protein)}
     ${hb ? `<p class="note hero-not">${butceMesaj(hb)}</p>` : ""}
-    <button class="btn gold blok" data-act="yem-hizli">Yemek ekle</button></div>`;
+    <button class="btn gold blok" data-act="yem-hizli">${T("Yemek ekle")}</button></div>`;
 
   /* Kutu ızgarası */
   const kutular = [];
 
   kutular.push(`<div class="kutu su-kutu">
-    <p class="kutu-t">Su</p>
+    <p class="kutu-t">${T("Su")}</p>
     <p class="kutu-n" style="color:var(--su)">${(g.su * bardakMl() / 1000).toFixed(1)}<small>L</small></p>
     <p class="kutu-alt">${g.su} / ${p.suHedef} × ${bardakMl()} ml</p>
     ${ilerlemeInce(p.suHedef ? g.su / p.suHedef : 0, "var(--su)")}
     <div class="kutu-ara">
-      <button class="mini" data-act="su-" aria-label="azalt">−</button>
-      <button class="mini artir" data-act="su+" aria-label="artır">+</button></div></div>`);
+      <button class="mini" data-act="su-" aria-label="${T("azalt")}">−</button>
+      <button class="mini artir" data-act="su+" aria-label="${T("artır")}">+</button></div></div>`);
 
   if (!dinlenme)
     kutular.push(`<button class="kutu" data-act="panel:antrenman">
-      <p class="kutu-t">Antrenman</p>
+      <p class="kutu-t">${T("Antrenman")}</p>
       <p class="kutu-n">${yapilanSeans(k)}<small>/${seanslar.length}</small></p>
       <p class="kutu-alt">${esc(adlar.join(" · "))}</p>
       ${ilerlemeInce(seanslar.length ? yapilanSeans(k) / seanslar.length : 0)}</button>`);
@@ -845,26 +859,26 @@ function vBugun() {
   if (tk.length) {
     const alinan = tk.filter(t => g.takviye[t.id]).length;
     kutular.push(`<button class="kutu" data-act="panel:takviye">
-      <p class="kutu-t">Takviye</p>
+      <p class="kutu-t">${T("Takviye")}</p>
       <p class="kutu-n">${alinan}<small>/${tk.length}</small></p>
-      <p class="kutu-alt">${alinan === tk.length ? "Hepsi alındı" : esc(tk.filter(t => !g.takviye[t.id]).map(t => t.ad).join(", "))}</p>
+      <p class="kutu-alt">${alinan === tk.length ? T("Hepsi alındı") : esc(tk.filter(t => !g.takviye[t.id]).map(t => T(t.ad)).join(", "))}</p>
       ${ilerlemeInce(alinan / tk.length, "var(--iyi)")}</button>`);
   }
 
   if (ad) {
     const hafta = aliskanlikHafta(k), asti = hafta > ad.limit;
     kutular.push(`<button class="kutu" data-act="panel:aliskanlik">
-      <p class="kutu-t">${esc(S.aliskanlik.ad)}</p>
+      <p class="kutu-t">${esc(T(S.aliskanlik.ad))}</p>
       <p class="kutu-n" style="color:${asti ? "var(--kotu)" : "var(--iyi)"}">${hafta}<small>/${ad.limit}</small></p>
-      <p class="kutu-alt">7 günde · ${esc(ad.ad)}</p>
+      <p class="kutu-alt">${T("7 günde")} · ${esc(ad.ad)}</p>
       ${ilerlemeInce(ad.limit ? hafta / ad.limit : 0, asti ? "var(--kotu)" : "var(--iyi)")}</button>`);
   }
 
   const sr = seri();
   kutular.push(`<button class="kutu" data-act="tab:ilerleme">
-    <p class="kutu-t">Seri</p>
-    <p class="kutu-n">${sr}<small>gün</small></p>
-    <p class="kutu-alt">${sr > 1 ? "Üst üste kayıt girdin" : "Bugün kayıt gir, seri başlasın"}</p>
+    <p class="kutu-t">${T("Seri")}</p>
+    <p class="kutu-n">${sr}<small>${T("gün")}</small></p>
+    <p class="kutu-alt">${sr > 1 ? T("Üst üste kayıt girdin") : T("Bugün kayıt gir, seri başlasın")}</p>
     ${ilerlemeInce(Math.min(sr / 30, 1), "var(--vurgu)")}</button>`);
 
   h += `<div class="izgara">${kutular.join("")}</div>`;
@@ -889,15 +903,15 @@ function seri() {
 function vYemek() {
   const k = bugun(), g = gun(k), p = S.profil, top = gunToplam(k), hb = haftaButce(k);
 
-  let h = `<header class="top"><p class="eyebrow">${trT(k)}</p><h1>Yemek</h1>
+  let h = `<header class="top"><p class="eyebrow">${trT(k)}</p><h1>${T("Yemek")}</h1>
    <p class="sub">${top.kcal} / ${p.kcal || "—"} kcal · ${Math.round(top.p)} / ${p.protein || "—"} g protein</p>
    ${ilerleme(p.kcal ? top.kcal / p.kcal : 0, top.kcal > p.kcal ? "var(--kotu)" : "var(--vurgu)")}</header>`;
 
   if (hb)
-    h += kart("Haftalık bütçe", `${hb.kalanGun} gün kaldı`,
-      `<div class="stat"><div class="sc"><div class="sn">${(hb.oncekiler / 1000).toFixed(1)}k</div><div class="sl">Yenen</div></div>
-        <div class="sc"><div class="sn" style="color:var(--vurgu)">${hb.gunlukOneri}</div><div class="sl">Günlük öneri</div></div>
-        <div class="sc"><div class="sn">${(hb.haftaHedef / 1000).toFixed(1)}k</div><div class="sl">Hafta bütçesi</div></div></div>
+    h += kart(T("Haftalık bütçe"), Tf("{n} gün kaldı", { n: hb.kalanGun }),
+      `<div class="stat"><div class="sc"><div class="sn">${(hb.oncekiler / 1000).toFixed(1)}k</div><div class="sl">${T("Yenen")}</div></div>
+        <div class="sc"><div class="sn" style="color:var(--vurgu)">${hb.gunlukOneri}</div><div class="sl">${T("Günlük öneri")}</div></div>
+        <div class="sc"><div class="sn">${(hb.haftaHedef / 1000).toFixed(1)}k</div><div class="sl">${T("Hafta bütçesi")}</div></div></div>
        <p class="note" style="margin-top:11px">${butceMesaj(hb)}</p>`);
 
   /* Öğün seçici — altı kartı alt alta yığmak yerine yatay şerit. Seçili
@@ -927,18 +941,18 @@ function vYemek() {
         ? kalemler.map(y => `<div class="item" data-act="yem-duzenle:${esc(y.uid)}">
             <div class="ib"><div class="it"><span class="name">${esc(y.ad)}</span>${y.gram ? `<span class="time">${y.gram} g</span>` : ""}</div>
             <div class="macro">${y.kcal} kcal · ${(+y.p).toFixed(1)} g protein</div></div>
-            <div class="uc"><button class="sil" data-act="yem-sil:${esc(y.uid)}" aria-label="sil">×</button></div></div>`).join("")
-        : `<p class="bos">Henüz bir şey eklemedin.</p>`) +
-      (kalemler.length ? `<div class="macro" style="margin:10px 0 10px">Toplam ${sK} kcal · ${sP.toFixed(1)} g protein</div>` : "") +
-      `<button class="btn gold blok" data-act="yem-ac:${esc(aktif.id)}">Yemek ekle</button>` +
+            <div class="uc"><button class="sil" data-act="yem-sil:${esc(y.uid)}" aria-label="${T("sil")}">×</button></div></div>`).join("")
+        : `<p class="bos">${T("Henüz bir şey eklemedin.")}</p>`) +
+      (kalemler.length ? `<div class="macro" style="margin:10px 0 10px">${Tf("Toplam {k} kcal · {p} g protein", { k: sK, p: sP.toFixed(1) })}</div>` : "") +
+      `<button class="btn gold blok" data-act="yem-ac:${esc(aktif.id)}">${T("Yemek ekle")}</button>` +
       /* Tekrar eden öğünü yeniden aratmak, kalori takibini bırakmanın bir
          numaralı sebebi. İki kestirme: dünü tekrarla, öğünü şablon olarak
          kaydet.                                                            */
       (!kalemler.length && dun.length
-        ? `<button class="btn ghost blok" data-act="yem-dun:${esc(aktif.id)}" style="margin-top:9px">Dünü tekrarla · ${
-            dun.length} kalem · ${dun.reduce((a, y) => a + y.kcal, 0)} kcal</button>` : "") +
+        ? `<button class="btn ghost blok" data-act="yem-dun:${esc(aktif.id)}" style="margin-top:9px">${
+            Tf("Dünü tekrarla · {n} kalem · {k} kcal", { n: dun.length, k: dun.reduce((a, y) => a + y.kcal, 0) })}</button>` : "") +
       (kalemler.length
-        ? `<button class="btn ghost blok" data-act="ogun-kaydet:${esc(aktif.id)}" style="margin-top:9px">Bu öğünü kaydet</button>` : ""));
+        ? `<button class="btn ghost blok" data-act="ogun-kaydet:${esc(aktif.id)}" style="margin-top:9px">${T("Bu öğünü kaydet")}</button>` : ""));
   }
 
   /* Öğün düzeni değişince eski kayıtlar hiçbir slota denk gelmeyebilir.
@@ -946,18 +960,18 @@ function vYemek() {
   const bilinen = new Set(ogunSlotlari().map(o => o.id));
   const oksuz = g.yenen.filter(y => !bilinen.has(y.ogun));
   if (oksuz.length)
-    h += kart("Öğün dışı", `${oksuz.reduce((a, y) => a + y.kcal, 0)} kcal`,
+    h += kart(T("Öğün dışı"), `${oksuz.reduce((a, y) => a + y.kcal, 0)} kcal`,
       oksuz.map(y => `<div class="item" data-act="yem-duzenle:${esc(y.uid)}">
         <div class="ib"><div class="it"><span class="name">${esc(y.ad)}</span>${y.gram ? `<span class="time">${y.gram} g</span>` : ""}</div>
         <div class="macro">${y.kcal} kcal · ${(+y.p).toFixed(1)} g protein</div></div>
-        <div class="uc"><button class="sil" data-act="yem-sil:${esc(y.uid)}" aria-label="sil">×</button></div></div>`).join("") +
-      `<p class="note" style="margin-top:10px">Bu kayıtlar artık var olmayan bir öğüne aitti. Silebilir ya da olduğu gibi bırakabilirsin — günlük toplama dahiller.</p>`);
+        <div class="uc"><button class="sil" data-act="yem-sil:${esc(y.uid)}" aria-label="${T("sil")}">×</button></div></div>`).join("") +
+      `<p class="note" style="margin-top:10px">${T("Bu kayıtlar artık var olmayan bir öğüne aitti. Silebilir ya da olduğu gibi bırakabilirsin — günlük toplama dahiller.")}</p>`);
 
   return h;
 }
 
 const ogunSlotlari = () => S.ogunler.length
-  ? S.ogunler : [{ id: "genel", ad: "Bugün yediklerim", saat: "", p: 1 }];
+  ? S.ogunler : [{ id: "genel", ad: T("Bugün yediklerim"), saat: "", p: 1 }];
 
 /* p bir ağırlıktır, mutlak oran değil: kullanıcı yüzdeleri elle değiştirdiğinde
    toplam 100 tutmak zorunda kalmasın diye okurken normalleştiriyoruz. Şablonlar
@@ -982,7 +996,7 @@ function ogunKaydet(oid) {
     .map(y => ({ ad: y.ad, kcal: +y.kcal || 0, p: +y.p || 0, gram: +y.gram || 0 }));
   if (!kalemler.length) return null;
   const slot = ogunSlotlari().find(o => o.id === oid);
-  const ad = `${slot ? slot.ad : "Öğün"} · ${kalemler[0].ad}${kalemler.length > 1 ? " +" + (kalemler.length - 1) : ""}`;
+  const ad = `${slot ? slot.ad : T("Öğün")} · ${kalemler[0].ad}${kalemler.length > 1 ? " +" + (kalemler.length - 1) : ""}`;
   const kayit = { id: yeniKid(), ad, kalemler };
   S.kayitliOgun.unshift(kayit);
   if (S.kayitliOgun.length > 30) S.kayitliOgun.length = 30;
@@ -1000,28 +1014,27 @@ function ogunDuzenle() {
   return `${S.ogunler.map((o, i) => `<div class="seans">
       <div class="seans-bas">
         <span class="seans-no">${i + 1}</span>
-        <input type="text" data-ogun="${i}:ad" value="${esc(o.ad)}" placeholder="Öğün adı"
+        <input type="text" data-ogun="${i}:ad" value="${esc(o.ad)}" placeholder="${T("Öğün adı")}"
           style="text-align:left;flex:1;min-width:0;padding:8px 10px;font-size:14px">
         <span class="seans-ara">
-          ${i > 0 ? `<button class="seans-ok" data-act="ogun-tasi:${i}:-1" aria-label="yukarı taşı">↑</button>` : ""}
-          ${i < S.ogunler.length - 1 ? `<button class="seans-ok" data-act="ogun-tasi:${i}:1" aria-label="aşağı taşı">↓</button>` : ""}
-          ${S.ogunler.length > 1 ? `<button class="sil" data-act="ogun-sil:${i}" aria-label="kaldır">×</button>` : ""}
+          ${i > 0 ? `<button class="seans-ok" data-act="ogun-tasi:${i}:-1" aria-label="${T("yukarı taşı")}">↑</button>` : ""}
+          ${i < S.ogunler.length - 1 ? `<button class="seans-ok" data-act="ogun-tasi:${i}:1" aria-label="${T("aşağı taşı")}">↓</button>` : ""}
+          ${S.ogunler.length > 1 ? `<button class="sil" data-act="ogun-sil:${i}" aria-label="${T("kaldır")}">×</button>` : ""}
         </span></div>
       <div class="row">
-        <div class="alan"><label class="lbl">Saat</label>
+        <div class="alan"><label class="lbl">${T("Saat")}</label>
           <input type="time" data-ogun="${i}:saat" value="${esc(o.saat || "")}"></div>
-        <div class="alan"><label class="lbl">Pay %</label>
+        <div class="alan"><label class="lbl">${T("Pay %")}</label>
           <input type="number" inputmode="numeric" data-ogun="${i}:p" value="${yuzde(o)}"></div>
-        <div class="alan"><label class="lbl">Hedef</label>
+        <div class="alan"><label class="lbl">${T("Hedef")}</label>
           <input type="text" id="og-hedef-${i}" value="${hedefK ? Math.round(hedefK * ogunOran(o)) + " kcal" : "—"}" readonly
             style="text-align:center;color:var(--vurgu);border-style:dashed"></div>
       </div></div>`).join("")}
     <div class="row" style="margin-top:10px">
-      <button class="btn ghost" data-act="ogun-ekle">+ Öğün ekle</button>
-      <button class="btn ghost" data-act="ogun-esit">Eşit dağıt</button></div>
-    <p class="note" style="margin-top:10px">Paylar günlük kalorinin dağılımı. Toplam
-    <strong id="og-toplam">${toplamYuzde}%</strong> — 100 tutmasa da sorun değil, oranlar
-    orantılı dağıtılır ve gerçek hedef sağdaki sütunda görünür.</p>`;
+      <button class="btn ghost" data-act="ogun-ekle">${T("+ Öğün ekle")}</button>
+      <button class="btn ghost" data-act="ogun-esit">${T("Eşit dağıt")}</button></div>
+    <p class="note" style="margin-top:10px">${Tf("Paylar günlük kalorinin dağılımı. Toplam {t} — 100 tutmasa da sorun değil, oranlar orantılı dağıtılır ve gerçek hedef sağdaki sütunda görünür.",
+      { t: `<strong id="og-toplam">${toplamYuzde}%</strong>` })}</p>`;
 }
 
 /* ---------------------------------------------------------------------
@@ -1038,7 +1051,7 @@ function panelSar(baslik, govde, alt) {
   return `<div class="perde" data-act="panel-kapat"></div>
     <div class="sayfa"><div class="tut"></div>
       <div class="sayfa-bas"><p class="card-t">${esc(baslik)}</p>
-        <button class="sayfa-kapa" data-act="panel-kapat" aria-label="kapat">×</button></div>
+        <button class="sayfa-kapa" data-act="panel-kapat" aria-label="${T("kapat")}">×</button></div>
       <div class="sayfa-govde">${govde}</div>
       ${alt ? `<div class="sayfa-alt">${alt}</div>` : ""}</div>`;
 }
@@ -1049,34 +1062,34 @@ function panelHtml() {
 
   if (S.panel === "takviye") {
     const tk = gununTakviyeleri(k);
-    return panelSar("Bugünkü takviyeler",
-      tk.map(t => satir({ ad: t.ad, saat: t.saat, desc: t.doz, macro: t.not,
-                          on: !!g.takviye[t.id], act: "tak:" + t.id })).join("") || `<p class="bos">Takviye seçili değil.</p>`,
-      `<button class="btn ghost blok" data-act="panel-git:daha:takviye">Takviyeleri düzenle</button>`);
+    return panelSar(T("Bugünkü takviyeler"),
+      tk.map(t => satir({ ad: T(t.ad), saat: T(t.saat), desc: T(t.doz), macro: T(t.not),
+                          on: !!g.takviye[t.id], act: "tak:" + t.id })).join("") || `<p class="bos">${T("Takviye seçili değil.")}</p>`,
+      `<button class="btn ghost blok" data-act="panel-git:daha:takviye">${T("Takviyeleri düzenle")}</button>`);
   }
 
   if (S.panel === "antrenman") {
     const seanslar = gunSeanslari(k);
-    return panelSar("Bugünkü antrenman",
+    return panelSar(T("Bugünkü antrenman"),
       seanslar.map((s, i) => {
         const sp = sporBul(s.spor);
-        return satir({ ad: `${i + 1}. ${sp ? sp.ad : s.spor}`, saat: s.sure ? s.sure + " dk" : "",
-                       desc: s.sablon || "", on: !!seansOku(k, s.sid).yapildi, act: "seans-tik:" + s.sid });
-      }).join("") || `<p class="bos">Bugün dinlenme günü.</p>`,
-      `<button class="btn gold blok" data-act="panel-git:antrenman:">Detay gir</button>`);
+        return satir({ ad: `${i + 1}. ${sp ? T(sp.ad) : s.spor}`, saat: s.sure ? s.sure + " " + T("dk") : "",
+                       desc: T(s.sablon) || "", on: !!seansOku(k, s.sid).yapildi, act: "seans-tik:" + s.sid });
+      }).join("") || `<p class="bos">${T("Bugün dinlenme günü.")}</p>`,
+      `<button class="btn gold blok" data-act="panel-git:antrenman:">${T("Detay gir")}</button>`);
   }
 
   if (S.panel === "aliskanlik" && S.aliskanlik) {
     const d = aliskanlikDurum(k), hafta = aliskanlikHafta(k), asti = hafta > d.limit;
-    return panelSar(S.aliskanlik.ad,
+    return panelSar(T(S.aliskanlik.ad),
       `<div class="stat" style="margin-bottom:14px">
-        <div class="sc"><div class="sn">${g.aliskanlik}</div><div class="sl">Bugün</div></div>
-        <div class="sc"><div class="sn" style="color:${asti ? "var(--kotu)" : "var(--iyi)"}">${hafta}</div><div class="sl">7 günde</div></div>
-        <div class="sc"><div class="sn">${d.limit}</div><div class="sl">Sınır</div></div></div>
-       <p class="note">${esc(d.ad)} · bu hafta en fazla ${d.limit} ${esc(S.aliskanlik.birim)}${
-         asti ? " — sınırı aştın, gelecek hafta sıfırdan başlıyorsun." : "."}</p>`,
-      `<div class="row"><button class="btn ghost sm" data-act="alis-" aria-label="azalt">−</button>
-       <button class="btn" data-act="alis+">+ 1 ${esc(S.aliskanlik.birim)}</button></div>`);
+        <div class="sc"><div class="sn">${g.aliskanlik}</div><div class="sl">${T("Bugün")}</div></div>
+        <div class="sc"><div class="sn" style="color:${asti ? "var(--kotu)" : "var(--iyi)"}">${hafta}</div><div class="sl">${T("7 günde")}</div></div>
+        <div class="sc"><div class="sn">${d.limit}</div><div class="sl">${T("Sınır")}</div></div></div>
+       <p class="note">${Tf("{h} · bu hafta en fazla {n} {b}", { h: esc(d.ad), n: d.limit, b: esc(T(S.aliskanlik.birim)) })}${
+         asti ? T(" — sınırı aştın, gelecek hafta sıfırdan başlıyorsun.") : "."}</p>`,
+      `<div class="row"><button class="btn ghost sm" data-act="alis-" aria-label="${T("azalt")}">−</button>
+       <button class="btn" data-act="alis+">+ 1 ${esc(T(S.aliskanlik.birim))}</button></div>`);
   }
   return "";
 }
@@ -1085,36 +1098,35 @@ function yemekPaneli() {
   if (!S.araHedef) return "";
   const hedefAd = (ogunSlotlari().find(o => o.id === S.araHedef) || {}).ad || "";
   const perde = `<div class="perde" data-act="ara-kapat"></div>`;
-  const kapat = `<button class="sayfa-kapa" data-act="ara-kapat" aria-label="kapat">×</button>`;
+  const kapat = `<button class="sayfa-kapa" data-act="ara-kapat" aria-label="${T("kapat")}">×</button>`;
 
   /* 3. adım — elle girilen kalemi düzenle */
   if (S.f.elleDuzenle)
     return perde + `<div class="sayfa"><div class="tut"></div>
-      <div class="sayfa-bas"><p class="card-t">Düzenle</p>${kapat}</div>
+      <div class="sayfa-bas"><p class="card-t">${T("Düzenle")}</p>${kapat}</div>
       <div class="sayfa-govde">
-        <div class="row" style="margin-bottom:10px">${alan("elAd", "Ne yedin", "text")}</div>
-        <div class="row">${alan("elKcal", "kcal")}${alan("elP", "Protein g")}</div>
+        <div class="row" style="margin-bottom:10px">${alan("elAd", T("Ne yedin"), "text")}</div>
+        <div class="row">${alan("elKcal", "kcal")}${alan("elP", T("Protein g"))}</div>
       </div>
       <div class="sayfa-alt"><div class="row">
-        <button class="btn ghost" data-act="besin-iptal">Geri</button>
-        <button class="btn gold" data-act="el-guncelle">Kaydet</button></div></div></div>`;
+        <button class="btn ghost" data-act="besin-iptal">${T("Geri")}</button>
+        <button class="btn gold" data-act="el-guncelle">${T("Kaydet")}</button></div></div></div>`;
 
   /* 2b. adım — tanınmayan barkod. Ürünü bir kez tanımlıyorsun, eşleşme
      cihazda kalıyor; ikinci taramada doğrudan miktara geçiyor. */
   if (S.f.barkodKod)
     return perde + `<div class="sayfa"><div class="tut"></div>
-      <div class="sayfa-bas"><p class="card-t">Yeni barkod</p>${kapat}</div>
+      <div class="sayfa-bas"><p class="card-t">${T("Yeni barkod")}</p>${kapat}</div>
       <div class="sayfa-govde">
         <p class="panel-ad">${esc(S.f.barkodKod)}</p>
-        <p class="note" style="margin-bottom:14px">Bu kodu tanımıyoruz — ambalajdaki besin değeri tablosundan gir.
-        Bir daha taradığında doğrudan miktara geçecek. Değerler yalnızca senin cihazında saklanıyor.</p>
-        <div class="row" style="margin-bottom:10px">${alan("bkAd", "Ürün adı", "text")}</div>
-        <div class="row" style="margin-bottom:10px">${alan("bkKcal", "100 g'da kcal")}${alan("bkP", "100 g'da protein")}</div>
-        <div class="row">${alan("bkGram", "Bir porsiyon / paket kaç g")}</div>
+        <p class="note" style="margin-bottom:14px">${T("Bu kodu tanımıyoruz — ambalajdaki besin değeri tablosundan gir. Bir daha taradığında doğrudan miktara geçecek. Değerler yalnızca senin cihazında saklanıyor.")}</p>
+        <div class="row" style="margin-bottom:10px">${alan("bkAd", T("Ürün adı"), "text")}</div>
+        <div class="row" style="margin-bottom:10px">${alan("bkKcal", T("100 g'da kcal"))}${alan("bkP", T("100 g'da protein"))}</div>
+        <div class="row">${alan("bkGram", T("Bir porsiyon / paket kaç g"))}</div>
       </div>
       <div class="sayfa-alt"><div class="row">
-        <button class="btn ghost" data-act="besin-iptal">Geri</button>
-        <button class="btn gold" data-act="bk-kaydet">Kaydet</button></div></div></div>`;
+        <button class="btn ghost" data-act="besin-iptal">${T("Geri")}</button>
+        <button class="btn gold" data-act="bk-kaydet">${T("Kaydet")}</button></div></div></div>`;
 
   /* 2. adım — miktar */
   if (S.f.besin) {
@@ -1125,39 +1137,39 @@ function yemekPaneli() {
       const gr = Math.round(b.pGram * x);
       const on = Math.abs(secili - gr) < 0.5;
       const kesir = { 0.5: "½", 1.5: "1½" }[x] || String(x);
-      const etiket = `${kesir} ${b.ozel ? "porsiyon" : b.pAd}`;
+      const etiket = `${kesir} ${b.ozel ? T("porsiyon") : b.pAd}`;
       return `<button class="chip ${on ? "gold" : ""}" data-act="porsiyon:${gr}">${esc(etiket)}${b.ozel ? "" : ` · ${gr} g`}</button>`;
     }).join("");
     return perde + `<div class="sayfa"><div class="tut"></div>
-      <div class="sayfa-bas"><p class="card-t">${S.f.duzenleUid ? "Düzenle" : "Miktar"}</p>${kapat}</div>
+      <div class="sayfa-bas"><p class="card-t">${S.f.duzenleUid ? T("Düzenle") : T("Miktar")}</p>${kapat}</div>
       <div class="sayfa-govde">
         <p class="panel-ad">${esc(b.ad)}</p>
-        <p class="macro" style="margin:0 0 14px">${esc(b.grup)}${b.ozel ? "" : ` · 100 g'da ${b.kcal} kcal, ${b.p} g protein`}</p>
+        <p class="macro" style="margin:0 0 14px">${esc(b.grup)}${b.ozel ? "" : ` · ${Tf("100 g'da {k} kcal, {p} g protein", { k: b.kcal, p: b.p })}`}</p>
         <div class="row wrapped" style="gap:7px;margin-bottom:14px">${chipler}</div>
-        ${b.ozel ? "" : `<div class="row" style="margin-bottom:14px">${alan("besinGram", "Gram")}</div>`}
+        ${b.ozel ? "" : `<div class="row" style="margin-bottom:14px">${alan("besinGram", T("Gram"))}</div>`}
         <div class="stat">
           <div class="sc"><div class="sn" id="bg-kcal" style="color:var(--vurgu)">${c.kcal}</div><div class="sl">kcal</div></div>
-          <div class="sc"><div class="sn" id="bg-p">${c.p}</div><div class="sl">Protein g</div></div>
-          <div class="sc"><div class="sn" id="bg-ky">${c.ky}</div><div class="sl">Karb / Yağ</div></div></div>
+          <div class="sc"><div class="sn" id="bg-p">${c.p}</div><div class="sl">${T("Protein g")}</div></div>
+          <div class="sc"><div class="sn" id="bg-ky">${c.ky}</div><div class="sl">${T("Karb / Yağ")}</div></div></div>
       </div>
       <div class="sayfa-alt"><div class="row">
-        <button class="btn ghost" data-act="besin-iptal">Geri</button>
-        <button class="btn gold" data-act="besin-ekle">${S.f.duzenleUid ? "Kaydet" : "Ekle"}</button></div></div></div>`;
+        <button class="btn ghost" data-act="besin-iptal">${T("Geri")}</button>
+        <button class="btn gold" data-act="besin-ekle">${S.f.duzenleUid ? T("Kaydet") : T("Ekle")}</button></div></div></div>`;
   }
 
   /* 1. adım — arama */
   return perde + `<div class="sayfa"><div class="tut"></div>
-    <div class="sayfa-bas"><p class="card-t">${esc(hedefAd)} · yemek ekle</p>${kapat}</div>
+    <div class="sayfa-bas"><p class="card-t">${esc(hedefAd)} · ${T("yemek ekle")}</p>${kapat}</div>
     <div class="sayfa-govde">
-      <input type="text" data-ara="1" value="${esc(S.ara)}" placeholder="Ara — tavuk, pilav, muz…"
+      <input type="text" data-ara="1" value="${esc(S.ara)}" placeholder="${T("Ara — tavuk, pilav, muz…")}"
         style="text-align:left" autocomplete="off" autocapitalize="off" spellcheck="false">
-      ${Yerel.barkodVar() ? `<button class="btn ghost blok" data-act="barkod" style="margin-top:9px">Barkod tara</button>` : ""}
+      ${Yerel.barkodVar() ? `<button class="btn ghost blok" data-act="barkod" style="margin-top:9px">${T("Barkod tara")}</button>` : ""}
       <div id="ara-liste">${araListeHtml()}</div>
-      <p class="sec">Listede yoksa elle ekle</p>
-      <div class="row" style="margin-bottom:9px">${alan("elAd", "Ne yedin", "text")}</div>
-      <div class="row" style="margin-bottom:11px">${alan("elKcal", "kcal")}${alan("elP", "Protein g")}</div>
-      <button class="btn blok" data-act="el-ekle">Elle ekle ve kaydet</button>
-      <p class="note" style="margin-top:9px">Elle eklediğin yemek listene kaydedilir, bir dahaki sefere aramada çıkar.</p>
+      <p class="sec">${T("Listede yoksa elle ekle")}</p>
+      <div class="row" style="margin-bottom:9px">${alan("elAd", T("Ne yedin"), "text")}</div>
+      <div class="row" style="margin-bottom:11px">${alan("elKcal", "kcal")}${alan("elP", T("Protein g"))}</div>
+      <button class="btn blok" data-act="el-ekle">${T("Elle ekle ve kaydet")}</button>
+      <p class="note" style="margin-top:9px">${T("Elle eklediğin yemek listene kaydedilir, bir dahaki sefere aramada çıkar.")}</p>
     </div></div>`;
 }
 
@@ -1170,14 +1182,14 @@ function araListeHtml() {
       `<button class="ara-op" data-act="bes-sec:${i}"><span class="ib"><span class="name">${esc(b.ad)}</span>
         <span class="macro">${esc(b.grup)} · ${esc(b.pAd)} ${b.pGram} g</span></span>
        <span class="ara-sag">${Math.round(b.kcal * b.pGram / 100)} kcal</span></button>`).join("")}</div>` : ""}
-    ${(S.ara.length >= 2 && !sonuc.length) ? `<p class="bos">Bulunamadı. Aşağıdan elle ekleyebilirsin.</p>` : ""}
-    ${kayit.length ? `<p class="sec" style="margin:16px 0 4px">Kayıtlı öğünler</p>
+    ${(S.ara.length >= 2 && !sonuc.length) ? `<p class="bos">${T("Bulunamadı. Aşağıdan elle ekleyebilirsin.")}</p>` : ""}
+    ${kayit.length ? `<p class="sec" style="margin:16px 0 4px">${T("Kayıtlı öğünler")}</p>
       <div class="ara-sonuc" style="padding:0 13px">${kayit.map((m, i) => { const t = kayitToplam(m); return `<div class="item" data-act="kyt-ekle:${i}">
         <div class="ib"><div class="it"><span class="name">${esc(m.ad)}</span>
-          <span class="time">${m.kalemler.length} kalem</span></div>
+          <span class="time">${Tf("{n} kalem", { n: m.kalemler.length })}</span></div>
           <div class="macro">${Math.round(t.kcal)} kcal · ${t.p.toFixed(1)} g protein</div></div>
-        <div class="uc"><button class="sil" data-act="kyt-sil:${i}" aria-label="sil">×</button></div></div>`; }).join("")}</div>` : ""}
-    ${son.length ? `<p class="sec" style="margin:16px 0 4px">Son eklediklerin</p>
+        <div class="uc"><button class="sil" data-act="kyt-sil:${i}" aria-label="${T("sil")}">×</button></div></div>`; }).join("")}</div>` : ""}
+    ${son.length ? `<p class="sec" style="margin:16px 0 4px">${T("Son eklediklerin")}</p>
       <div class="ara-sonuc">${son.map((b, i) => `<button class="ara-op" data-act="bes-son:${i}">
         <span class="ib"><span class="name">${esc(b.ad)}</span><span class="macro">${b.gram} g</span></span>
         <span class="ara-sag">${b.kcal} kcal</span></button>`).join("")}</div>` : ""}`;
@@ -1196,84 +1208,83 @@ function besinHesap() {
 function onizlemeYag() {
   const o = { bel: sayi(S.f.bel), boyun: sayi(S.f.boyun), kalca: sayi(S.f.kalca) };
   const v = navy(o);
-  return v == null ? "" : `Hesaplanan yağ oranı: <strong style="color:var(--vurgu)">%${v.toFixed(1)}</strong>`;
+  return v == null ? "" : Tf("Hesaplanan yağ oranı: %{n}", { n: `<strong style="color:var(--vurgu)">${v.toFixed(1)}</strong>` });
 }
 
 /* =================== SEKME: ANTRENMAN =================== */
 function vAntrenman() {
   const k = bugun(), seanslar = gunSeanslari(k), adlar = gunSporAdlari(k);
-  let h = `<header class="top"><p class="eyebrow">${GUN_AD[haftaninGunu(k)]}</p>
-   <h1>${seanslar.length ? esc(adlar.join(" + ")) : "Dinlenme"}</h1>
+  let h = `<header class="top"><p class="eyebrow">${T(GUN_AD[haftaninGunu(k)])}</p>
+   <h1>${seanslar.length ? esc(adlar.join(" + ")) : T("Dinlenme")}</h1>
    <p class="sub">${seanslar.length
-     ? `${seanslar.length} seans · ${gunToplamSure(k)} dk planlı`
-     : "Toparlanma antrenmanın parçası"}</p></header>`;
+     ? Tf("{n} seans · {m} dk planlı", { n: seanslar.length, m: gunToplamSure(k) })
+     : T("Toparlanma antrenmanın parçası")}</p></header>`;
 
   if (!seanslar.length)
-    h += kart("", "", `<p class="bos">Bugün dinlenme günü. Programı aşağıdan değiştirebilirsin.</p>`);
+    h += kart("", "", `<p class="bos">${T("Bugün dinlenme günü. Programı aşağıdan değiştirebilirsin.")}</p>`);
 
   seanslar.forEach((s, i) => {
     const spor = sporBul(s.spor);
     if (!spor) return;
     const log = seansOku(k, s.sid);
     const alanlar = spor.log.filter(x => x !== "set");
-    let ic = satir({ ad: "Yaptım", saat: s.sure ? s.sure + " dk planlı" : "", desc: s.sablon || "",
+    let ic = satir({ ad: T("Yaptım"), saat: s.sure ? Tf("{n} dk planlı", { n: s.sure }) : "", desc: T(s.sablon) || "",
                      on: !!log.yapildi, act: "seans-tik:" + s.sid });
     if (alanlar.length)
       ic += `<div class="row wrapped" style="margin-top:12px">${alanlar.map(x =>
-        `<div class="alan"><label class="lbl" for="in-${s.sid}-${x}">${LOG_ALAN[x].ad}${LOG_ALAN[x].birim ? " " + LOG_ALAN[x].birim : ""}</label>
+        `<div class="alan"><label class="lbl" for="in-${s.sid}-${x}">${T(LOG_ALAN[x].ad)}${LOG_ALAN[x].birim ? " " + T(LOG_ALAN[x].birim) : ""}</label>
          <input id="in-${s.sid}-${x}" type="number" inputmode="decimal" data-log="${s.sid}:${x}"
           value="${esc(log[x] == null ? "" : log[x])}" placeholder="—"></div>`).join("")}</div>`;
-    h += kart(`${i + 1}. ${esc(spor.ad)}`, SPOR_TIP_AD[spor.tip] || "", ic);
+    h += kart(`${i + 1}. ${esc(T(spor.ad))}`, T(SPOR_TIP_AD[spor.tip]) || "", ic);
 
     if (spor.log.indexOf("set") !== -1) {
       /* Şablonu ilk açılışta satırlara çevir — sonra kullanıcı üzerine yazar */
       const w = seansYaz(k, s.sid);
       if (!Array.isArray(w.set) || !w.set.length) {
         const sb = GUC_SABLON[s.sablon];
-        w.set = (sb || ["", "", ""]).map(ad => ({ ad, setler: bosSetler() }));
+        w.set = (sb || ["", "", ""]).map(ad => ({ ad: T(ad), setler: bosSetler() }));
         kaydetGecikmeli();
       }
       const onceki = gecenAntrenman(s.spor);
-      h += kart("Egzersizler", s.sablon ? esc(s.sablon) : "",
+      h += kart(T("Egzersizler"), s.sablon ? esc(T(s.sablon)) : "",
         w.set.map((e, ei) => {
           const setler = e.setler || [];
           const rekor = egzersizRekor(e.ad, k), enIyi = setlerEnIyi(setler);
           const yeniRekor = enIyi != null && (!rekor || enIyi > rekor.v + 0.05);
-          const alt = [onceki[e.ad] ? "Geçen sefer " + setOzet(onceki[e.ad]) : "",
-                       rekor ? `Rekor ${rekor.kg} kg × ${rekor.tekrar} · 1RM ~${Math.round(rekor.v)} kg` : "",
-                       (enIyi != null && !yeniRekor) ? `Bugün 1RM ~${Math.round(enIyi)} kg` : ""].filter(Boolean).join(" · ");
+          const alt = [onceki[e.ad] ? T("Geçen sefer") + " " + setOzet(onceki[e.ad]) : "",
+                       rekor ? Tf("Rekor {kg} kg × {t} · 1RM ~{v} kg", { kg: rekor.kg, t: rekor.tekrar, v: Math.round(rekor.v) }) : "",
+                       (enIyi != null && !yeniRekor) ? Tf("Bugün 1RM ~{v} kg", { v: Math.round(enIyi) }) : ""].filter(Boolean).join(" · ");
           return `<div class="gr">
           <div class="row" style="margin-bottom:9px">
-            <div class="alan"><input type="text" data-set="${s.sid}:${ei}:ad" value="${esc(e.ad)}" placeholder="Egzersiz" style="text-align:left"></div>
-            <button class="sil" data-act="set-sil:${s.sid}:${ei}" aria-label="egzersizi sil">×</button></div>
-          <div class="setr-bas"><span>Set</span><span>Tekrar</span><span>Kg</span><span></span></div>
+            <div class="alan"><input type="text" data-set="${s.sid}:${ei}:ad" value="${esc(e.ad)}" placeholder="${T("Egzersiz")}" style="text-align:left"></div>
+            <button class="sil" data-act="set-sil:${s.sid}:${ei}" aria-label="${T("egzersizi sil")}">×</button></div>
+          <div class="setr-bas"><span>Set</span><span>${T("Tekrar")}</span><span>Kg</span><span></span></div>
           ${setler.map((st, si) => `<div class="setr${st.ok ? " ok" : ""}">
             <span class="setr-n">${si + 1}</span>
             <input type="number" inputmode="numeric" data-setr="${s.sid}:${ei}:${si}:tekrar" value="${esc(st.tekrar)}" placeholder="—">
             <input type="number" inputmode="decimal" data-setr="${s.sid}:${ei}:${si}:kg" value="${esc(st.kg)}" placeholder="—">
-            <button class="setr-ok${st.ok ? " on" : ""}" data-act="setr-ok:${s.sid}:${ei}:${si}" aria-label="seti tamamla">${TIK}</button>
+            <button class="setr-ok${st.ok ? " on" : ""}" data-act="setr-ok:${s.sid}:${ei}:${si}" aria-label="${T("seti tamamla")}">${TIK}</button>
           </div>`).join("")}
           <div class="row wrapped" style="gap:7px;margin-top:4px">
             <button class="chip" data-act="setr-ekle:${s.sid}:${ei}" style="cursor:pointer;padding:9px 12px">+ Set</button>
             ${setler.length > 1 ? `<button class="chip" data-act="setr-sil:${s.sid}:${ei}" style="cursor:pointer;padding:9px 12px">− Set</button>` : ""}</div>
-          ${yeniRekor ? `<div class="row wrapped" style="gap:7px;margin-top:9px"><span class="chip gold">Yeni rekor · 1RM ~${Math.round(enIyi)} kg</span></div>` : ""}
+          ${yeniRekor ? `<div class="row wrapped" style="gap:7px;margin-top:9px"><span class="chip gold">${Tf("Yeni rekor · 1RM ~{v} kg", { v: Math.round(enIyi) })}</span></div>` : ""}
           ${alt ? `<div class="macro">${esc(alt)}</div>` : ""}</div>`; }).join("") +
         `<div class="row wrapped" style="gap:7px;margin-top:12px">
-           <span class="sl" style="align-self:center;margin:0 4px 0 0">Dinlenme</span>
+           <span class="sl" style="align-self:center;margin:0 4px 0 0">${T("Set arası")}</span>
            ${[60, 90, 120, 180].map(sn => `<button class="chip${dinlenmeSn() === sn ? " gold" : ""}" data-act="dinlenme:${sn}"
-             style="cursor:pointer;padding:9px 12px">${sn < 120 ? sn + " sn" : (sn / 60) + " dk"}</button>`).join("")}</div>
+             style="cursor:pointer;padding:9px 12px">${sn < 120 ? sn + " " + T("sn") : (sn / 60) + " " + T("dk")}</button>`).join("")}</div>
          <div class="row" style="margin-top:10px">
-           <button class="btn ghost" data-act="set-ekle:${s.sid}">Egzersiz ekle</button>
-           ${Object.keys(onceki).length ? `<button class="btn ghost" data-act="set-doldur:${s.sid}">Geçen seferi doldur</button>` : ""}</div>
-         <p class="note" style="margin-top:10px">Seti bitirince sağdaki kutuyu işaretle — dinlenme sayacı kendiliğinden başlar.
-         Her hafta ya bir tekrar ya biraz kilo ekle; aynı ağırlıkla aynı tekrar gelişme değil bakımdır.</p>`);
+           <button class="btn ghost" data-act="set-ekle:${s.sid}">${T("Egzersiz ekle")}</button>
+           ${Object.keys(onceki).length ? `<button class="btn ghost" data-act="set-doldur:${s.sid}">${T("Geçen seferi doldur")}</button>` : ""}</div>
+         <p class="note" style="margin-top:10px">${T("Seti bitirince sağdaki kutuyu işaretle — dinlenme sayacı kendiliğinden başlar. Her hafta ya bir tekrar ya biraz kilo ekle; aynı ağırlıkla aynı tekrar gelişme değil bakımdır.")}</p>`);
     }
   });
 
   /* Haftalık program */
-  h += `<p class="sec">Haftalık program</p>`;
+  h += `<p class="sec">${T("Haftalık program")}</p>`;
   h += kart("", "", programDuzenle() +
-    `<button class="btn ghost blok" data-act="spor-duzenle" style="margin-top:14px">Sporları düzenle</button>`);
+    `<button class="btn ghost blok" data-act="spor-duzenle" style="margin-top:14px">${T("Sporları düzenle")}</button>`);
 
   /* Haftalık hacim — progresif yükleme gerçekten oluyor mu, aylık ölçekte.
      Tek seansa bakınca göremezsin; hacim eğrisi yatay gidiyorsa ilerlemiyorsun. */
@@ -1281,15 +1292,15 @@ function vAntrenman() {
   if (hacim.filter(x => x.set > 0).length >= 2) {
     const son = hacim[hacim.length - 1], onceki = hacim[hacim.length - 2];
     const fark = onceki.deger ? Math.round((son.deger - onceki.deger) / onceki.deger * 100) : null;
-    h += kart("Haftalık hacim", "son 8 hafta",
+    h += kart(T("Haftalık hacim"), T("son 8 hafta"),
       `<div class="stat" style="margin-bottom:12px">
-        <div class="sc"><div class="sn" style="color:var(--vurgu)">${(son.deger / 1000).toFixed(1)}t</div><div class="sl">Bu hafta tonaj</div></div>
+        <div class="sc"><div class="sn" style="color:var(--vurgu)">${(son.deger / 1000).toFixed(1)}t</div><div class="sl">${T("Bu hafta tonaj")}</div></div>
         <div class="sc"><div class="sn">${son.set}</div><div class="sl">Set</div></div>
-        <div class="sc"><div class="sn">${son.seans}</div><div class="sl">Seans</div></div></div>
+        <div class="sc"><div class="sn">${son.seans}</div><div class="sl">${T("Seans")}</div></div></div>
        ${grafik(hacim, "kg", 0)}
-       <p class="note" style="margin-top:11px">Tonaj = tekrar × kg toplamı.${
-         fark == null ? "" : ` Geçen haftaya göre ${fark > 0 ? "+" : ""}${fark}%.`}
-       Vücut ağırlığı hareketleri tonaja girmiyor — onları set sayısından takip et.</p>`);
+       <p class="note" style="margin-top:11px">${T("Tonaj = tekrar × kg toplamı.")}${
+         fark == null ? "" : Tf(" Geçen haftaya göre {p}%.", { p: (fark > 0 ? "+" : "") + fark })}
+       ${T("Vücut ağırlığı hareketleri tonaja girmiyor — onları set sayısından takip et.")}</p>`);
   }
 
   /* Son antrenmanlar */
@@ -1297,14 +1308,14 @@ function vAntrenman() {
   if (gecmis.length) {
     const sidSpor = {};
     S.program.forEach(p => (p.seanslar || []).forEach(x => { sidSpor[x.sid] = x.spor; }));
-    h += kart("Son antrenmanlar", gecmis.length + " gün",
-      `<div class="kaydir"><table><thead><tr><th>Tarih</th><th>Seans</th><th>Süre</th></tr></thead><tbody>
+    h += kart(T("Son antrenmanlar"), Tf("{n} gün", { n: gecmis.length }),
+      `<div class="kaydir"><table><thead><tr><th>${T("Tarih")}</th><th>${T("Seans")}</th><th>${T("Süre")}</th></tr></thead><tbody>
        ${gecmis.map(x => {
          const sn = (S.gunler[x].antrenman || {}).seans || {};
          const yapilan = Object.keys(sn).filter(id => sn[id].yapildi);
-         const ad = yapilan.map(id => (sporBul(sidSpor[id]) || {}).ad).filter(Boolean).join(" + ") || "Antrenman";
+         const ad = yapilan.map(id => T((sporBul(sidSpor[id]) || {}).ad)).filter(Boolean).join(" + ") || T("Antrenman");
          const sure = yapilan.reduce((a, id) => a + (+sn[id].sure || 0), 0);
-         return `<tr><td>${trKisa(x)}</td><td>${esc(ad)}</td><td>${sure ? sure + " dk" : "—"}</td></tr>`;
+         return `<tr><td>${trKisa(x)}</td><td>${esc(ad)}</td><td>${sure ? sure + " " + T("dk") : "—"}</td></tr>`;
        }).join("")}
        </tbody></table></div>`);
   }
@@ -1315,35 +1326,35 @@ function vAntrenman() {
    bileşeni kullanır. Bir güne sırayla birden çok seans eklenebilir. */
 function programDuzenle() {
   const secili = S.sporlar.map(sporBul).filter(Boolean);
-  if (!secili.length) return `<p class="bos">Önce spor seç.</p>`;
+  if (!secili.length) return `<p class="bos">${T("Önce spor seç.")}</p>`;
   return S.program.map((p, gi) => {
     const list = p.seanslar || [];
     const sure = list.reduce((a, s) => a + (+s.sure || 0), 0);
     return `<div class="gr">
-      <div class="it" style="margin-bottom:9px"><span class="name">${GUN_AD[gi]}</span>
-        ${list.length ? `<span class="chip gold">${list.length} seans · ${sure} dk</span>`
-                      : `<span class="chip">Dinlenme</span>`}</div>
+      <div class="it" style="margin-bottom:9px"><span class="name">${T(GUN_AD[gi])}</span>
+        ${list.length ? `<span class="chip gold">${Tf("{n} seans · {m} dk", { n: list.length, m: sure })}</span>`
+                      : `<span class="chip">${T("Dinlenme")}</span>`}</div>
       ${list.map((s, si) => {
         const spor = sporBul(s.spor);
         return `<div class="seans">
           <div class="seans-bas">
             <span class="seans-no">${si + 1}</span>
-            <span class="name">${esc(spor ? spor.ad : s.spor)}</span>
+            <span class="name">${esc(spor ? T(spor.ad) : s.spor)}</span>
             <span class="seans-ara">
-              ${si > 0 ? `<button class="seans-ok" data-act="seans-tasi:${gi}:${si}:-1" aria-label="yukarı taşı">↑</button>` : ""}
-              ${si < list.length - 1 ? `<button class="seans-ok" data-act="seans-tasi:${gi}:${si}:1" aria-label="aşağı taşı">↓</button>` : ""}
-              <button class="sil" data-act="seans-sil:${gi}:${si}" aria-label="kaldır">×</button></span></div>
+              ${si > 0 ? `<button class="seans-ok" data-act="seans-tasi:${gi}:${si}:-1" aria-label="${T("yukarı taşı")}">↑</button>` : ""}
+              ${si < list.length - 1 ? `<button class="seans-ok" data-act="seans-tasi:${gi}:${si}:1" aria-label="${T("aşağı taşı")}">↓</button>` : ""}
+              <button class="sil" data-act="seans-sil:${gi}:${si}" aria-label="${T("kaldır")}">×</button></span></div>
           <div class="row">
-            <div class="alan"><label class="lbl">Süre dk</label>
+            <div class="alan"><label class="lbl">${T("Süre dk")}</label>
               <input type="number" inputmode="numeric" data-seans="${gi}:${si}:sure" value="${esc(s.sure || "")}" placeholder="—"></div>
-            ${spor && spor.tip === "guc" ? `<div class="alan"><label class="lbl">Şablon</label>
+            ${spor && spor.tip === "guc" ? `<div class="alan"><label class="lbl">${T("Şablon")}</label>
               <select data-seans="${gi}:${si}:sablon"><option value="">—</option>
-                ${Object.keys(GUC_SABLON).map(n => `<option value="${esc(n)}" ${s.sablon === n ? "selected" : ""}>${esc(n)}</option>`).join("")}
+                ${Object.keys(GUC_SABLON).map(n => `<option value="${esc(n)}" ${s.sablon === n ? "selected" : ""}>${esc(T(n))}</option>`).join("")}
               </select></div>` : ""}</div></div>`;
       }).join("")}
       <select data-seans-ekle="${gi}" style="margin-top:${list.length ? 9 : 0}px">
-        <option value="">+ Seans ekle</option>
-        ${secili.map(x => `<option value="${x.id}">${esc(x.ad)}</option>`).join("")}
+        <option value="">${T("+ Seans ekle")}</option>
+        ${secili.map(x => `<option value="${x.id}">${esc(T(x.ad))}</option>`).join("")}
       </select></div>`;
   }).join("");
 }
@@ -1393,7 +1404,7 @@ function setOzet(l) {
     else par.push({ kg, tekrar: [tk] });
   });
   return par.map(p => +p.kg > 0 ? `${p.kg} kg × ${p.tekrar.join(", ")}`
-                                : `${p.tekrar.join(", ")} tekrar`).join(" · ");
+                                : `${p.tekrar.join(", ")} ${T("tekrar")}`).join(" · ");
 }
 
 /* ---- Progresif yükleme ----
@@ -1467,8 +1478,8 @@ function vIlerleme() {
   const son = artan[artan.length - 1], ilk = artan[0];
   const p = S.profil, kadin = p.cinsiyet === "k";
 
-  let h = `<header class="top"><p class="eyebrow">${p.boy ? "Boy " + p.boy + " cm" : "İlerleme"}</p><h1>İlerleme</h1>
-   <p class="sub">Ölçümü hep aynı şekilde al · sabah · aç karnına</p></header>`;
+  let h = `<header class="top"><p class="eyebrow">${p.boy ? Tf("Boy {n} cm", { n: p.boy }) : T("İlerleme")}</p><h1>${T("İlerleme")}</h1>
+   <p class="sub">${T("Ölçümü hep aynı şekilde al · sabah · aç karnına")}</p></header>`;
 
   /* Hafta özeti */
   const bas = haftaBasi(bugun());
@@ -1481,51 +1492,52 @@ function vIlerleme() {
     if ((g.su || 0) >= p.suHedef) suGun++;
     if (p.kcal && gunToplam(k).kcal > 0 && gunToplam(k).kcal <= p.kcal) kcalGun++;
   }
-  h += kart("Bu hafta", gecen + " gün geçti",
-    `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${antrSayi}</div><div class="sl">Seans</div></div>
-      <div class="sc"><div class="sn">${suGun}</div><div class="sl">Su tuttu</div></div>
-      <div class="sc"><div class="sn">${kcalGun}</div><div class="sl">Kalori tuttu</div></div></div>`);
+  h += kart(T("Bu hafta"), Tf("{n} gün geçti", { n: gecen }),
+    `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${antrSayi}</div><div class="sl">${T("Seans")}</div></div>
+      <div class="sc"><div class="sn">${suGun}</div><div class="sl">${T("Su tuttu")}</div></div>
+      <div class="sc"><div class="sn">${kcalGun}</div><div class="sl">${T("Kalori tuttu")}</div></div></div>`);
 
   /* İki haftalık trend hedefle uyuşmuyorsa kaloriyi yeniden ayarlamayı öner.
      Formül insanı tahmin eder, terazi ölçer. */
   const on = kaloriOneri();
   if (on) {
-    const yon = on.gercek > 0.05 ? "arttı" : on.gercek < -0.05 ? "düştü" : "aynı kaldı";
-    h += kart("Kalori önerisi", "son 2 hafta",
+    const yon = T(on.gercek > 0.05 ? "arttı" : on.gercek < -0.05 ? "düştü" : "aynı kaldı");
+    const hedefSoz = on.beklenen === 0 ? T("kilonu korumak")
+      : Tf(on.beklenen < 0 ? "{x} kg vermek" : "{x} kg almak", { x: Math.abs(on.beklenen).toFixed(2) });
+    h += kart(T("Kalori önerisi"), T("son 2 hafta"),
       `<div class="stat" style="margin-bottom:12px">
-        <div class="sc"><div class="sn">${on.gercek > 0 ? "+" : ""}${on.gercek.toFixed(2)}</div><div class="sl">kg / hafta</div></div>
-        <div class="sc"><div class="sn">${on.beklenen > 0 ? "+" : ""}${on.beklenen.toFixed(2)}</div><div class="sl">Hedef hız</div></div>
-        <div class="sc"><div class="sn" style="color:var(--vurgu)">${on.yeniKcal}</div><div class="sl">Önerilen kcal</div></div></div>
-       <p class="note" style="margin-bottom:11px">Kilon haftada ${Math.abs(on.gercek).toFixed(2)} kg ${yon}, hedefin
-       ${on.beklenen === 0 ? "kilonu korumak" : Math.abs(on.beklenen).toFixed(2) + " kg " + (on.beklenen < 0 ? "vermek" : "almak")}.
-       Günlük hedefi ${on.duzeltme > 0 ? "+" : ""}${on.duzeltme} kcal değiştirmeyi dene ve iki hafta daha ölç.</p>
-       <button class="btn gold blok" data-act="kcal-oneri:${on.yeniKcal}">Hedefi ${on.yeniKcal} kcal yap</button>`);
+        <div class="sc"><div class="sn">${on.gercek > 0 ? "+" : ""}${on.gercek.toFixed(2)}</div><div class="sl">${T("kg / hafta")}</div></div>
+        <div class="sc"><div class="sn">${on.beklenen > 0 ? "+" : ""}${on.beklenen.toFixed(2)}</div><div class="sl">${T("Hedef hız")}</div></div>
+        <div class="sc"><div class="sn" style="color:var(--vurgu)">${on.yeniKcal}</div><div class="sl">${T("Önerilen kcal")}</div></div></div>
+       <p class="note" style="margin-bottom:11px">${Tf("Kilon haftada {x} kg {y}, hedefin {h}. Günlük hedefi {d} kcal değiştirmeyi dene ve iki hafta daha ölç.",
+         { x: Math.abs(on.gercek).toFixed(2), y: yon, h: hedefSoz, d: (on.duzeltme > 0 ? "+" : "") + on.duzeltme })}</p>
+       <button class="btn gold blok" data-act="kcal-oneri:${on.yeniKcal}">${Tf("Hedefi {n} kcal yap", { n: on.yeniKcal })}</button>`);
   }
 
   if (son) {
     const fSon = navy(son), fIlk = ilk ? navy(ilk) : null;
     let fark = "";
     if (ilk && ilk.tarih !== son.tarih)
-      fark = `<p class="note" style="margin-top:12px">Başlangıca göre: kilo ${(son.kilo - ilk.kilo).toFixed(1)} kg${
-        (son.bel && ilk.bel) ? ` · bel ${(son.bel - ilk.bel).toFixed(1)} cm` : ""}${
-        (fSon != null && fIlk != null) ? ` · yağ ${(fSon - fIlk).toFixed(1)} puan` : ""}</p>`;
-    h += kart("Son ölçüm", trT(son.tarih),
-      `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${navyStr(son)}</div><div class="sl">Yağ %</div></div>
-        <div class="sc"><div class="sn">${son.bel || "—"}</div><div class="sl">Bel cm</div></div>
-        <div class="sc"><div class="sn">${son.kilo}</div><div class="sl">Kilo kg</div></div></div>${fark}`);
-    h += kart("Kilo eğrisi", artan.length + " ölçüm", grafik(artan.map(o => ({ tarih: o.tarih, deger: o.kilo })), "kg"));
+      fark = `<p class="note" style="margin-top:12px">${Tf("Başlangıca göre: kilo {n} kg", { n: (son.kilo - ilk.kilo).toFixed(1) })}${
+        (son.bel && ilk.bel) ? Tf(" · bel {n} cm", { n: (son.bel - ilk.bel).toFixed(1) }) : ""}${
+        (fSon != null && fIlk != null) ? Tf(" · yağ {n} puan", { n: (fSon - fIlk).toFixed(1) }) : ""}</p>`;
+    h += kart(T("Son ölçüm"), trT(son.tarih),
+      `<div class="stat"><div class="sc"><div class="sn" style="color:var(--vurgu)">${navyStr(son)}</div><div class="sl">${T("Yağ %")}</div></div>
+        <div class="sc"><div class="sn">${son.bel || "—"}</div><div class="sl">${T("Bel cm")}</div></div>
+        <div class="sc"><div class="sn">${son.kilo}</div><div class="sl">${T("Kilo kg")}</div></div></div>${fark}`);
+    h += kart(T("Kilo eğrisi"), Tf("{n} ölçüm", { n: artan.length }), grafik(artan.map(o => ({ tarih: o.tarih, deger: o.kilo })), "kg"));
   }
 
-  h += kart("Yeni ölçüm gir", "",
-    `<div class="row" style="margin-bottom:11px">${alan("kilo", "Kilo kg")}${alan("bel", "Bel cm")}${alan("boyun", "Boyun cm")}</div>
-     ${kadin ? `<div class="row" style="margin-bottom:11px">${alan("kalca", "Kalça cm")}</div>` : ""}
-     <button class="btn gold blok" data-act="olcum">Bugünün ölçümünü kaydet</button>
+  h += kart(T("Yeni ölçüm gir"), "",
+    `<div class="row" style="margin-bottom:11px">${alan("kilo", T("Kilo kg"))}${alan("bel", T("Bel cm"))}${alan("boyun", T("Boyun cm"))}</div>
+     ${kadin ? `<div class="row" style="margin-bottom:11px">${alan("kalca", T("Kalça cm"))}</div>` : ""}
+     <button class="btn gold blok" data-act="olcum">${T("Bugünün ölçümünü kaydet")}</button>
      <p class="note" id="on-yag" style="margin-top:10px;text-align:center">${onizlemeYag()}</p>
-     <p class="note" style="margin-top:10px">Sadece kilo da girebilirsin — bel ve boyun boş kalırsa yağ oranı hesaplanmaz, kilo yine kaydedilir.</p>`);
+     <p class="note" style="margin-top:10px">${T("Sadece kilo da girebilirsin — bel ve boyun boş kalırsa yağ oranı hesaplanmaz, kilo yine kaydedilir.")}</p>`);
 
   if (artan.length)
-    h += kart("Geçmiş", "",
-      `<div class="kaydir"><table><thead><tr><th>Tarih</th><th>Kilo</th><th>Bel</th><th>Boyun</th>${kadin ? "<th>Kalça</th>" : ""}<th>Yağ %</th></tr></thead>
+    h += kart(T("Geçmiş"), "",
+      `<div class="kaydir"><table><thead><tr><th>${T("Tarih")}</th><th>${T("Kilo")}</th><th>${T("Bel")}</th><th>${T("Boyun")}</th>${kadin ? `<th>${T("Kalça")}</th>` : ""}<th>${T("Yağ %")}</th></tr></thead>
        <tbody>${[...artan].reverse().map(o => `<tr><td>${trKisa(o.tarih)}</td><td>${o.kilo}</td><td>${o.bel || "—"}</td><td>${o.boyun || "—"}</td>
        ${kadin ? `<td>${o.kalca || "—"}</td>` : ""}<td style="color:var(--vurgu)">${navyStr(o)}</td></tr>`).join("")}</tbody></table></div>`);
   return h;
@@ -1535,31 +1547,31 @@ function vIlerleme() {
 function vDaha() {
   if (S.daha) return { market: dMarket, rehber: dRehber, takviye: dTakviye, ayar: dAyar, yedek: dYedek }[S.daha]();
   const say = Object.values(S.market).filter(Boolean).length;
-  let h = `<header class="top"><p class="eyebrow">Menü</p><h1>Daha</h1>
-   <p class="sub">Liste, rehber ve ayarlar</p></header>`;
+  let h = `<header class="top"><p class="eyebrow">${T("Menü")}</p><h1>${T("Daha")}</h1>
+   <p class="sub">${T("Liste, rehber ve ayarlar")}</p></header>`;
   h += kart("", "",
-    [["market", "Alışveriş listesi", say ? say + " kalem işaretli" : "Haftalık market listesi"],
-     ["rehber", "Rehber", "Kafan karıştığında buraya bak"],
-     ["takviye", "Takviyeler", S.takviyeler.length + " takviye seçili"],
-     ["ayar", "Ayarlar", "Hedefler, profil, program"],
-     ["yedek", "Yedek", S.sonYedek ? "Son yedek: " + trKisa(S.sonYedek) : "Henüz yedek almadın"]]
+    [["market", T("Alışveriş listesi"), say ? Tf("{n} kalem işaretli", { n: say }) : T("Haftalık market listesi")],
+     ["rehber", T("Rehber"), T("Kafan karıştığında buraya bak")],
+     ["takviye", T("Takviyeler"), Tf("{n} takviye seçili", { n: S.takviyeler.length })],
+     ["ayar", T("Ayarlar"), T("Hedefler, profil, program")],
+     ["yedek", T("Yedek"), S.sonYedek ? T("Son yedek: ") + trKisa(S.sonYedek) : T("Henüz yedek almadın")]]
     .map(([id, ad, d]) => `<div class="item" data-act="daha:${id}"><div class="ib">
       <div class="it"><span class="name">${ad}</span></div><div class="desc">${esc(d)}</div></div>
       <div class="uc"><span class="ara-sag">›</span></div></div>`).join(""));
-  h += `<p class="note" style="text-align:center;margin-top:18px">Verilerin yalnızca bu cihazda. Hiçbir yere gönderilmiyor.<br>
-   <a href="gizlilik.html" style="color:var(--vurgu)">Gizlilik politikası</a></p>`;
+  h += `<p class="note" style="text-align:center;margin-top:18px">${T("Verilerin yalnızca bu cihazda. Hiçbir yere gönderilmiyor.")}<br>
+   <a href="gizlilik.html" style="color:var(--vurgu)">${T("Gizlilik politikası")}</a></p>`;
   return h;
 }
 
-const geriBtn = ad => `<button class="btn ghost blok" data-act="daha:" style="margin-bottom:14px">‹ ${ad}</button>`;
+const geriBtn = ad => `<button class="btn ghost blok" data-act="daha:" style="margin-bottom:14px">‹ ${T(ad)}</button>`;
 
 /* ---- Alışveriş listesi ----
    Şablon + seçili takviyeler + kullanıcının kendi kalemleri. Takviye grubu
    kodda sabit değil, kullanıcının seçtiklerinden üretiliyor.               */
 function marketGruplari() {
-  const g = MARKET_SABLON.map(x => ({ k: x.k, i: x.i.slice() }));
-  if (S.takviyeler.length) g.push({ k: "Takviye", i: S.takviyeler.map(t => t.ad) });
-  if (S.marketEk.length) g.push({ k: "Kendi eklediklerin", i: S.marketEk.slice(), ozel: true });
+  const g = MARKET_SABLON.map(x => ({ k: T(x.k), i: x.i.map(T) }));
+  if (S.takviyeler.length) g.push({ k: T("Takviye"), i: S.takviyeler.map(t => T(t.ad)) });
+  if (S.marketEk.length) g.push({ k: T("Kendi eklediklerin"), i: S.marketEk.slice(), ozel: true });
   return g;
 }
 
@@ -1582,16 +1594,16 @@ function dMarket() {
   const gruplar = marketGruplari();
   const tum = gruplar.reduce((a, g) => a + g.i.length, 0);
   const alinan = gruplar.reduce((a, g) => a + g.i.filter(x => S.market[x]).length, 0);
-  let h = `<header class="top"><p class="eyebrow">1 hafta</p><h1>Alışveriş</h1>
-   <p class="sub">${alinan} / ${tum} işaretli</p>
+  let h = `<header class="top"><p class="eyebrow">${T("1 hafta")}</p><h1>${T("Alışveriş")}</h1>
+   <p class="sub">${Tf("{a} / {t} işaretli", { a: alinan, t: tum })}</p>
    ${ilerleme(tum ? alinan / tum : 0, "var(--iyi)")}</header>` + geriBtn("Daha");
 
   const oner = marketOnerileri(8);
   if (oner.length)
-    h += kart("Sık yediklerin", "son 14 gün",
+    h += kart(T("Sık yediklerin"), T("son 14 gün"),
       `<div class="row wrapped" style="gap:7px">${oner.map(ad =>
         `<button class="chip" data-act="mk-oner:${esc(ad)}" style="cursor:pointer;padding:9px 12px">+ ${esc(ad)}</button>`).join("")}</div>
-       <p class="note" style="margin-top:10px">Listende olmayan ama düzenli yediğin şeyler. Dokununca listene eklenir.</p>`);
+       <p class="note" style="margin-top:10px">${T("Listende olmayan ama düzenli yediğin şeyler. Dokununca listene eklenir.")}</p>`);
 
   /* Katlanır gruplar: 100'den fazla kalem tek sayfada alt alta dizilirse
      hiç kimse sonuna kadar inmiyor. İçinde işaret olan grup açık başlar. */
@@ -1601,18 +1613,18 @@ function dMarket() {
     return kart("", "",
       `<div class="item" data-act="mk-grup:${esc(g.k)}">
          <div class="ib"><div class="it"><span class="name">${esc(g.k)}</span>
-           <span class="time">${say ? say + " / " + g.i.length : g.i.length + " kalem"}</span></div></div>
+           <span class="time">${say ? say + " / " + g.i.length : Tf("{n} kalem", { n: g.i.length })}</span></div></div>
          <div class="uc"><span class="ara-sag">${acik ? "⌄" : "›"}</span></div></div>
        ${acik ? g.i.map(x => satir({ ad: x, on: !!S.market[x], act: "mk:" + x,
-           uc: g.ozel ? `<button class="sil" data-act="mk-ek-sil:${esc(x)}" aria-label="listeden çıkar">×</button>` : "" })).join("") : ""}`);
+           uc: g.ozel ? `<button class="sil" data-act="mk-ek-sil:${esc(x)}" aria-label="${T("listeden çıkar")}">×</button>` : "" })).join("") : ""}`);
   }).join("");
 
-  h += kart("Kendi kalemini ekle", "",
+  h += kart(T("Kendi kalemini ekle"), "",
     `<div class="row">
        <div class="alan"><input type="text" data-fld="mkAd" value="${esc(S.f.mkAd || "")}"
-         placeholder="Ne lazım?" style="text-align:left" autocomplete="off"></div>
-       <button class="btn" data-act="mk-ek">Ekle</button></div>`);
-  h += `<button class="btn ghost blok" data-act="mk-sifirla" style="margin-top:12px">İşaretleri temizle (yeni hafta)</button>`;
+         placeholder="${T("Ne lazım?")}" style="text-align:left" autocomplete="off"></div>
+       <button class="btn" data-act="mk-ek">${T("Ekle")}</button></div>`);
+  h += `<button class="btn ghost blok" data-act="mk-sifirla" style="margin-top:12px">${T("İşaretleri temizle (yeni hafta)")}</button>`;
   return h;
 }
 
@@ -1627,143 +1639,146 @@ function dRehber() {
     if (b.kosul[0] === "@") return tipler.has(b.kosul.slice(1));
     return S.takviyeler.some(t => t.id === b.kosul);
   };
-  let h = `<header class="top"><p class="eyebrow">Nasıl kullanılır</p><h1>Rehber</h1>
-   <p class="sub">Senin seçimlerine göre süzüldü</p></header>` + geriBtn("Daha");
+  let h = `<header class="top"><p class="eyebrow">${T("Nasıl kullanılır")}</p><h1>${T("Rehber")}</h1>
+   <p class="sub">${T("Senin seçimlerine göre süzüldü")}</p></header>` + geriBtn("Daha");
   REHBER.filter(gorunur).forEach(b => {
-    h += `<p class="sec">${esc(b.b)}</p>` + kart("", "",
-      b.s.map(([k, v]) => `<div class="gr"><div class="gk">${esc(k)}</div><div class="gv">${esc(v)}</div></div>`).join(""));
+    h += `<p class="sec">${esc(T(b.b))}</p>` + kart("", "",
+      b.s.map(([k, v]) => `<div class="gr"><div class="gk">${esc(T(k))}</div><div class="gv">${esc(T(v))}</div></div>`).join(""));
   });
   return h;
 }
 
 function dTakviye() {
-  let h = `<header class="top"><p class="eyebrow">${S.takviyeler.length} seçili</p><h1>Takviyeler</h1>
-   <p class="sub">Doz ve günleri buradan ayarla</p></header>` + geriBtn("Daha");
+  let h = `<header class="top"><p class="eyebrow">${Tf("{n} seçili", { n: S.takviyeler.length })}</p><h1>${T("Takviyeler")}</h1>
+   <p class="sub">${T("Doz ve günleri buradan ayarla")}</p></header>` + geriBtn("Daha");
 
   uyarilar(bugun()).forEach(u => { h += uyariKutu(u); });
 
   if (S.takviyeler.length)
-    h += kart("Seçili", "", S.takviyeler.map((t, i) => `<div class="gr">
-      <div class="it" style="margin-bottom:6px"><span class="name">${esc(t.ad)}</span>
-        ${(t.etiket || {}).kafein ? `<span class="chip ember">${t.etiket.kafein} mg kafein</span>` : ""}
-        <button class="sil" data-act="tak-sil:${i}" style="margin-left:auto" aria-label="kaldır">×</button></div>
+    h += kart(T("Seçili"), "", S.takviyeler.map((t, i) => `<div class="gr">
+      <div class="it" style="margin-bottom:6px"><span class="name">${esc(T(t.ad))}</span>
+        ${(t.etiket || {}).kafein ? `<span class="chip ember">${t.etiket.kafein} ${T("mg kafein")}</span>` : ""}
+        <button class="sil" data-act="tak-sil:${i}" style="margin-left:auto" aria-label="${T("kaldır")}">×</button></div>
       <div class="row" style="margin-bottom:8px">
-        <div class="alan"><label class="lbl">Doz</label><input type="text" data-tak="${i}:doz" value="${esc(t.doz)}" style="text-align:left"></div>
-        <div class="alan"><label class="lbl">Saat</label><input type="text" data-tak="${i}:saat" value="${esc(t.saat)}" style="text-align:left"></div></div>
-      <label class="lbl sol">Hangi günler</label>
+        <div class="alan"><label class="lbl">${T("Doz")}</label><input type="text" data-tak="${i}:doz" value="${esc(t.doz)}" style="text-align:left"></div>
+        <div class="alan"><label class="lbl">${T("Saat")}</label><input type="text" data-tak="${i}:saat" value="${esc(t.saat)}" style="text-align:left"></div></div>
+      <label class="lbl sol">${T("Hangi günler")}</label>
       <div class="row wrapped">${GUN_KISA.map((g, gi) => {
         const acik = !t.gunler || !t.gunler.length || t.gunler.indexOf(gi) !== -1;
-        return `<button class="chip ${acik ? "gold" : ""}" data-act="tak-gun:${i}:${gi}" style="cursor:pointer;background:none">${g}</button>`;
+        return `<button class="chip ${acik ? "gold" : ""}" data-act="tak-gun:${i}:${gi}" style="cursor:pointer;background:none">${T(g)}</button>`;
       }).join("")}</div>
-      ${t.not ? `<div class="macro" style="margin-top:8px">${esc(t.not)}</div>` : ""}</div>`).join(""));
+      ${t.not ? `<div class="macro" style="margin-top:8px">${esc(T(t.not))}</div>` : ""}</div>`).join(""));
   else
-    h += kart("", "", `<p class="bos">Takviye kullanmıyorsan sorun değil — aşağıdan istediğin zaman ekleyebilirsin.</p>`);
+    h += kart("", "", `<p class="bos">${T("Takviye kullanmıyorsan sorun değil — aşağıdan istediğin zaman ekleyebilirsin.")}</p>`);
 
-  h += `<p class="sec">Ekle</p>` + kart("", "",
+  h += `<p class="sec">${T("Ekle")}</p>` + kart("", "",
     `<div class="sec-lst">${TAKVIYELER.filter(t => !S.takviyeler.some(x => x.id === t.id))
-      .map(t => secOp("tak-ekle:" + t.id, false, t.ad, t.doz + " · " + t.saat + ((t.etiket || {}).kafein ? " · " + t.etiket.kafein + " mg kafein" : ""))).join("")
-      || `<p class="bos">Kütüphanedeki hepsi seçili.</p>`}</div>`);
-  h += `<p class="note" style="margin-top:14px">Takviye ilaç değildir ve ilacın yerine geçmez. Kullandığın ilaçlarla etkileşebilir — eczacına ya da hekimine danış.</p>`;
+      .map(t => secOp("tak-ekle:" + t.id, false, T(t.ad), T(t.doz) + " · " + T(t.saat) + ((t.etiket || {}).kafein ? " · " + t.etiket.kafein + " " + T("mg kafein") : ""))).join("")
+      || `<p class="bos">${T("Kütüphanedeki hepsi seçili.")}</p>`}</div>`);
+  h += `<p class="note" style="margin-top:14px">${T("Takviye ilaç değildir ve ilacın yerine geçmez. Kullandığın ilaçlarla etkileşebilir — eczacına ya da hekimine danış.")}</p>`;
   return h;
 }
 
 function dAyar() {
   const p = S.profil, hs = hedefHesapla();
-  let h = `<header class="top"><p class="eyebrow">Ayarlar</p><h1>Ayarlar</h1>
-   <p class="sub">Hedefler ve profil</p></header>` + geriBtn("Daha");
+  let h = `<header class="top"><p class="eyebrow">${T("Ayarlar")}</p><h1>${T("Ayarlar")}</h1>
+   <p class="sub">${T("Hedefler ve profil")}</p></header>` + geriBtn("Daha");
 
-  h += kart("Günlük hedefler", p.kcalElle ? "elle ayarlı" : "otomatik",
-    `<div class="row" style="margin-bottom:11px">${alan("aKcal", "kcal")}${alan("aProtein", "Protein g")}${alan("aSu", "Su bardak")}</div>
-     <label class="lbl sol">Bardak boyutu</label>
+  h += kart("Dil / Language", DIL === "en" ? "English" : "Türkçe",
+    `<div class="row">
+       <button class="btn ${DIL === "tr" ? "gold" : "ghost"}" data-act="dil:tr">Türkçe</button>
+       <button class="btn ${DIL === "en" ? "gold" : "ghost"}" data-act="dil:en">English</button></div>`);
+
+  h += kart(T("Günlük hedefler"), p.kcalElle ? T("elle ayarlı") : T("otomatik"),
+    `<div class="row" style="margin-bottom:11px">${alan("aKcal", "kcal")}${alan("aProtein", T("Protein g"))}${alan("aSu", T("Su bardak"))}</div>
+     <label class="lbl sol">${T("Bardak boyutu")}</label>
      <div class="row wrapped" style="gap:7px;margin-bottom:10px">
        ${[200, 250, 330, 500, 750, 1000].map(ml =>
          `<button class="chip ${bardakMl() === ml ? "gold" : ""}" data-act="bardak:${ml}"
            style="cursor:pointer;padding:9px 12px">${ml} ml</button>`).join("")}</div>
-     <div class="row" style="margin-bottom:11px">${alan("aBardak", "Bardak ml")}</div>
-     <p class="note" style="margin-bottom:11px">Günlük su hedefin
-       <strong id="su-toplam">${(suHedefMl() / 1000).toFixed(2)} litre</strong>
-       (${S.profil.suHedef} × ${bardakMl()} ml). Şişeden içiyorsan boyutu değiştir —
-       litre hedefin korunur, bardak sayısı yeniden hesaplanır.</p>
-     <div class="row"><button class="btn gold" data-act="ayar-hedef">Kaydet</button>
-      ${hs ? `<button class="btn ghost" data-act="ayar-oto">Otomatiğe dön</button>` : ""}</div>
-     ${hs ? `<p class="note" style="margin-top:11px">Profiline göre hesaplanan: ${hs.kcal} kcal · ${hs.protein} g protein · ${(hs.suMl / 1000).toFixed(1)} litre su. Günlük harcaman ~${hs.tdee} kcal.</p>` : ""}`);
+     <div class="row" style="margin-bottom:11px">${alan("aBardak", T("Bardak ml"))}</div>
+     <p class="note" style="margin-bottom:11px">${Tf("Günlük su hedefin {v} ({n} × {ml} ml). Şişeden içiyorsan boyutu değiştir — litre hedefin korunur, bardak sayısı yeniden hesaplanır.",
+       { v: `<strong id="su-toplam">${(suHedefMl() / 1000).toFixed(2)} ${T("litre")}</strong>`, n: S.profil.suHedef, ml: bardakMl() })}</p>
+     <div class="row"><button class="btn gold" data-act="ayar-hedef">${T("Kaydet")}</button>
+      ${hs ? `<button class="btn ghost" data-act="ayar-oto">${T("Otomatiğe dön")}</button>` : ""}</div>
+     ${hs ? `<p class="note" style="margin-top:11px">${Tf("Profiline göre hesaplanan: {k} kcal · {p} g protein · {l} litre su. Günlük harcaman ~{t} kcal.",
+       { k: hs.kcal, p: hs.protein, l: (hs.suMl / 1000).toFixed(1), t: hs.tdee })}</p>` : ""}`);
 
-  h += kart("Profil", "",
-    `<div class="row" style="margin-bottom:11px">${alan("pDogum", "Doğum yılı")}${alan("pBoy", "Boy cm")}${alan("pKilo", "Kilo kg")}</div>
-     <label class="lbl sol">Cinsiyet</label>
+  h += kart(T("Profil"), "",
+    `<div class="row" style="margin-bottom:11px">${alan("pDogum", T("Doğum yılı"))}${alan("pBoy", T("Boy cm"))}${alan("pKilo", T("Kilo kg"))}</div>
+     <label class="lbl sol">${T("Cinsiyet")}</label>
      <div class="sec-lst" style="margin-bottom:11px">
-       ${secOp("ayar-cins:e", p.cinsiyet === "e", "Erkek", "")}
-       ${secOp("ayar-cins:k", p.cinsiyet === "k", "Kadın", "")}</div>
-     <label class="lbl sol">Antrenman saati</label>
+       ${secOp("ayar-cins:e", p.cinsiyet === "e", T("Erkek"), "")}
+       ${secOp("ayar-cins:k", p.cinsiyet === "k", T("Kadın"), "")}</div>
+     <label class="lbl sol">${T("Antrenman saati")}</label>
      <input type="time" data-fld="pAntrSaat" value="${esc(p.antrSaat || "18:00")}" style="margin-bottom:11px">
-     <button class="btn gold blok" data-act="ayar-profil">Kaydet</button>`);
+     <button class="btn gold blok" data-act="ayar-profil">${T("Kaydet")}</button>`);
 
-  h += kart("Hedef ve aktivite", "",
-    `<label class="lbl sol">Hedef</label>
-     <div class="sec-lst" style="margin-bottom:13px">${HEDEFLER.map(x => secOp("ayar-hedefTip:" + x.id, p.hedef === x.id, x.ad, x.d)).join("")}</div>
-     <label class="lbl sol">Aktivite</label>
-     <div class="sec-lst">${AKTIVITE.map(x => secOp("ayar-akt:" + x.id, p.aktivite === x.id, x.ad, x.d)).join("")}</div>`);
+  h += kart(T("Hedef ve aktivite"), "",
+    `<label class="lbl sol">${T("Hedef")}</label>
+     <div class="sec-lst" style="margin-bottom:13px">${HEDEFLER.map(x => secOp("ayar-hedefTip:" + x.id, p.hedef === x.id, T(x.ad), T(x.d))).join("")}</div>
+     <label class="lbl sol">${T("Aktivite")}</label>
+     <div class="sec-lst">${AKTIVITE.map(x => secOp("ayar-akt:" + x.id, p.aktivite === x.id, T(x.ad), T(x.d))).join("")}</div>`);
 
   const a = S.aliskanlik;
-  h += kart("Bırakma takibi", a && a.aktif ? esc(a.ad) : "kapalı",
+  h += kart(T("Bırakma takibi"), a && a.aktif ? esc(T(a.ad)) : T("kapalı"),
     a && a.aktif
-      ? `<p class="note" style="margin-bottom:11px">${esc(a.ad)} · başlangıç haftalık sınır ${a.hafta1} ${esc(a.birim)} · ${trKisa(a.baslangic)} tarihinde başladı.</p>
-         <button class="btn ghost blok" data-act="alis-kapat">Takibi kapat</button>`
-      : `<p class="note" style="margin-bottom:11px">Azaltmak istediğin bir şey varsa buradan açabilirsin.</p>
-         <div class="sec-lst" style="margin-bottom:11px">${ALISKANLIK_SABLON.filter(x => x.id !== "ozel").map(x => secOp("alis-ac:" + x.id, false, x.ad, "Haftada " + x.baslangic + " " + x.birim + " ile başlar")).join("")}</div>`);
+      ? `<p class="note" style="margin-bottom:11px">${Tf("{ad} · başlangıç haftalık sınır {n} {b} · {t} tarihinde başladı.",
+           { ad: esc(T(a.ad)), n: a.hafta1, b: esc(T(a.birim)), t: trKisa(a.baslangic) })}</p>
+         <button class="btn ghost blok" data-act="alis-kapat">${T("Takibi kapat")}</button>`
+      : `<p class="note" style="margin-bottom:11px">${T("Azaltmak istediğin bir şey varsa buradan açabilirsin.")}</p>
+         <div class="sec-lst" style="margin-bottom:11px">${ALISKANLIK_SABLON.filter(x => x.id !== "ozel").map(x => secOp("alis-ac:" + x.id, false, T(x.ad), Tf("Haftada {n} {b} ile başlar", { n: x.baslangic, b: T(x.birim) }))).join("")}</div>`);
 
   if (Yerel.var())
-    h += kart("Telefon", "", `
+    h += kart(T("Telefon"), "", `
       <div class="sec-lst">
-        ${secOp("yer-saglik", !!p.saglik, "Sağlık uygulamasıyla senkron",
-                "Kilo, su ve antrenman Apple Health'e yazılır. İzni ilk açtığında ister.")}
-        ${secOp("yer-bildirim", !!p.bildirim, "Hatırlatıcılar",
-                "Su ve antrenman saatlerinde bildirim gönderir.")}
-        ${p.bildirim ? secOp("yer-bild-su", !!p.bildirimSu, "Su hatırlatıcısı", "10:00 · 14:00 · 18:00") : ""}
-        ${p.bildirim ? secOp("yer-bild-antr", !!p.bildirimAntrenman, "Antrenman hatırlatıcısı",
-                             "Programda seans olan günlerde " + esc(p.antrSaat || "18:00")) : ""}
+        ${secOp("yer-saglik", !!p.saglik, T("Sağlık uygulamasıyla senkron"),
+                T("Kilo, su ve antrenman Apple Health'e yazılır. İzni ilk açtığında ister."))}
+        ${secOp("yer-bildirim", !!p.bildirim, T("Hatırlatıcılar"),
+                T("Su ve antrenman saatlerinde bildirim gönderir."))}
+        ${p.bildirim ? secOp("yer-bild-su", !!p.bildirimSu, T("Su hatırlatıcısı"), "10:00 · 14:00 · 18:00") : ""}
+        ${p.bildirim ? secOp("yer-bild-antr", !!p.bildirimAntrenman, T("Antrenman hatırlatıcısı"),
+                             Tf("Programda seans olan günlerde {t}", { t: esc(p.antrSaat || "18:00") })) : ""}
       </div>
-      <p class="note" style="margin-top:11px">Verilerin iCloud hesabının özel alanında saklanıyor —
-      bizim sunucumuz yok, kimse okuyamaz. Cihazlarında otomatik eşitlenir.</p>`);
+      <p class="note" style="margin-top:11px">${T("Verilerin iCloud hesabının özel alanında saklanıyor — bizim sunucumuz yok, kimse okuyamaz. Cihazlarında otomatik eşitlenir.")}</p>`);
 
-  h += kart("Öğün düzeni", S.ogunler.length + " öğün", ogunDuzenle());
-  h += kart("Hazır düzenler", "",
-    `<div class="sec-lst">${OGUN_SABLON.map(o => secOp("ayar-ogun:" + o.id, false, o.ad, o.d)).join("")}</div>
-     <p class="note" style="margin-top:11px">Hazır bir düzen seçmek yukarıdaki listenin üzerine yazar. Geçmiş kayıtlar silinmez.</p>`);
+  h += kart(T("Öğün düzeni"), Tf("{n} öğün", { n: S.ogunler.length }), ogunDuzenle());
+  h += kart(T("Hazır düzenler"), "",
+    `<div class="sec-lst">${OGUN_SABLON.map(o => secOp("ayar-ogun:" + o.id, false, T(o.ad), T(o.d))).join("")}</div>
+     <p class="note" style="margin-top:11px">${T("Hazır bir düzen seçmek yukarıdaki listenin üzerine yazar. Geçmiş kayıtlar silinmez.")}</p>`);
 
-  h += kart("Sporlar", S.sporlar.length + " seçili",
-    `<div class="sec-lst">${SPORLAR.map(s => secOp("ayar-spor:" + s.id, S.sporlar.indexOf(s.id) !== -1, s.ad, SPOR_TIP_AD[s.tip])).join("")}</div>`);
+  h += kart(T("Sporlar"), Tf("{n} seçili", { n: S.sporlar.length }),
+    `<div class="sec-lst">${SPORLAR.map(s => secOp("ayar-spor:" + s.id, S.sporlar.indexOf(s.id) !== -1, T(s.ad), T(SPOR_TIP_AD[s.tip]))).join("")}</div>`);
 
   const kodlar = Object.keys(S.barkod);
   if (kodlar.length)
-    h += kart("Kayıtlı barkodlar", kodlar.length + " ürün",
+    h += kart(T("Kayıtlı barkodlar"), Tf("{n} ürün", { n: kodlar.length }),
       kodlar.map(kod => `<div class="item">
         <div class="ib"><div class="it"><span class="name">${esc(S.barkod[kod].ad)}</span>
           <span class="time">${esc(kod)}</span></div>
-          <div class="macro">100 g'da ${S.barkod[kod].kcal} kcal · ${S.barkod[kod].p} g protein</div></div>
-        <div class="uc"><button class="sil" data-act="bk-sil:${esc(kod)}" aria-label="sil">×</button></div></div>`).join("") +
-      `<p class="note" style="margin-top:11px">Bu eşleşmeler yalnızca senin cihazında. Barkodun ne olduğunu
-       hiçbir yere sormuyoruz — tarama tamamen çevrimdışı.</p>`);
+          <div class="macro">${Tf("100 g'da {k} kcal · {p} g protein", { k: S.barkod[kod].kcal, p: S.barkod[kod].p })}</div></div>
+        <div class="uc"><button class="sil" data-act="bk-sil:${esc(kod)}" aria-label="${T("sil")}">×</button></div></div>`).join("") +
+      `<p class="note" style="margin-top:11px">${T("Bu eşleşmeler yalnızca senin cihazında. Barkodun ne olduğunu hiçbir yere sormuyoruz — tarama tamamen çevrimdışı.")}</p>`);
 
-  h += `<p class="sec">Tehlikeli bölge</p>` + kart("", "",
-    `<p class="note" style="margin-bottom:11px">Tüm verini siler ve kurulumu baştan başlatır. Geri alınamaz — önce yedek al.</p>
-     <button class="btn tehlike blok" data-act="sifirla">Her şeyi sil</button>`);
+  h += `<p class="sec">${T("Tehlikeli bölge")}</p>` + kart("", "",
+    `<p class="note" style="margin-bottom:11px">${T("Tüm verini siler ve kurulumu baştan başlatır. Geri alınamaz — önce yedek al.")}</p>
+     <button class="btn tehlike blok" data-act="sifirla">${T("Her şeyi sil")}</button>`);
   return h;
 }
 
 function dYedek() {
   const gunSayi = S.sonYedek ? Math.floor((Date.now() - tarihMs(S.sonYedek)) / 864e5) : null;
-  return `<header class="top"><p class="eyebrow">Verilerini koru</p><h1>Yedek</h1>
-   <p class="sub">${S.sonYedek ? gunSayi + " gün önce yedekledin" : "Henüz yedek almadın"}</p></header>` + geriBtn("Daha") +
+  return `<header class="top"><p class="eyebrow">${T("Verilerini koru")}</p><h1>${T("Yedek")}</h1>
+   <p class="sub">${S.sonYedek ? Tf("{n} gün önce yedekledin", { n: gunSayi }) : T("Henüz yedek almadın")}</p></header>` + geriBtn("Daha") +
    kart("", "",
-    `<p class="note" style="margin-bottom:12px">Veriler yalnızca bu cihazda saklanıyor. Ayda bir yedek al — telefon değiştirirsen ya da uygulama verisi silinirse buradan geri yüklersin.</p>
+    `<p class="note" style="margin-bottom:12px">${T("Veriler yalnızca bu cihazda saklanıyor. Ayda bir yedek al — telefon değiştirirsen ya da uygulama verisi silinirse buradan geri yüklersin.")}</p>
      <div class="row" style="margin-bottom:9px">
-       <button class="btn gold" data-act="yedek-kopyala">Yedeği kopyala</button>
-       <button class="btn" data-act="yedek-indir">Dosya indir</button></div>
-     <label class="lbl sol" style="margin-top:12px">Geri yükle — yedek metnini yapıştır</label>
+       <button class="btn gold" data-act="yedek-kopyala">${T("Yedeği kopyala")}</button>
+       <button class="btn" data-act="yedek-indir">${T("Dosya indir")}</button></div>
+     <label class="lbl sol" style="margin-top:12px">${T("Geri yükle — yedek metnini yapıştır")}</label>
      <textarea id="yedek-in" placeholder='{"profil":…}'>${esc(S.yedekMetin)}</textarea>
-     <button class="btn ghost blok" data-act="yedek-yukle" style="margin-top:9px">Yedekten geri yükle</button>
-     <p class="note" style="margin-top:11px">Geri yükleme mevcut verinin üzerine yazar.</p>`);
+     <button class="btn ghost blok" data-act="yedek-yukle" style="margin-top:9px">${T("Yedekten geri yükle")}</button>
+     <p class="note" style="margin-top:11px">${T("Geri yükleme mevcut verinin üzerine yazar.")}</p>`);
 }
 
 /* ---- Yerel bildirimler ----
@@ -1778,7 +1793,7 @@ function bildirimleriKur() {
     /* 10:00-20:00 arası üç hatırlatma — daha sık olursa insanlar kapatıyor */
     [10, 14, 18].forEach(saat => {
       liste.push({
-        id: id++, title: "Su", body: `Günlük hedefin ${(suHedefMl() / 1000).toFixed(1)} litre.`,
+        id: id++, title: T("Su"), body: Tf("Günlük hedefin {l} litre.", { l: (suHedefMl() / 1000).toFixed(1) }),
         schedule: { on: { hour: saat, minute: 0 }, allowWhileIdle: false }
       });
     });
@@ -1788,9 +1803,9 @@ function bildirimleriKur() {
     const [sa, dk] = String(S.profil.antrSaat || "18:00").split(":").map(Number);
     S.program.forEach((p, gi) => {
       if (!(p.seanslar || []).length) return;
-      const adlar = p.seanslar.map(x => (sporBul(x.spor) || {}).ad).filter(Boolean).join(" + ");
+      const adlar = p.seanslar.map(x => T((sporBul(x.spor) || {}).ad)).filter(Boolean).join(" + ");
       liste.push({
-        id: id++, title: "Antrenman", body: adlar,
+        id: id++, title: T("Antrenman"), body: adlar,
         /* Capacitor'da hafta günü 1 = Pazar, bizim dizide 0 = Pazar */
         schedule: { on: { weekday: gi + 1, hour: sa || 18, minute: dk || 0 } }
       });
@@ -1815,16 +1830,16 @@ function sayacTik() {
   const kalan = Math.max(0, Math.ceil((sayacBitis - Date.now()) / 1000));
   const el = document.getElementById("sayac-n");
   if (el) el.textContent = `${Math.floor(kalan / 60)}:${String(kalan % 60).padStart(2, "0")}`;
-  if (kalan <= 0) { sayacDur(); ciz(); toast("Dinlenme bitti — sıradaki set"); }
+  if (kalan <= 0) { sayacDur(); ciz(); toast(T("Dinlenme bitti — sıradaki set")); }
 }
 function sayacBar() {
   if (!sayacBitis) return "";
   const kalan = Math.max(0, Math.ceil((sayacBitis - Date.now()) / 1000));
   return `<div class="sayac" id="sayac">
-    <span class="sl">Dinlenme</span>
+    <span class="sl">${T("Set arası")}</span>
     <span class="sayac-n" id="sayac-n">${Math.floor(kalan / 60)}:${String(kalan % 60).padStart(2, "0")}</span>
-    <button class="mini" data-act="sayac-ekle:60">+1 dk</button>
-    <button class="mini" data-act="sayac-dur">Bitir</button></div>`;
+    <button class="mini" data-act="sayac-ekle:60">${T("+1 dk")}</button>
+    <button class="mini" data-act="sayac-dur">${T("Bitir")}</button></div>`;
 }
 
 /* =================== ÇİZ =================== */
@@ -1844,9 +1859,9 @@ function ciz() {
   const v = { bugun: vBugun, yemek: vYemek, antrenman: vAntrenman, ilerleme: vIlerleme, daha: vDaha }[S.tab]();
   app.innerHTML = `<div class="wrap">${v}</div>
    <nav><div class="nav-in">${Object.keys(ADLAR).map(id =>
-     `<button class="tab ${S.tab === id ? "on" : ""}" data-act="tab:${id}" aria-label="${ADLAR[id]}">
+     `<button class="tab ${S.tab === id ? "on" : ""}" data-act="tab:${id}" aria-label="${T(ADLAR[id])}">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-       stroke-linecap="round" stroke-linejoin="round"><path d="${IKON[id]}"/></svg><span>${ADLAR[id]}</span></button>`).join("")}
+       stroke-linecap="round" stroke-linejoin="round"><path d="${IKON[id]}"/></svg><span>${T(ADLAR[id])}</span></button>`).join("")}
    </div></nav>
    ${panelHtml()}${sayacBar()}`;
 
@@ -1863,20 +1878,20 @@ function adimGecerli(a) {
   const p = S.profil;
   if (a === 0) {
     const d = sayi(S.f.dogumYili), b = sayi(S.f.boy), kg = sayi(S.f.kilo);
-    if (!p.cinsiyet) return "Cinsiyet seç";
-    if (!(d >= 1920 && d <= new Date().getFullYear() - 10)) return "Doğum yılını gir";
-    if (!(b >= 100 && b <= 250)) return "Boyu cm olarak gir (100-250)";
-    if (!(kg >= 25 && kg <= 400)) return "Kiloyu kg olarak gir";
+    if (!p.cinsiyet) return T("Cinsiyet seç");
+    if (!(d >= 1920 && d <= new Date().getFullYear() - 10)) return T("Doğum yılını gir");
+    if (!(b >= 100 && b <= 250)) return T("Boyu cm olarak gir (100-250)");
+    if (!(kg >= 25 && kg <= 400)) return T("Kiloyu kg olarak gir");
     p.dogumYili = Math.round(d); p.boy = b; p.kilo = kg;
     return null;
   }
   if (a === 2) {
-    if (!p.hedef) return "Bir hedef seç";
-    if (!p.aktivite) return "Aktivite düzeyini seç";
+    if (!p.hedef) return T("Bir hedef seç");
+    if (!p.aktivite) return T("Aktivite düzeyini seç");
     return null;
   }
-  if (a === 3 && !S.sporlar.length) return "En az bir spor seç";
-  if (a === 5 && !S.ogunler.length) return "Bir öğün düzeni seç";
+  if (a === 3 && !S.sporlar.length) return T("En az bir spor seç");
+  if (a === 5 && !S.ogunler.length) return T("Bir öğün düzeni seç");
   return null;
 }
 
@@ -1898,8 +1913,8 @@ function adimUygula(a) {
   if (a === 7 && S.f.alisId) {
     const sb = ALISKANLIK_SABLON.find(x => x.id === S.f.alisId);
     const h1 = sayi(S.f.alisHafta1) || (sb ? sb.baslangic : 14);
-    const ad = S.f.alisId === "ozel" ? (S.f.alisAd || "Alışkanlık") : sb.ad;
-    S.aliskanlik = { aktif: true, ad, birim: sb ? sb.birim : "adet", baslangic: bugun(), hafta1: Math.round(h1) };
+    const ad = S.f.alisId === "ozel" ? (S.f.alisAd || T("Alışkanlık")) : T(sb.ad);
+    S.aliskanlik = { aktif: true, ad, birim: sb ? T(sb.birim) : T("adet"), baslangic: bugun(), hafta1: Math.round(h1) };
   }
 }
 
@@ -1926,7 +1941,7 @@ function ogunKur(sablonId) {
   const s = OGUN_SABLON.find(x => x.id === sablonId);
   if (!s) return;
   const eski = S.ogunler.map(o => o.id);
-  S.ogunler = s.ogunler.map((o, i) => ({ id: eski[i] || yeniOid(), ad: o.ad, saat: o.saat, p: o.p }));
+  S.ogunler = s.ogunler.map((o, i) => ({ id: eski[i] || yeniOid(), ad: T(o.ad), saat: o.saat, p: o.p }));
 }
 
 function programOto() {
@@ -1993,6 +2008,13 @@ document.addEventListener("click", e => {
     if (sb && S.f.alisHafta1 == null) S.f.alisHafta1 = String(sb.baslangic);
     return ciz(); }
 
+  /* ---- dil ---- */
+  if (a.startsWith("dil:")) {
+    S.profil.dil = par(1);
+    dilAyarla(S.profil.dil);
+    kaydet(); return ciz();
+  }
+
   /* ---- gezinme ---- */
   if (a.startsWith("tab:")) { S.tab = par(1); S.daha = ""; S.araHedef = ""; S.ara = ""; S.panel = ""; S.f = {}; window.scrollTo(0, 0); return ciz(); }
   if (a.startsWith("panel:")) { S.panel = par(1); return ciz(); }
@@ -2048,7 +2070,7 @@ document.addEventListener("click", e => {
   else if (a.startsWith("mk-oner:")) { marketEkle(a.slice(8)); }
   else if (a === "mk-ek") {
     const ad = String(S.f.mkAd || "").trim();
-    if (!ad) { toast("Kalem adı yaz"); return; }
+    if (!ad) { toast(T("Kalem adı yaz")); return; }
     marketEkle(ad); S.f.mkAd = "";
   }
   else if (a.startsWith("mk-ek-sil:")) {
@@ -2056,7 +2078,7 @@ document.addEventListener("click", e => {
     S.marketEk = S.marketEk.filter(v => v !== x);
     delete S.market[x];
   }
-  else if (a === "mk-sifirla") { S.market = {}; toast("İşaretler temizlendi"); }
+  else if (a === "mk-sifirla") { S.market = {}; toast(T("İşaretler temizlendi")); }
 
   /* ---- yemek ---- */
   else if (a.startsWith("yem-ac:")) { S.araHedef = par(1); S.ara = ""; S.f = {}; S.odakAra = true; }
@@ -2077,7 +2099,7 @@ document.addEventListener("click", e => {
   /* Barkod: bilinen kod doğrudan miktara, bilinmeyen kod tanımlama adımına */
   else if (a === "barkod") {
     Yerel.barkodTara().then(kod => {
-      if (!kod) { toast("Kod okunamadı"); return; }
+      if (!kod) { toast(T("Kod okunamadı")); return; }
       const kayit = S.barkod[kod];
       if (kayit) {
         S.f = { besin: { ...kayit, grup: "Barkod" }, besinGram: String(kayit.sonGram || kayit.pGram || 100),
@@ -2094,39 +2116,39 @@ document.addEventListener("click", e => {
     const kod = S.f.barkodKod, ad = String(S.f.bkAd || "").trim();
     const kc = sayi(S.f.bkKcal), pr = sayi(S.f.bkP), gr = sayi(S.f.bkGram);
     if (!kod) return;
-    if (!ad) { toast("Ürün adını yaz"); return; }
+    if (!ad) { toast(T("Ürün adını yaz")); return; }
     /* 100 g'da 900 kcal saf yağ demek; üstü etiket okuma hatasıdır */
-    if (!(kc >= 0 && kc <= 900)) { toast("100 g'daki kaloriyi gir"); return; }
+    if (!(kc >= 0 && kc <= 900)) { toast(T("100 g'daki kaloriyi gir")); return; }
     const pGram = gr > 0 && gr <= 5000 ? Math.round(gr) : 100;
     const kayit = { ad, kcal: Math.round(kc), p: isFinite(pr) && pr >= 0 ? +pr.toFixed(1) : 0,
                     k: 0, y: 0, pAd: "porsiyon", pGram };
     S.barkod[kod] = { ...kayit, sonGram: pGram };
     ozelBesinKaydet(kayit.ad, kayit.kcal, kayit.p);   // aramada da çıksın
     S.f = { besin: { ...kayit, grup: "Barkod" }, besinGram: String(pGram), barkodKodu: kod };
-    toast("Barkod kaydedildi");
+    toast(T("Barkod kaydedildi"));
   }
   else if (a.startsWith("bk-sil:")) {
     delete S.barkod[a.slice(7)];
-    toast("Barkod silindi");
+    toast(T("Barkod silindi"));
   }
   else if (a.startsWith("bes-son:")) {
     const b = sonBesinler(8)[parseInt(par(1), 10)];
-    if (b) { yemekEkle({ ad: b.ad, kcal: b.kcal, p: b.p, gram: b.gram }); S.ara = ""; S.odakAra = true; toast(b.ad + " eklendi"); }
+    if (b) { yemekEkle({ ad: b.ad, kcal: b.kcal, p: b.p, gram: b.gram }); S.ara = ""; S.odakAra = true; toast(Tf("{a} eklendi", { a: b.ad })); }
   }
   else if (a === "besin-ekle") {
     const b = S.f.besin, gr = sayi(S.f.besinGram);
     if (!b) return;
-    if (!(gr > 0 && gr <= 5000)) { toast("Miktarı gir"); return; }
+    if (!(gr > 0 && gr <= 5000)) { toast(T("Miktarı gir")); return; }
     /* Barkodla geldiyse bu miktarı hatırla — ürünü hep aynı porsiyonda yiyorsun */
     if (S.f.barkodKodu && S.barkod[S.f.barkodKodu]) S.barkod[S.f.barkodKodu].sonGram = Math.round(gr);
     const yeni = { ad: b.ad, kcal: Math.round(b.kcal * gr / 100), p: +(b.p * gr / 100).toFixed(1), gram: Math.round(gr) };
     if (S.f.duzenleUid) {
       const y = g.yenen.find(x => x.uid === S.f.duzenleUid);
       if (y) Object.assign(y, yeni);
-      S.araHedef = ""; S.f = {}; toast("Güncellendi");
+      S.araHedef = ""; S.f = {}; toast(T("Güncellendi"));
     } else {
       yemekEkle(yeni);
-      S.f = {}; S.ara = ""; S.odakAra = true; toast(b.ad + " eklendi");
+      S.f = {}; S.ara = ""; S.odakAra = true; toast(Tf("{a} eklendi", { a: b.ad }));
     }
   }
   else if (a === "besin-iptal") {
@@ -2135,13 +2157,13 @@ document.addEventListener("click", e => {
   }
   else if (a === "el-ekle") {
     const ad = String(S.f.elAd || "").trim(), kc = sayi(S.f.elKcal), pr = sayi(S.f.elP);
-    if (!ad) { toast("Ne yediğini yaz"); return; }
-    if (!(kc >= 0 && kc <= 20000)) { toast("Kalori gir"); return; }
+    if (!ad) { toast(T("Ne yediğini yaz")); return; }
+    if (!(kc >= 0 && kc <= 20000)) { toast(T("Kalori gir")); return; }
     const pro = isFinite(pr) && pr >= 0 ? +pr.toFixed(1) : 0;
     ozelBesinKaydet(ad, Math.round(kc), pro);
     yemekEkle({ ad, kcal: Math.round(kc), p: pro, gram: 100 });
     S.f = {}; S.ara = ""; S.odakAra = true;
-    toast(ad + " eklendi ve listene kaydedildi");
+    toast(Tf("{a} eklendi ve listene kaydedildi", { a: ad }));
   }
   else if (a.startsWith("yem-duzenle:")) {
     const y = g.yenen.find(x => x.uid === a.slice(12));
@@ -2157,38 +2179,38 @@ document.addEventListener("click", e => {
     const y = g.yenen.find(x => x.uid === S.f.elleDuzenle);
     const ad = String(S.f.elAd || "").trim(), kc = sayi(S.f.elKcal), pr = sayi(S.f.elP);
     if (!y) return;
-    if (!ad) { toast("Ne yediğini yaz"); return; }
-    if (!(kc >= 0 && kc <= 20000)) { toast("Kalori gir"); return; }
+    if (!ad) { toast(T("Ne yediğini yaz")); return; }
+    if (!(kc >= 0 && kc <= 20000)) { toast(T("Kalori gir")); return; }
     y.ad = ad; y.kcal = Math.round(kc); y.p = isFinite(pr) && pr >= 0 ? +pr.toFixed(1) : 0;
-    S.araHedef = ""; S.f = {}; toast("Güncellendi");
+    S.araHedef = ""; S.f = {}; toast(T("Güncellendi"));
   }
   else if (a.startsWith("ogun-kaydet:")) {
     const kayit = ogunKaydet(a.slice(12));
-    toast(kayit ? "Kaydedildi — yemek eklerken tek dokunuşla çıkacak" : "Önce bu öğüne bir şeyler ekle");
+    toast(kayit ? T("Kaydedildi — yemek eklerken tek dokunuşla çıkacak") : T("Önce bu öğüne bir şeyler ekle"));
   }
   else if (a.startsWith("kyt-ekle:")) {
     const m = S.kayitliOgun[parseInt(par(1), 10)];
     if (!m) return;
     m.kalemler.forEach(y => yemekEkle({ ad: y.ad, kcal: y.kcal, p: y.p, gram: y.gram }));
     S.araHedef = ""; S.ara = ""; S.f = {};
-    toast(m.kalemler.length + " kalem eklendi");
+    toast(Tf("{n} kalem eklendi", { n: m.kalemler.length }));
   }
   else if (a.startsWith("kyt-sil:")) {
     S.kayitliOgun.splice(parseInt(par(1), 10), 1);
-    toast("Kayıtlı öğün silindi");
+    toast(T("Kayıtlı öğün silindi"));
   }
   else if (a.startsWith("yem-dun:")) {
     const oid = a.slice(8);
     const dun = ((S.gunler[gunEkle(bugun(), -1)] || {}).yenen || []).filter(y => y.ogun === oid);
-    if (!dun.length) { toast("Dün bu öğünde kayıt yok"); return; }
+    if (!dun.length) { toast(T("Dün bu öğünde kayıt yok")); return; }
     dun.forEach(y => yemekEkle({ ad: y.ad, kcal: y.kcal, p: y.p, gram: y.gram }, oid));
-    toast(dun.length + " kalem eklendi");
+    toast(Tf("{n} kalem eklendi", { n: dun.length }));
   }
   else if (a.startsWith("yem-sil:")) {
     const uid = a.slice(8);
     g.yenen = g.yenen.filter(y => y.uid !== uid);
     if (S.f.duzenleUid === uid || S.f.elleDuzenle === uid) { S.araHedef = ""; S.f = {}; }
-    toast("Silindi");
+    toast(T("Silindi"));
   }
 
   /* ---- antrenman ---- */
@@ -2206,7 +2228,7 @@ document.addEventListener("click", e => {
     const e = (seansYaz(bugun(), par(1)).set || [])[parseInt(par(2), 10)];
     if (!e) return;
     if (!Array.isArray(e.setler)) e.setler = bosSetler(0);
-    if (e.setler.length >= 12) { toast("En fazla 12 set"); return; }
+    if (e.setler.length >= 12) { toast(T("En fazla 12 set")); return; }
     const son = e.setler[e.setler.length - 1];
     e.setler.push({ tekrar: son ? son.tekrar : "", kg: son ? son.kg : "", ok: false });
   }
@@ -2245,7 +2267,7 @@ document.addEventListener("click", e => {
       else l.set.push({ ad, setler: kopya(ad) });
       n++;
     });
-    toast(n ? n + " egzersiz dolduruldu" : "Geçen seans kaydı yok");
+    toast(n ? Tf("{n} egzersiz dolduruldu", { n }) : T("Geçen seans kaydı yok"));
   }
   else if (a.startsWith("seans-sil:")) {
     const gi = parseInt(par(1), 10), si = parseInt(par(2), 10);
@@ -2261,8 +2283,8 @@ document.addEventListener("click", e => {
   /* ---- ölçüm ---- */
   else if (a === "olcum") {
     const kilo = sayi(S.f.kilo), bel = sayi(S.f.bel), boyun = sayi(S.f.boyun), kalca = sayi(S.f.kalca);
-    if (!(kilo > 0)) { toast("En azından kiloyu gir"); return; }
-    if (bel && boyun && S.profil.cinsiyet !== "k" && bel <= boyun) { toast("Bel, boyundan büyük olmalı"); return; }
+    if (!(kilo > 0)) { toast(T("En azından kiloyu gir")); return; }
+    if (bel && boyun && S.profil.cinsiyet !== "k" && bel <= boyun) { toast(T("Bel, boyundan büyük olmalı")); return; }
     const o = { tarih: bugun(), kilo };
     if (bel) o.bel = bel; if (boyun) o.boyun = boyun;
     if (S.profil.cinsiyet === "k" && kalca) o.kalca = kalca;
@@ -2270,7 +2292,7 @@ document.addEventListener("click", e => {
     S.profil.kilo = kilo;
     if (S.profil.saglik) Yerel.saglikKiloYaz(kilo);
     if (!S.profil.kcalElle) { const hh = hedefHesapla(); if (hh) { S.profil.kcal = hh.kcal; S.profil.protein = hh.protein; } }
-    S.f = {}; toast("Ölçüm kaydedildi");
+    S.f = {}; toast(T("Ölçüm kaydedildi"));
   }
 
   /* ---- takviye yönetimi ---- */
@@ -2292,22 +2314,22 @@ document.addEventListener("click", e => {
   /* ---- ayarlar ---- */
   else if (a === "ayar-hedef") {
     const kc = sayi(S.f.aKcal), pr = sayi(S.f.aProtein), su = sayi(S.f.aSu);
-    if (!(kc >= 800 && kc <= 6000)) { toast("Kalori 800-6000 arası olmalı"); return; }
+    if (!(kc >= 800 && kc <= 6000)) { toast(T("Kalori 800-6000 arası olmalı")); return; }
     S.profil.kcal = Math.round(kc);
     if (pr > 0) S.profil.protein = Math.round(pr);
     if (su > 0) S.profil.suHedef = kis(Math.round(su), 1, 40);
     const bml = sayi(S.f.aBardak);
     if (bml >= 50 && bml <= 2000) S.profil.bardakMl = Math.round(bml);
-    S.profil.kcalElle = true; ayarFormDoldur(); toast("Hedefler kaydedildi");
+    S.profil.kcalElle = true; ayarFormDoldur(); toast(T("Hedefler kaydedildi"));
   }
   else if (a.startsWith("bardak:")) {
     bardakAyarla(parseInt(par(1), 10));
-    ayarFormDoldur(); toast(`Bardak ${bardakMl()} ml · hedef ${S.profil.suHedef} bardak`);
+    ayarFormDoldur(); toast(Tf("Bardak {ml} ml · hedef {n} bardak", { ml: bardakMl(), n: S.profil.suHedef }));
   }
   else if (a === "ayar-oto") {
     S.profil.kcalElle = false;
     const h = hedefHesapla();
-    if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; S.profil.suHedef = h.su; toast("Otomatik hedeflere dönüldü"); }
+    if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; S.profil.suHedef = h.su; toast(T("Otomatik hedeflere dönüldü")); }
   }
   else if (a === "ayar-profil") {
     const d = sayi(S.f.pDogum), b = sayi(S.f.pBoy), kg = sayi(S.f.pKilo);
@@ -2316,7 +2338,7 @@ document.addEventListener("click", e => {
     if (kg >= 25 && kg <= 400) S.profil.kilo = kg;
     if (S.f.pAntrSaat) S.profil.antrSaat = S.f.pAntrSaat;
     if (!S.profil.kcalElle) { const h = hedefHesapla(); if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; S.profil.suHedef = h.su; } }
-    ayarFormDoldur(); toast("Profil kaydedildi");
+    ayarFormDoldur(); toast(T("Profil kaydedildi"));
   }
   else if (a === "yer-saglik") {
     if (S.profil.saglik) S.profil.saglik = false;
@@ -2325,7 +2347,7 @@ document.addEventListener("click", e => {
       Yerel.saglikIzin().then(ok2 => {
         S.profil.saglik = ok2;
         kaydet(); ciz();
-        toast(ok2 ? "Sağlık senkronu açıldı" : "Sağlık izni verilmedi");
+        toast(ok2 ? T("Sağlık senkronu açıldı") : T("Sağlık izni verilmedi"));
       });
       return;
     }
@@ -2336,7 +2358,7 @@ document.addEventListener("click", e => {
       Yerel.bildirimIzin().then(ok2 => {
         S.profil.bildirim = ok2;
         kaydet(); bildirimleriKur(); ciz();
-        toast(ok2 ? "Hatırlatıcılar açıldı" : "Bildirim izni verilmedi");
+        toast(ok2 ? T("Hatırlatıcılar açıldı") : T("Bildirim izni verilmedi"));
       });
       return;
     }
@@ -2346,15 +2368,15 @@ document.addEventListener("click", e => {
   else if (a.startsWith("ayar-cins:")) { S.profil.cinsiyet = par(1); }
   else if (a.startsWith("ayar-hedefTip:")) { S.profil.hedef = par(1); if (!S.profil.kcalElle) { const h = hedefHesapla(); if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; } } }
   else if (a.startsWith("ayar-akt:")) { S.profil.aktivite = par(1); if (!S.profil.kcalElle) { const h = hedefHesapla(); if (h) { S.profil.kcal = h.kcal; S.profil.protein = h.protein; } } }
-  else if (a.startsWith("ayar-ogun:")) { ogunKur(par(1)); toast("Öğün düzeni güncellendi"); }
+  else if (a.startsWith("ayar-ogun:")) { ogunKur(par(1)); toast(T("Öğün düzeni güncellendi")); }
   else if (a === "ogun-ekle") {
-    if (S.ogunler.length >= 10) { toast("En fazla 10 öğün"); return; }
+    if (S.ogunler.length >= 10) { toast(T("En fazla 10 öğün")); return; }
     const son = S.ogunler[S.ogunler.length - 1];
-    S.ogunler.push({ id: yeniOid(), ad: "Yeni öğün", saat: son ? son.saat : "12:00",
+    S.ogunler.push({ id: yeniOid(), ad: T("Yeni öğün"), saat: son ? son.saat : "12:00",
                      p: S.ogunler.length ? 1 / (S.ogunler.length + 1) : 1 });
   }
   else if (a.startsWith("ogun-sil:")) {
-    if (S.ogunler.length <= 1) { toast("En az bir öğün olmalı"); return; }
+    if (S.ogunler.length <= 1) { toast(T("En az bir öğün olmalı")); return; }
     S.ogunler.splice(parseInt(par(1), 10), 1);
   }
   else if (a.startsWith("ogun-tasi:")) {
@@ -2366,7 +2388,7 @@ document.addEventListener("click", e => {
   else if (a === "ogun-esit") {
     const pay = 1 / Math.max(1, S.ogunler.length);
     S.ogunler.forEach(o => { o.p = pay; });
-    toast("Paylar eşitlendi");
+    toast(T("Paylar eşitlendi"));
   }
   else if (a.startsWith("ayar-spor:")) {
     const id = par(1), i = S.sporlar.indexOf(id);
@@ -2375,21 +2397,21 @@ document.addEventListener("click", e => {
   }
   else if (a.startsWith("alis-ac:")) {
     const sb = ALISKANLIK_SABLON.find(x => x.id === par(1));
-    if (sb) { S.aliskanlik = { aktif: true, ad: sb.ad, birim: sb.birim, baslangic: bugun(), hafta1: sb.baslangic }; toast("Takip başladı"); }
+    if (sb) { S.aliskanlik = { aktif: true, ad: T(sb.ad), birim: T(sb.birim), baslangic: bugun(), hafta1: sb.baslangic }; toast(T("Takip başladı")); }
   }
-  else if (a === "alis-kapat") { S.aliskanlik = null; toast("Takip kapatıldı"); }
+  else if (a === "alis-kapat") { S.aliskanlik = null; toast(T("Takip kapatıldı")); }
   else if (a.startsWith("kcal-oneri:")) {
     const v = parseInt(par(1), 10);
     if (!(v > 0)) return;
     /* Elle ayarlanmış sayılıyor: bir daha formül üzerine yazmasın. */
     S.profil.kcal = v; S.profil.kcalElle = true; S.profil.kcalAyarTarih = bugun();
-    toast("Günlük hedef " + v + " kcal · iki hafta böyle git");
+    toast(Tf("Günlük hedef {n} kcal · iki hafta böyle git", { n: v }));
   }
   else if (a === "sifirla") {
-    if (!S.f.silOnay) { S.f.silOnay = true; toast("Emin misen düğmeye bir daha bas"); ciz(); return; }
+    if (!S.f.silOnay) { S.f.silOnay = true; toast(T("Eminsen bir daha bas")); ciz(); return; }
     localStorage.removeItem(ANAHTAR);
     S = Object.assign(varsayilan(), { tab: "bugun", f: {}, ara: "", araHedef: "", daha: "", yedekMetin: "" });
-    toast("Her şey silindi"); return ciz();
+    toast(T("Her şey silindi")); return ciz();
   }
 
   /* ---- yedek ---- */
@@ -2397,15 +2419,15 @@ document.addEventListener("click", e => {
     const j = yedekJson();
     S.sonYedek = bugun();
     if (navigator.clipboard && navigator.clipboard.writeText)
-      navigator.clipboard.writeText(j).then(() => toast("Yedek kopyalandı"), () => { S.yedekMetin = j; ciz(); toast("Aşağıdaki kutudan kopyala"); });
-    else { S.yedekMetin = j; toast("Aşağıdaki kutudan kopyala"); }
+      navigator.clipboard.writeText(j).then(() => toast(T("Yedek kopyalandı")), () => { S.yedekMetin = j; ciz(); toast(T("Aşağıdaki kutudan kopyala")); });
+    else { S.yedekMetin = j; toast(T("Aşağıdaki kutudan kopyala")); }
   }
   else if (a === "yedek-indir") {
     const url = URL.createObjectURL(new Blob([yedekJson(true)], { type: "application/json" }));
     const link = document.createElement("a");
     link.href = url; link.download = "fitplan-yedek-" + bugun() + ".json";
     document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
-    S.sonYedek = bugun(); toast("Dosya indirildi");
+    S.sonYedek = bugun(); toast(T("Dosya indirildi"));
   }
   else if (a === "yedek-yukle") {
     const ta = document.getElementById("yedek-in");
@@ -2414,8 +2436,8 @@ document.addEventListener("click", e => {
       if (!d || typeof d !== "object") throw 0;
       KALICI.forEach(x => { if (d[x] !== undefined) S[x] = d[x]; });
       duzelt();
-      S.profil.tamam = true; S.yedekMetin = ""; toast("Yedek geri yüklendi");
-    } catch (err) { toast("Geçersiz yedek metni"); return; }
+      S.profil.tamam = true; S.yedekMetin = ""; toast(T("Yedek geri yüklendi"));
+    } catch (err) { toast(T("Geçersiz yedek metni")); return; }
   }
   else return;
 
@@ -2441,11 +2463,11 @@ function marketEkle(ad) {
   const t = String(ad).replace(/:/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
   if (!t) return;
   const s = sadeAd(t);
-  if (marketGruplari().some(g => g.i.some(x => sadeAd(x) === s))) { toast(t + " zaten listede"); return; }
-  if (S.marketEk.length >= 60) { toast("Kendi listen dolu (60)"); return; }
+  if (marketGruplari().some(g => g.i.some(x => sadeAd(x) === s))) { toast(Tf("{a} zaten listede", { a: t })); return; }
+  if (S.marketEk.length >= 60) { toast(T("Kendi listen dolu (60)")); return; }
   S.marketEk.push(t);
   S.mkAcik["Kendi eklediklerin"] = true;
-  toast(t + " listeye eklendi");
+  toast(Tf("{a} listeye eklendi", { a: t }));
 }
 
 /* Elle girilen yemek kullanıcının kendi listesine kaydedilir; bir daha
@@ -2570,9 +2592,12 @@ document.addEventListener("change", e => {
 
 /* =================== BAŞLAT =================== */
 yukle();
+/* Kayıtlı dil tercihi varsa uygula; yoksa cihaz dili (dil.js'teki tahmin)
+   geçerli kalır. Besin listesi de burada doğru dille yeniden kurulur. */
+dilAyarla(S.profil.dil || DIL);
 if (kurulumGerek()) kurulumFormDoldur();
 ciz();
-if (gocBildir) setTimeout(() => toast("Eski verin taşındı — öğün işaretleri hariç"), 600);
+if (gocBildir) setTimeout(() => toast(T("Eski verin taşındı — öğün işaretleri hariç")), 600);
 
 /* Yerel kabukta: iCloud'dan çek, bildirimleri tazele */
 if (Yerel.var()) {

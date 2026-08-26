@@ -6,11 +6,12 @@ yok. Kullanıcının verisi yalnızca kendi cihazında ve kendi iCloud alanında
 **İki hedefte çalışıyor:** `web/` klasörü tek başına buildsiz bir PWA; aynı klasör
 Capacitor kabuğunun içinde iOS uygulaması olarak da çalışıyor (App Store yolu).
 
-Arayüz metinleri şu an Türkçe. **Planlanan:** App Store sürümü İngilizce çıkacak, TR/EN
-seçmeli. Yeni metin yazarken bunu düşün — dize gövdeye gömülü olsun, ama cümleyi
-çeviriye uygun kur (dilbilgisi eki uydurma: "Dünü tekrarla" iyi, "Dünkü Kahvaltı'yı
-tekrarla" değil). Ayrıca **arayüzde "web/tarayıcı" kelimesi geçmesin** — kullanıcı için
-bu bir uygulama; "web" yalnız klasör adı.
+Arayüz **TR/EN iki dilli**: kod içindeki dizeler Türkçe, çeviri `dil.js` içindeki
+sözlükten `T()` / `Tf()` ile okunuyor (aşağıda "Dil katmanı"). Yeni metin yazarken
+dizeyi gövdeye göm, karşılığını `SOZLUK`a ekle ve cümleyi çeviriye uygun kur
+(dilbilgisi eki uydurma: "Dünü tekrarla" iyi, "Dünkü Kahvaltı'yı tekrarla" değil).
+Ayrıca **arayüzde "web/tarayıcı" kelimesi geçmesin** — kullanıcı için bu bir
+uygulama; "web" yalnız klasör adı.
 
 Uygulama kickboksa değil, **her spora** göre kuruluyor: dövüş
 sporları, ağırlık, kardiyo, takım sporları, esneklik. Öğün planı, takviyeler ve haftalık
@@ -28,6 +29,7 @@ program kodda sabit değil — kurulum sihirbazında kullanıcıdan alınıp cih
 web/                 uygulamanın kendisi — buildsiz, tek başına PWA olarak çalışır
   index.html         iskelet — sadece <head> ve script/style etiketleri
   stil.css           tüm görünüm; renkler :root içinde anlam taşıyan değişkenler
+  dil.js             TR/EN dil katmanı: T/Tf/dilAyarla + SOZLUK + VERI_EN + BESIN_EN
   kopru.js           yerel kabuk köprüsü (Yerel.*) — tarayıcıda hepsi no-op
   veri.js            plan içeriği: sporlar, takviyeler, öğün şablonları, rehber
   besinler.js        besin veritabanı (539 kalem, gruplu)
@@ -55,7 +57,7 @@ KURULUM-MAC.md       Mac'te derleme adımları
 CLAUDE.md            bu dosya
 ```
 
-Yükleme sırası önemli: `kopru.js` → `veri.js` → `besinler.js` → `app.js`.
+Yükleme sırası önemli: `dil.js` → `kopru.js` → `veri.js` → `besinler.js` → `app.js`.
 
 **Pages ayarı "GitHub Actions" olmalı.** Pages'in "Deploy from a branch" seçeneği
 yalnızca `/` ve `/docs` klasörlerini kabul ediyor; uygulama `web/` altında olduğu için
@@ -117,6 +119,13 @@ oluşturulup commit edildikten sonra derleme GitHub Actions'ta yapılıyor
 16. **HealthKit izni kurulumda toplu istenmez.** Apple'ın beklediği davranış, izni
     özellik ilk açıldığında istemek — Ayarlar → Telefon anahtarındaki akış bu yüzden
     böyle. Kurulum sihirbazına taşıma.
+17. **Dil katmanını atlama.** Kullanıcının göreceği her yeni dize `T("…")` /
+    `Tf("…", {…})` içinden geçer ve İngilizcesi `dil.js` sözlüğüne eklenir
+    (arayüz `SOZLUK`, veri.js içeriği `VERI_EN`, besin adları `BESIN_EN`).
+    Cümleyi + ile yapıştırma, yer tutucu kullan — kelime sırası dilde değişir.
+    `dil.mjs` testi EN modda Türkçe diakritik sızıntısını tarıyor; Türk yemek
+    adları (Lahmacun, Börek…) bilerek muaf. Kullanıcı VERİSİ çevrilmez: kayıtlar
+    girildiği dilde kalır, yalnız kütüphane/şablon metinleri T'den geçer.
 14. **`input` olayında `ciz()` çağırma.** Tüm ekranı yeniden basmak yazarken odağı
     kaybettirir; `input type="number"` üzerinde `setSelectionRange` da çalışmadığı için
     imleç başa düşer ve kullanıcı "40" yazarken "04" görür. Canlı hesap gerekiyorsa
@@ -133,6 +142,7 @@ Tek localStorage anahtarı: `fitplan-v2`, JSON string. Kalıcı alanlar `KALICI`
   "surum": 2,
   "guncelleme": 0,           // ms — bulut birleştirmesinde "son yazan" kararı
   "profil": {
+    "dil": "",                // "" = cihaz dili; "tr" | "en" = elle seçim
     "cinsiyet": "e",          // "e" | "k" — yağ oranı formülünü belirler
     "dogumYili": 0,
     "boy": 0, "kilo": 0,      // cm, kg
@@ -265,9 +275,21 @@ Notlar:
 seçiliyse; `"@kafein"` = kafeinli takviye varsa; `"@guc"` / `"@dovus"` / `"@kardiyo"` =
 o tipte spor seçiliyse.
 
+### `dil.js` — dil katmanı
+
+`DIL` ("tr"/"en", cihazdan tahmin), `dilAyarla()` (değiştirir + besin listesini
+yeniden kurar), `T(dize)` (sözlükten çeviri; TR modda kimlik, sözlükte yoksa
+Türkçe döner — asla kırılmaz), `Tf(dize, {ad: değer})` (yer tutucular).
+Üç sözlük: `SOZLUK` (arayüz + `VERI_EN` birleşik) ve `BESIN_EN` (besin/grup/
+porsiyon adları; T'ye değil `besinListeKur()`e hizmet eder). Tarih biçimi
+`trT`/`trKisa` içinde dile göre dallanır. Dil tercihi `profil.dil`de; ""
+cihaz dili demek. Dil değişimi `data-act="dil:xx"` → `dilAyarla` → `ciz()`.
+
 ### `besinler.js` — besin veritabanı
 
-`BESIN_GRUP` — grup adı → satır listesi.
+`BESIN_GRUP` — grup adı → satır listesi. `BESIN_LISTE` artık `besinListeKur()`
+ile AKTİF DİLE göre kurulur: EN modda adlar `BESIN_EN`den gelir, arama o dilde
+çalışır. Türk yemekleri EN'de kendi adını korur ("Lahmacun (Turkish flatbread)").
 Satır biçimi: `[ad, kcal, protein, karbonhidrat, yağ, porsiyonAdı, porsiyonGram]`.
 İlk dört sayı **100 g/ml başına**. Yeni kalem eklemek için ilgili grubun içine bir satır
 ekle, başka yeri güncelleme gerekmez. `BESIN_LISTE` düzleştirilmiş, aranabilir hâli;
@@ -476,5 +498,11 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Test sunucusu `stil.css`'i **text/css** olarak servis ediyor — yanlış MIME'de
       sayfa stilsiz açılır ve düzen kontrolleri boşuna geçer
 - [ ] Türkçe karakterler bozulmadı
+- [ ] `dil.mjs` paketi geçiyor: EN cihazda sihirbaz İngilizce, EN modda hiçbir
+      ekranda Türkçe diakritik sızıntısı yok, arama iki dilde de buluyor,
+      Ayarlar'dan dil anında değişiyor ve kalıcı
+- [ ] Playwright bağlamları `locale` sabitliyor — TR paketleri `tr-TR`, dil
+      paketi `en-US`; başsız Chromium varsayılanı en-US olduğu için yereli
+      sabitlemeyen TR testi EN arayüzle karşılaşır
 - [ ] İkon değiştiyse dört boyut da (180/192/512 + magaza/icon-1024) yenilendi ve
       1024'lük alfa kanalsız — Apple alfa kanallı ikonu reddediyor
