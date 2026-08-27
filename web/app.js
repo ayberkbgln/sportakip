@@ -215,7 +215,9 @@ function kutBul(ad) {
   if (!a) return null;
   return EGZERSIZLER.find(x => sadeAd(x.ad) === a || sadeAd(T(x.ad)) === a) || null;
 }
-function setOner() {
+function setOner(bolge) {
+  /* Duruş hareketleri kuvvet reçetesine uymaz: sık ve hafif çalışılır */
+  if (bolge === "durus") return T("Günde 1-2 kez · 8-12 kontrollü tekrar · esnetmelerde 20-30 sn tut");
   const h = S.profil.hedef;
   if (h === "kas")    return T("3-4 set × 6-12 tekrar · 90-120 sn dinlenme");
   if (h === "recomp") return T("3-4 set × 8-12 tekrar · ~90 sn dinlenme");
@@ -783,14 +785,17 @@ function kAdim2() {
       : `<p class="note">${T("Hedef ve aktiviteyi seçince kalori hedefin hesaplanacak.")}</p>`}`);
 }
 
+/* Seçim ekranları liste değil "ekle" düzeninde: 20 sporu alt alta basmak
+   telefonda kaydırma işkencesi ve seçim yükü (choice overload). Ekranda
+   yalnız SEÇİLENLER durur; ekleme alt sayfada, gruplu ve kapatınca biter. */
 function kAdim3() {
-  const gruplar = {};
-  SPORLAR.forEach(s => { (gruplar[s.tip] = gruplar[s.tip] || []).push(s); });
-  let h = "";
-  for (const t in gruplar)
-    h += `<p class="sec">${T(SPOR_TIP_AD[t])}</p>` + kart("", "",
-      `<div class="sec-lst">${gruplar[t].map(s => secOp("k-spor:" + s.id, S.sporlar.indexOf(s.id) !== -1, T(s.ad), "")).join("")}</div>`);
-  return h;
+  const secili = S.sporlar.map(sporBul).filter(Boolean);
+  return kart("", "",
+    (secili.length
+      ? secili.map(x => satir({ ad: T(x.ad), desc: T(SPOR_TIP_AD[x.tip]), on: true, act: "k-spor:" + x.id })).join("")
+      : `<p class="bos">${T("Henüz spor seçmedin.")}</p>`) +
+    `<button class="btn gold blok" data-act="panel:sporSec" style="margin-top:12px">+ ${T("Spor ekle")}</button>
+     <p class="note" style="margin-top:10px">${T("Birden fazla seçebilirsin; kaldırmak için üstüne dokun. Hangi gün ne yapacağını sonraki adımda ayarlarsın.")}</p>`);
 }
 
 function kAdim4() {
@@ -811,10 +816,13 @@ function kAdim5() {
 }
 
 function kAdim6() {
-  const secili = id => S.takviyeler.some(t => t.id === id);
   return kart("", "",
-    `<div class="sec-lst">${TAKVIYELER.map(t => secOp("k-tak:" + t.id, secili(t.id), T(t.ad),
-      T(t.doz) + " · " + T(t.saat) + ((t.etiket || {}).kafein ? " · " + t.etiket.kafein + " " + T("mg kafein") : ""))).join("")}</div>
+    (S.takviyeler.length
+      ? S.takviyeler.map(t => satir({ ad: T(t.ad), saat: T(t.saat),
+          desc: T(t.doz) + ((t.etiket || {}).kafein ? " · " + t.etiket.kafein + " " + T("mg kafein") : ""),
+          on: true, act: "k-tak:" + t.id })).join("")
+      : `<p class="bos">${T("Takviye kullanmıyorsan bu adımı olduğu gibi atla.")}</p>`) +
+    `<button class="btn gold blok" data-act="panel:takSec" style="margin-top:12px">+ ${T("Takviye ekle")}</button>
      <p class="note" style="margin-top:12px">${T("Dozları ve hangi günler alacağını Daha → Takviyeler'den ayarlarsın. Takviye ilaç değildir ve ilacın yerine geçmez.")}</p>`);
 }
 
@@ -848,7 +856,7 @@ function vBugun() {
   let h = `<header class="top sik">
     <div class="bas-sol"><p class="eyebrow">${T(GUN_AD[haftaninGunu(k)])} · ${trKisa(k)}</p>
       <h1>${dinlenme ? T("Dinlenme") : esc(adlar.join(" + "))}</h1></div>
-    <div class="bas-sag"><div class="rozet">%${Math.round(biten / toplamIs * 100)}</div>
+    <div class="bas-sag"><div class="rozet${biten >= toplamIs ? " tam" : ""}">%${Math.round(biten / toplamIs * 100)}</div>
       <span class="sl">${T("Gün")}</span></div></header>`;
 
   uyarilar(k).forEach(u => { h += uyariKutu(u); });
@@ -908,10 +916,11 @@ function vBugun() {
   }
 
   const sr = seri();
+  const bugunDolu = g.yenen.length > 0 || (g.su || 0) > 0 || antrenmanYapildi(k);
   kutular.push(`<button class="kutu" data-act="tab:ilerleme">
     <p class="kutu-t">${T("Seri")}</p>
     <p class="kutu-n">${sr}<small>${T("gün")}</small></p>
-    <p class="kutu-alt">${sr > 1 ? T("Üst üste kayıt girdin") : T("Bugün kayıt gir, seri başlasın")}</p>
+    <p class="kutu-alt">${sr > 1 ? (bugunDolu ? T("Üst üste kayıt girdin") : T("Bugün bir kayıt gir, seri sürsün")) : T("Bugün kayıt gir, seri başlasın")}</p>
     ${ilerlemeInce(Math.min(sr / 30, 1), "var(--vurgu)")}</button>`);
 
   h += `<div class="izgara">${kutular.join("")}</div>`;
@@ -1112,6 +1121,24 @@ function panelHtml() {
       `<button class="btn gold blok" data-act="panel-git:antrenman:">${T("Detay gir")}</button>`);
   }
 
+  if (S.panel === "sporSec") {
+    const gruplar = {};
+    SPORLAR.forEach(x => { (gruplar[x.tip] = gruplar[x.tip] || []).push(x); });
+    let ic = "";
+    for (const t in gruplar)
+      ic += `<p class="sec">${T(SPOR_TIP_AD[t])}</p><div class="sec-lst">${
+        gruplar[t].map(x => secOp("k-spor:" + x.id, S.sporlar.indexOf(x.id) !== -1, T(x.ad), "")).join("")}</div>`;
+    return panelSar(T("Spor ekle"), ic,
+      `<button class="btn gold blok" data-act="panel-kapat">${T("Tamam")}</button>`);
+  }
+
+  if (S.panel === "takSec") {
+    return panelSar(T("Takviye ekle"),
+      `<div class="sec-lst">${TAKVIYELER.map(t => secOp("k-tak:" + t.id, S.takviyeler.some(x => x.id === t.id), T(t.ad),
+        T(t.doz) + " · " + T(t.saat) + ((t.etiket || {}).kafein ? " · " + t.etiket.kafein + " " + T("mg kafein") : ""))).join("")}</div>`,
+      `<button class="btn gold blok" data-act="panel-kapat">${T("Tamam")}</button>`);
+  }
+
   if (S.panel === "nasil") {
     const eg = kutBul(S.f.nasilAd);
     if (eg) return panelSar(T(eg.ad),
@@ -1119,7 +1146,7 @@ function panelHtml() {
          <span class="chip gold">${T(BOLGE_AD[eg.bolge])}</span>
          <span class="chip">${yerAd(eg.yer)}</span></div>
        <p class="gv" style="margin:0 0 12px">${esc(T(eg.nasil))}</p>
-       <p class="macro">${T("Senin hedefin için")}: ${setOner()}</p>`,
+       <p class="macro">${T("Senin hedefin için")}: ${setOner(eg.bolge)}</p>`,
       `<button class="btn ghost blok" data-act="panel-git:daha:kutuphane">${T("Egzersizler")}</button>`);
   }
 
@@ -1711,7 +1738,7 @@ function dKutuphane() {
       <div class="uc"><span class="ara-sag">${acik ? "⌄" : "›"}</span></div></div>
     ${acik ? `<div class="gr" style="padding-top:4px">
       <div class="gv">${esc(T(e.nasil))}</div>
-      <div class="macro" style="margin-top:8px">${T("Senin hedefin için")}: ${setOner()}</div>
+      <div class="macro" style="margin-top:8px">${T("Senin hedefin için")}: ${setOner(e.bolge)}</div>
       ${guc ? `<button class="btn ghost blok" data-act="kut-ekle:${e.i}" style="margin-top:10px">${T("Bugünkü seansa ekle")}</button>` : ""}
     </div>` : ""}`;
   }).join("") || `<p class="bos">${T("Bu süzgeçle hareket yok.")}</p>`);
@@ -1762,10 +1789,7 @@ function dTakviye() {
   else
     h += kart("", "", `<p class="bos">${T("Takviye kullanmıyorsan sorun değil — aşağıdan istediğin zaman ekleyebilirsin.")}</p>`);
 
-  h += `<p class="sec">${T("Ekle")}</p>` + kart("", "",
-    `<div class="sec-lst">${TAKVIYELER.filter(t => !S.takviyeler.some(x => x.id === t.id))
-      .map(t => secOp("tak-ekle:" + t.id, false, T(t.ad), T(t.doz) + " · " + T(t.saat) + ((t.etiket || {}).kafein ? " · " + t.etiket.kafein + " " + T("mg kafein") : ""))).join("")
-      || `<p class="bos">${T("Kütüphanedeki hepsi seçili.")}</p>`}</div>`);
+  h += kart("", "", `<button class="btn gold blok" data-act="panel:takSec">+ ${T("Takviye ekle")}</button>`);
   h += `<p class="note" style="margin-top:14px">${T("Takviye ilaç değildir ve ilacın yerine geçmez. Kullandığın ilaçlarla etkileşebilir — eczacına ya da hekimine danış.")}</p>`;
   return h;
 }
@@ -1839,7 +1863,10 @@ function dAyar() {
      <p class="note" style="margin-top:11px">${T("Hazır bir düzen seçmek yukarıdaki listenin üzerine yazar. Geçmiş kayıtlar silinmez.")}</p>`);
 
   h += kart(T("Sporlar"), Tf("{n} seçili", { n: S.sporlar.length }),
-    `<div class="sec-lst">${SPORLAR.map(s => secOp("ayar-spor:" + s.id, S.sporlar.indexOf(s.id) !== -1, T(s.ad), T(SPOR_TIP_AD[s.tip]))).join("")}</div>`);
+    `<div class="row wrapped" style="gap:7px">${S.sporlar.map(sporBul).filter(Boolean)
+       .map(x => `<span class="chip gold">${esc(T(x.ad))}</span>`).join("")
+       || `<span class="macro">${T("Henüz spor seçmedin.")}</span>`}</div>
+     <button class="btn ghost blok" data-act="panel:sporSec" style="margin-top:12px">${T("Sporları düzenle")}</button>`);
 
   const kodlar = Object.keys(S.barkod);
   if (kodlar.length)
@@ -1946,7 +1973,7 @@ const ADLAR = { bugun: "Bugün", yemek: "Yemek", antrenman: "Antrenman", ilerlem
 function ciz() {
   const app = document.getElementById("app");
   document.body.classList.toggle("kilit", !!(S.araHedef || S.panel));
-  if (kurulumGerek()) { app.innerHTML = `<div class="wrap solo">${vKurulum()}</div>`; return; }
+  if (kurulumGerek()) { app.innerHTML = `<div class="wrap solo">${vKurulum()}</div>${panelHtml()}`; return; }
   const v = { bugun: vBugun, yemek: vYemek, antrenman: vAntrenman, ilerleme: vIlerleme, daha: vDaha }[S.tab]();
   app.innerHTML = `<div class="wrap">${v}</div>
    <nav><div class="nav-in">${Object.keys(ADLAR).map(id =>
@@ -2071,9 +2098,9 @@ document.addEventListener("click", e => {
       if (!S.ogunler.length) ogunKur("4ogun");
       if (S.program.every(p => !(p.seanslar || []).length)) programOto();
     } else S.kurulumAdim++;
-    kurulumFormDoldur(); kaydet(); return ciz();
+    S.panel = ""; kurulumFormDoldur(); kaydet(); return ciz();
   }
-  if (a === "k-geri") { S.kurulumAdim = Math.max(0, S.kurulumAdim - 1); kurulumFormDoldur(); kaydet(); return ciz(); }
+  if (a === "k-geri") { S.kurulumAdim = Math.max(0, S.kurulumAdim - 1); S.panel = ""; kurulumFormDoldur(); kaydet(); return ciz(); }
   if (a === "k-atla") {
     if (S.kurulumAdim === ADIM_SAYI - 1) { S.profil.tamam = true; S.tab = "bugun";
       if (!S.ogunler.length) ogunKur("4ogun");

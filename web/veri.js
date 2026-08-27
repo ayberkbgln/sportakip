@@ -68,7 +68,8 @@ const GUC_SABLON = {
   "Üst vücut":   ["Bench press", "Kürek çekiş", "Omuz press", "Barfiks"],
   "Alt vücut":   ["Squat", "Hip thrust", "Lunge", "Baldır"],
   "Ev A":        ["Şınav", "Squat", "Glute bridge", "Plank"],
-  "Ev B":        ["Pike şınav", "Lunge", "Superman", "Leg raise"]
+  "Ev B":        ["Pike şınav", "Lunge", "Superman", "Leg raise"],
+  "Duruş rutini":["Chin tuck", "Duvar melekleri", "Band pull-apart", "Bird dog"]
 };
 
 /* ---------- Egzersiz kütüphanesi ----------
@@ -83,7 +84,7 @@ const GUC_SABLON = {
    teşhis değil.
 
    yer: "salon" | "ev" | "ikisi". Ev = ekipmansız ya da tek dambıl.        */
-const BOLGE_AD = { gogus: "Göğüs", sirt: "Sırt", omuz: "Omuz", kol: "Kol", bacak: "Bacak", karin: "Karın" };
+const BOLGE_AD = { gogus: "Göğüs", sirt: "Sırt", omuz: "Omuz", kol: "Kol", bacak: "Bacak", karin: "Karın", durus: "Duruş" };
 
 const EGZERSIZLER = [
   { ad: "Bench press", bolge: "gogus", yer: "salon",
@@ -154,7 +155,25 @@ const EGZERSIZLER = [
   { ad: "Leg raise", bolge: "karin", yer: "ev",
     nasil: "Sırt üstü, eller kalça altında. Bacakları düz kaldırıp yavaş indir; bel yerden kalkıyorsa dizleri kır." },
   { ad: "Mountain climber", bolge: "karin", yer: "ev",
-    nasil: "Şınav pozisyonunda dizleri sırayla göğse çek. Tempoyu artırınca kardiyoya döner — ısınma için de iyi." }
+    nasil: "Şınav pozisyonunda dizleri sırayla göğse çek. Tempoyu artırınca kardiyoya döner — ısınma için de iyi." },
+
+  /* Duruş — masa başında öne kayan baş ve kapanan omuzlara karşı.
+     Kural: öndeki kısalanı esnet, arkadaki zayıflayanı çalıştır.
+     Tedavi değil genel bilgi; süren ağrıda uzman gerekir (rehberde yazıyor). */
+  { ad: "Chin tuck", bolge: "durus", yer: "ev",
+    nasil: "Dik dur ya da otur. Başını öne eğmeden çeneni geriye, boynuna doğru çek — ensen uzasın. İki saniye tut, bırak. Ekrana doğru öne kayan baş için." },
+  { ad: "Duvar melekleri", bolge: "durus", yer: "ev",
+    nasil: "Sırtın, kalçan ve başın duvara değsin. Kollar 90°, el sırtları duvarda; duvardan koparmadan yukarı-aşağı kaydır. Üst sırtı uyandırır, omuz hareketliliğini açar." },
+  { ad: "Kedi-deve", bolge: "durus", yer: "ev",
+    nasil: "Emekleme pozisyonunda. Nefes verirken sırtını tavana doğru kamburlaştır, alırken göğsünü açıp beline çukur ver. Yavaş ve akıcı — omurgayı gezdir." },
+  { ad: "Kapıda göğüs esnetme", bolge: "durus", yer: "ev",
+    nasil: "Ön kolunu kapı pervazına 90° koy, bir adım öne al ve göğsünde gerilmeyi hisset. 20-30 saniye tut, iki tarafta. Kapanan omuzların panzehiri." },
+  { ad: "Band pull-apart", bolge: "durus", yer: "ikisi",
+    nasil: "Direnç bandını omuz genişliğinde, kollar düz tut. Göğüs hizasında yanlara açarken kürek kemiklerini sık, yavaş bırak. Bant yoksa havluyla gergin tutup aynı hareketi yap." },
+  { ad: "Bird dog", bolge: "durus", yer: "ev",
+    nasil: "Emekleme pozisyonunda çapraz kolu ve bacağı aynı anda uzat, gövden sallanmasın. İki saniye tut, tarafları değiştir. Gövde kontrolü ve bel dostu." },
+  { ad: "Yüz üstü Y-T kaldırış", bolge: "durus", yer: "ev",
+    nasil: "Yüzüstü yat, baş nötr. Kollarını önce Y sonra T şeklinde yerden birkaç santim kaldır, başparmaklar yukarı. Kürek çevresindeki küçük kasları uyandırır." }
 ];
 
 /* ---------- Takviye kütüphanesi ----------
@@ -332,6 +351,11 @@ const REHBER = [
     ["Ekipman şart değil", "Şınav, squat, lunge, glute bridge, plank ile tüm vücudu çalıştırırsın. Programda \"Ev A / Ev B\" şablonları hazır; Egzersizler sayfasında nasıl yapılacağı yazıyor."],
     ["Zorlaştırma mantığı", "Evde ağırlık artıramazsın, o yüzden tekrarı artır, tempoyu yavaşlat (3 saniyede in), ya da açıyı zorlaştır (ayaklar yüksekte şınav). Kolaylaşan hareket ilerletilmemiş harekettir."],
     ["Tek dambıl çok şey değiştirir", "Goblet squat, dumbbell row, omuz press, Romen deadlift — tek bir ayarlanabilir dambılla ev antrenmanı yıllarca yeter."]] },
+
+  { b: "Duruş", kosul: null, s: [
+    ["Masa başı gerçeği", "Gün boyu ekrana eğilmek göğüs tarafını kısaltır, üst sırtı zayıflatır; baş öne kayar, omuzlar kapanır. Egzersizler sayfasındaki Duruş bölümü tam bu zinciri hedefler: öndeki kısalanı esnet, arkadaki zayıflayanı çalıştır."],
+    ["Nasıl kullan", "Duruş hareketleri ağırlık antrenmanı gibi yorucu değildir — günde 5-10 dakika yeter, ideali her gün. Programına \"Duruş rutini\" şablonunu ekleyebilir ya da mola aralarında tek tek yapabilirsin."],
+    ["Sınırı bil", "Bunlar genel bilgidir, tedavi değildir. Süren ağrın, uyuşman ya da karıncalanman varsa çözüm uygulama değil hekim ya da fizyoterapisttir."]] },
 
   { b: "Kalori ve protein", kosul: null, s: [
     ["Hedef nereden geliyor", "Mifflin-St Jeor formülüyle bazal metabolizman hesaplanıyor, aktivite düzeyinle çarpılıyor, hedefine göre açık ya da fazla ekleniyor. Ayarlar'dan elle değiştirebilirsin."],

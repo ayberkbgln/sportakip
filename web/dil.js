@@ -1618,3 +1618,44 @@ Object.assign(SOZLUK, {
   "Goblet squats, dumbbell rows, shoulder presses, Romanian deadlifts — a single adjustable dumbbell keeps home training useful for years."
 
 });
+
+/* Seçim alt sayfaları, duruş bölümü ve seri/kutlama metinleri */
+Object.assign(SOZLUK, {
+"Spor ekle": "Add a sport", "Takviye ekle": "Add a supplement", "Tamam": "Done",
+"Henüz spor seçmedin.": "No sports selected yet.",
+"Birden fazla seçebilirsin; kaldırmak için üstüne dokun. Hangi gün ne yapacağını sonraki adımda ayarlarsın.":
+  "Pick as many as you like; tap one to remove it. You'll set which day is which in the next step.",
+"Takviye kullanmıyorsan bu adımı olduğu gibi atla.": "Not taking supplements? Just skip this step.",
+"Bugün bir kayıt gir, seri sürsün": "Log something today to keep the streak",
+
+"Duruş": "Posture", "Duruş rutini": "Posture routine",
+"Duvar melekleri": "Wall angels", "Kedi-deve": "Cat-cow",
+"Kapıda göğüs esnetme": "Doorway chest stretch", "Yüz üstü Y-T kaldırış": "Prone Y-T raise",
+"Günde 1-2 kez · 8-12 kontrollü tekrar · esnetmelerde 20-30 sn tut":
+  "1-2 times a day · 8-12 controlled reps · hold stretches 20-30 s",
+
+"Dik dur ya da otur. Başını öne eğmeden çeneni geriye, boynuna doğru çek — ensen uzasın. İki saniye tut, bırak. Ekrana doğru öne kayan baş için.":
+  "Stand or sit tall. Without tilting your head, draw your chin straight back — feel the back of your neck lengthen. Hold two seconds, release. For the head that drifts toward the screen.",
+"Sırtın, kalçan ve başın duvara değsin. Kollar 90°, el sırtları duvarda; duvardan koparmadan yukarı-aşağı kaydır. Üst sırtı uyandırır, omuz hareketliliğini açar.":
+  "Back, hips and head against a wall. Arms at 90°, backs of hands on the wall; slide them up and down without losing contact. Wakes up the upper back, opens shoulder mobility.",
+"Emekleme pozisyonunda. Nefes verirken sırtını tavana doğru kamburlaştır, alırken göğsünü açıp beline çukur ver. Yavaş ve akıcı — omurgayı gezdir.":
+  "On all fours. Exhale and round your back toward the ceiling, inhale and open the chest, arching gently. Slow and fluid — take the spine through its range.",
+"Ön kolunu kapı pervazına 90° koy, bir adım öne al ve göğsünde gerilmeyi hisset. 20-30 saniye tut, iki tarafta. Kapanan omuzların panzehiri.":
+  "Forearm on a door frame at 90°, step forward and feel the stretch across your chest. Hold 20-30 seconds per side. The antidote to rounded shoulders.",
+"Direnç bandını omuz genişliğinde, kollar düz tut. Göğüs hizasında yanlara açarken kürek kemiklerini sık, yavaş bırak. Bant yoksa havluyla gergin tutup aynı hareketi yap.":
+  "Hold a resistance band shoulder-width, arms straight. Pull it apart at chest height, squeezing the shoulder blades, release slowly. No band? Use a towel held tight and do the same move.",
+"Emekleme pozisyonunda çapraz kolu ve bacağı aynı anda uzat, gövden sallanmasın. İki saniye tut, tarafları değiştir. Gövde kontrolü ve bel dostu.":
+  "On all fours, extend the opposite arm and leg together without letting your torso sway. Hold two seconds, switch sides. Core control, kind to the lower back.",
+"Yüzüstü yat, baş nötr. Kollarını önce Y sonra T şeklinde yerden birkaç santim kaldır, başparmaklar yukarı. Kürek çevresindeki küçük kasları uyandırır.":
+  "Lie face down, head neutral. Raise your arms a few centimeters off the floor in a Y, then a T, thumbs up. Wakes the small muscles around the shoulder blades.",
+
+"Masa başı gerçeği": "The desk reality",
+"Gün boyu ekrana eğilmek göğüs tarafını kısaltır, üst sırtı zayıflatır; baş öne kayar, omuzlar kapanır. Egzersizler sayfasındaki Duruş bölümü tam bu zinciri hedefler: öndeki kısalanı esnet, arkadaki zayıflayanı çalıştır.":
+  "Leaning into a screen all day shortens the front of the chest and weakens the upper back; the head drifts forward, the shoulders close in. The Posture section on the Exercises page targets exactly this chain: stretch what shortened in front, train what weakened behind.",
+"Nasıl kullan": "How to use it",
+"Duruş hareketleri ağırlık antrenmanı gibi yorucu değildir — günde 5-10 dakika yeter, ideali her gün. Programına \"Duruş rutini\" şablonunu ekleyebilir ya da mola aralarında tek tek yapabilirsin.":
+  "Posture work isn't taxing like lifting — 5-10 minutes a day is enough, ideally daily. Add the \"Posture routine\" template to your schedule or do the moves one by one during breaks.",
+"Sınırı bil": "Know the limit",
+"Bunlar genel bilgidir, tedavi değildir. Süren ağrın, uyuşman ya da karıncalanman varsa çözüm uygulama değil hekim ya da fizyoterapisttir.":
+  "This is general information, not treatment. If you have lasting pain, numbness or tingling, the answer is a doctor or physiotherapist — not an app."
+});

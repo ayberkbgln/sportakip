@@ -266,7 +266,7 @@ Notlar:
 | `SPORLAR` | 20 spor. `tip` (dovus/guc/kardiyo/takim/esneklik) ve `log` alanları. |
 | `LOG_ALAN` | Antrenman günlüğü alan etiketleri. |
 | `GUC_SABLON` | Ağırlık antrenmanı egzersiz şablonları ("Ev A/B" dahil — adlar `EGZERSIZLER` ile eşleşmeli ki ? düğmesi çıksın). |
-| `EGZERSIZLER`, `BOLGE_AD` | Egzersiz kütüphanesi: 32 hareket; `bolge`, `yer` (salon/ev/ikisi), `nasil` tarifi. Set önerisi hareket başına değil `setOner()` ile HEDEFE göre. Ölçüye göre hareket önerisi bilerek yok — vücut ölçüsünden uygunluk çıkarmak uzman işi, uyarı metni bunu söylüyor. |
+| `EGZERSIZLER`, `BOLGE_AD` | Egzersiz kütüphanesi: 39 hareket (7'si "durus" — masa başı duruşu; tedavi değil genel bilgi, süren ağrıda uzmana yönlendirir); `bolge`, `yer` (salon/ev/ikisi), `nasil` tarifi. Set önerisi hareket başına değil `setOner()` ile HEDEFE göre. Ölçüye göre hareket önerisi bilerek yok — vücut ölçüsünden uygunluk çıkarmak uzman işi, uyarı metni bunu söylüyor. |
 | `TAKVIYELER` | 24 takviye. `etiket.kafein` (mg) ve `etiket.tokKarin` uyarı motorunu besler. Sade L-karnitin kafeinsizdir; kafeinli thermo sürümler ayrı "termojenik" kalemidir — birleştirme, sade kullanana yanlış uyarı çıkar. |
 | `OGUN_SABLON` | 1/2/3/4/5/6 öğün ve 16:8 düzenleri; `p` = başlangıç ağırlığı. |
 | `ALISKANLIK_SABLON`, `AZALT_EGRISI` | Bırakma modülü ve haftalık azaltma eğrisi. |
@@ -435,6 +435,14 @@ miktara geçiyor, yoksa tanımlama adımı açılıyor. Kod `data-act` içinde t
 eklerken `kutular.push(...)` sırasına gir; detay gerekiyorsa `data-act="panel:xxx"` koy
 ve `panelHtml()` içine bir dal ekle — ana ekran uzamasın.
 
+**Uzun seçim listeleri** → ekranda liste basılmaz, alt sayfa (bottom sheet)
+seçici kullanılır: `S.panel = "sporSec" | "takSec"`. Ekranda yalnız SEÇİLENLER
+durur, "+ Ekle" paneli açar; panel içindeki dokunuşlar `k-spor:`/`k-tak:`
+üzerinden anında işler, panel açık kalır, "Tamam" kapatır. `ciz()` kurulum
+modunda da `panelHtml()` basar; sihirbazın ileri/geri düğmeleri `S.panel`i
+temizler. Yeni bir uzun seçim eklerken aynı deseni kullan — 20 kalemi alt
+alta basmak telefonda seçim yükü (choice overload) yaratıyor.
+
 **Yeni sekme** → `ADLAR` ve `IKON` nesnelerine ekle, bir `vXxx()` yaz, `ciz()` içindeki
 eşlemeye kaydet. Alt menü 5 sütuna sabit (`stil.css` içindeki `.nav-in`); 6. sekme
 eklersen o kuralı da güncelle. Alternatif: "Daha" sekmesinin altına bir alt sayfa ekle —
@@ -500,7 +508,10 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Aynı egzersizde ağırlık artınca "yeni rekor" çıkıyor, artmayınca çıkmıyor
 - [ ] Kütüphane: süzgeçler çalışıyor, tarif açılıyor, "bugünkü seansa ekle" güç
       seansı olan günde çıkıyor ve aynı hareketi iki kez eklemiyor; seans
-      satırındaki ? paneli açıyor
+      satırındaki ? paneli açıyor; Duruş bölümü hedef reçetesi değil kendi
+      önerisini gösteriyor
+- [ ] Spor/takviye seçicileri alt sayfada açılıyor, sihirbazda ve Ayarlar'da
+      aynı panel; ekranda yalnız seçilenler listeleniyor
 - [ ] "Buradan başla" kartı yeni kullanıcıda çıkıyor, kapatınca kalıcı gidiyor
 - [ ] Setler ayrı ayrı giriliyor, set ekleniyor/siliniyor, seti işaretleyince dinlenme
       sayacı başlıyor; eski tek satırlı kayıtlar set listesine açılmış
