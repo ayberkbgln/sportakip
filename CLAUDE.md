@@ -266,7 +266,7 @@ Notlar:
 | `SPORLAR` | 20 spor. `tip` (dovus/guc/kardiyo/takim/esneklik) ve `log` alanları. |
 | `LOG_ALAN` | Antrenman günlüğü alan etiketleri. |
 | `GUC_SABLON` | Ağırlık antrenmanı egzersiz şablonları ("Ev A/B" dahil — adlar `EGZERSIZLER` ile eşleşmeli ki ? düğmesi çıksın). |
-| `EGZERSIZLER`, `BOLGE_AD` | Egzersiz kütüphanesi: 39 hareket (7'si "durus" — masa başı duruşu; tedavi değil genel bilgi, süren ağrıda uzmana yönlendirir); `bolge`, `yer` (salon/ev/ikisi), `nasil` tarifi. Set önerisi hareket başına değil `setOner()` ile HEDEFE göre. Ölçüye göre hareket önerisi bilerek yok — vücut ölçüsünden uygunluk çıkarmak uzman işi, uyarı metni bunu söylüyor. |
+| `EGZERSIZLER`, `BOLGE_AD` | Egzersiz kütüphanesi: 39 hareket (7'si "durus" — masa başı duruşu; tedavi değil genel bilgi, süren ağrıda uzmana yönlendirir); `bolge`, `yer` (salon/ev/ikisi), `nasil` tarifi, `ciz` şeması (aşağıya bak). Set önerisi hareket başına değil `setOner()` ile HEDEFE göre. Ölçüye göre hareket önerisi bilerek yok — vücut ölçüsünden uygunluk çıkarmak uzman işi, uyarı metni bunu söylüyor. |
 | `TAKVIYELER` | 24 takviye. `etiket.kafein` (mg) ve `etiket.tokKarin` uyarı motorunu besler. Sade L-karnitin kafeinsizdir; kafeinli thermo sürümler ayrı "termojenik" kalemidir — birleştirme, sade kullanana yanlış uyarı çıkar. |
 | `OGUN_SABLON` | 1/2/3/4/5/6 öğün ve 16:8 düzenleri; `p` = başlangıç ağırlığı. |
 | `ALISKANLIK_SABLON`, `AZALT_EGRISI` | Bırakma modülü ve haftalık azaltma eğrisi. |
@@ -397,11 +397,26 @@ günlerde sıfır kalori yemiş sayılır ve saçma bir bütçe çıkar.
 
 **Rehber maddesi eklemek** → `REHBER` dizisi, `kosul` alanını doğru ayarla.
 
-**Egzersiz eklemek** → `EGZERSIZLER` dizisine bir satır (`ad`, `bolge`, `yer`, `nasil`)
-ve İngilizceleri `dil.js`'e. Ad `GUC_SABLON`daki yazımla birebir aynıysa seans
+**Egzersiz eklemek** → `EGZERSIZLER` dizisine bir satır (`ad`, `bolge`, `yer`, `nasil`,
+`ciz`) ve İngilizceleri `dil.js`'e. Ad `GUC_SABLON`daki yazımla birebir aynıysa seans
 satırında ? düğmesi kendiliğinden çıkar (`kutBul` T'li adla da eşleşir). Kütüphane
 sayfası `dKutuphane()`; "Bugünkü seansa ekle" `bugunGucSeansi()`ne yazar, aynı ad
 ikinci kez eklenmez.
+
+**Egzersiz şeması (`ciz`)** → her hareket satır içi SVG çöp-adam çizimi taşır;
+fotoğraf/GIF bilerek yok (2. kural: dış istek yok; ayrıca lisans ve boyut).
+`egzersizCizim()` 120×90 viewBox'ta dört katman basar: `s` sabit dekor (bank,
+bar — soluk), `g` başlangıç pozu (hayalet, yarı saydam), `v` bitiş pozu (parlak)
+ve `o` hareket okları (vurgu rengi). Şekil sözlüğü `cizSekil()` içinde:
+`["adam",{b,o,k,kol:[[dirsekX,dirsekY,elX,elY]],bac:[[dizX,dizY,ayakX,ayakY]]}]`
+(b=baş, o=omuz, k=kalça), `["l",x1,y1,x2,y2]` çizgi, `["fl"]` zemin (y=84),
+`["plt",x,y]` plaka, `["kafa",x,y]` baş dairesi, `["dmb",x1,y1,x2,y2]` dambıl,
+`["band",x1,y1,x2,y2,sag]` direnç bandı, `["ok",x1,y1,x2,y2]` yön oku (ucu
+vektörden hesaplanır). Ghost→parlak+ok düzeni hareketin yönünü tek bakışta
+anlatır — yeni çizimde de bu düzeni koru, iki pozu da `adam`la kur. Renkler
+`stil.css`'teki `.ciz` bloğundan gelir (`--sonuk`/`--metin`/`--vurgu`), şemaya
+renk gömme. Toplu önizleme için scratchpad'deki `cizim.mjs` 39 çizimi tek
+ızgarada basar.
 
 **Alışveriş listesine kalem/grup eklemek** → `MARKET_SABLON`. Grup sırası market
 reyonlarını takip ediyor, araya girerken bunu boz­ma. Takviye grubunu koda yazma —
@@ -510,6 +525,9 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
       seansı olan günde çıkıyor ve aynı hareketi iki kez eklemiyor; seans
       satırındaki ? paneli açıyor; Duruş bölümü hedef reçetesi değil kendi
       önerisini gösteriyor
+- [ ] Egzersiz şemaları: 39 hareketin hepsinde `ciz` var, açık kartta ve ?
+      panelinde SVG basılıyor; yeni/değişen çizim `cizim.mjs` ızgarasında göze
+      okunur (poz belirsizse ekleme, düzelt)
 - [ ] Spor/takviye seçicileri alt sayfada açılıyor, sihirbazda ve Ayarlar'da
       aynı panel; ekranda yalnız seçilenler listeleniyor
 - [ ] "Buradan başla" kartı yeni kullanıcıda çıkıyor, kapatınca kalıcı gidiyor

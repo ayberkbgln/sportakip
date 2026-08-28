@@ -640,6 +640,50 @@ const secOp = (act, on, ad, d) => `<button class="sec-op ${on ? "on" : ""}" data
 
 const uyariKutu = u => `<div class="uyari ${u.tip === "kirmizi" ? "kirmizi" : ""}" style="color:${u.tip === "kirmizi" ? "var(--kotu)" : "var(--vurgu)"}">${UNLEM}<p>${esc(u.m)}</p></div>`;
 
+/* ---- Egzersiz şemaları ----
+   Fotoğraf yok (2. kural: dış istek yok; gömülü fotoğraf da MB yer).
+   Çizimler veri.js'te koordinat verisi, burada SVG'ye çevrilir:
+   soluk = başlangıç pozu, parlak = bitiş pozu, ok = hareket yönü.
+   Şekil sözlüğü: ["adam",{b,o,k,kol,bac}] çöp adam (b baş, o omuz, k kalça,
+   kol=[dirsekX,Y,elX,Y], bac=[dizX,Y,ayakX,Y]); ["l",x1,y1,x2,y2] çizgi;
+   ["fl"] zemin; ["plt",x,y] plaka (yandan bar); ["dmb",x1,y1,x2,y2] dambıl;
+   ["band",x1,y1,x2,y2,sarkma] bant; ["ok",x1,y1,x2,y2] yön oku.           */
+function cizAdam(a, cls) {
+  let h = `<circle class="cb ${cls}" cx="${a.b[0]}" cy="${a.b[1]}" r="4.4"/>`;
+  h += `<path class="cl ${cls}" d="M${a.b[0]} ${a.b[1]} L${a.o[0]} ${a.o[1]} L${a.k[0]} ${a.k[1]}"/>`;
+  (a.kol || []).forEach(x => h += `<path class="cl ${cls}" d="M${a.o[0]} ${a.o[1]} L${x[0]} ${x[1]} L${x[2]} ${x[3]}"/>`);
+  (a.bac || []).forEach(x => h += `<path class="cl ${cls}" d="M${a.k[0]} ${a.k[1]} L${x[0]} ${x[1]} L${x[2]} ${x[3]}"/>`);
+  return h;
+}
+function cizSekil(sk, cls) {
+  const t = sk[0];
+  if (t === "adam") return cizAdam(sk[1], cls);
+  if (t === "l")    return `<line class="cl ${cls}" x1="${sk[1]}" y1="${sk[2]}" x2="${sk[3]}" y2="${sk[4]}"/>`;
+  if (t === "fl")   return `<line class="cl czemin" x1="6" y1="84" x2="114" y2="84"/>`;
+  if (t === "plt")  return `<circle class="cb ${cls}" cx="${sk[1]}" cy="${sk[2]}" r="5.5"/>`;
+  if (t === "kafa") return `<circle class="cb ${cls}" cx="${sk[1]}" cy="${sk[2]}" r="4.4"/>`;
+  if (t === "dmb")  return `<line class="cq ${cls}" x1="${sk[1]}" y1="${sk[2]}" x2="${sk[3]}" y2="${sk[4]}"/>`;
+  if (t === "band") return `<path class="cl ${cls}" fill="none" d="M${sk[1]} ${sk[2]} Q${(sk[1]+sk[3])/2} ${(sk[2]+sk[4])/2 + sk[5]} ${sk[3]} ${sk[4]}"/>`;
+  if (t === "ok") {
+    const [x1, y1, x2, y2] = sk.slice(1);
+    const dx = x2 - x1, dy = y2 - y1, uz = Math.hypot(dx, dy) || 1;
+    const ux = dx / uz, uy = dy / uz;
+    const b1x = x2 - 7 * ux + 3.5 * uy, b1y = y2 - 7 * uy - 3.5 * ux;
+    const b2x = x2 - 7 * ux - 3.5 * uy, b2y = y2 - 7 * uy + 3.5 * ux;
+    return `<path class="cl cok" d="M${x1} ${y1} L${x2} ${y2} M${b1x.toFixed(1)} ${b1y.toFixed(1)} L${x2} ${y2} L${b2x.toFixed(1)} ${b2y.toFixed(1)}"/>`;
+  }
+  return "";
+}
+function egzersizCizim(e) {
+  const c = e && e.ciz;
+  if (!c) return "";
+  return `<svg class="ciz" viewBox="0 0 120 90" aria-hidden="true">
+    ${(c.s || []).map(x => cizSekil(x, "csab")).join("")}
+    ${(c.g || []).map(x => cizSekil(x, "cgolge")).join("")}
+    ${(c.v || []).map(x => cizSekil(x, "cana")).join("")}
+    ${(c.o || []).map(x => cizSekil(x, "cok")).join("")}</svg>`;
+}
+
 function tally(n, hedef) {
   let g = [], kal = hedef; while (kal > 0) { g.push(Math.min(5, kal)); kal -= 5; }
   let s = 0, h = "";
@@ -1145,6 +1189,7 @@ function panelHtml() {
       `<div class="row wrapped" style="gap:7px;margin-bottom:12px">
          <span class="chip gold">${T(BOLGE_AD[eg.bolge])}</span>
          <span class="chip">${yerAd(eg.yer)}</span></div>
+       ${egzersizCizim(eg)}
        <p class="gv" style="margin:0 0 12px">${esc(T(eg.nasil))}</p>
        <p class="macro">${T("Senin hedefin için")}: ${setOner(eg.bolge)}</p>`,
       `<button class="btn ghost blok" data-act="panel-git:daha:kutuphane">${T("Egzersizler")}</button>`);
@@ -1737,6 +1782,7 @@ function dKutuphane() {
         <div class="desc">${yerAd(e.yer)}</div></div>
       <div class="uc"><span class="ara-sag">${acik ? "⌄" : "›"}</span></div></div>
     ${acik ? `<div class="gr" style="padding-top:4px">
+      ${egzersizCizim(e)}
       <div class="gv">${esc(T(e.nasil))}</div>
       <div class="macro" style="margin-top:8px">${T("Senin hedefin için")}: ${setOner(e.bolge)}</div>
       ${guc ? `<button class="btn ghost blok" data-act="kut-ekle:${e.i}" style="margin-top:10px">${T("Bugünkü seansa ekle")}</button>` : ""}
