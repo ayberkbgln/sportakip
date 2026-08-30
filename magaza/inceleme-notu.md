@@ -18,7 +18,14 @@ capabilities that are unavailable outside the app:
 3. **Local notifications.** Water reminders and per-weekday training reminders
    scheduled from the user's own weekly program.
 
-4. **Fully offline.** The entire 539-item food database is bundled in the app.
+4. **Barcode scanning (camera).** The camera is used only to read the digits
+   of a product barcode via AVFoundation. No image ever leaves the device and
+   no external barcode database is queried: the user defines each product
+   themselves on first scan, and the mapping is stored locally on the device.
+   The camera permission is requested contextually, the first time the user
+   taps the scan button.
+
+5. **Fully offline.** The entire 539-item food database is bundled in the app.
    The app makes no network requests at runtime whatsoever.
 
 **Privacy:** the app collects no data. There is no account, no analytics, no
@@ -34,4 +41,5 @@ values are approximate reference figures. These appear in the in-app guide
 8-step setup wizard collects the user's own measurements; any values can be
 entered.
 
-**Language:** the interface is Turkish.
+**Language:** the interface is fully bilingual (English and Turkish). It
+follows the device language and can be switched manually in Settings.

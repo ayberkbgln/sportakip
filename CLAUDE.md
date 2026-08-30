@@ -358,15 +358,26 @@ yalnız ilgili düğümü tazeliyor: ölçüm ekranındaki `#on-yag`, gramaj kar
 `#bg-kcal` / `#bg-p` / `#bg-ky`. Besin araması da aynı mantıkla yalnız `#ara-liste`
 kabının içeriğini değiştiriyor. Diğer alanlar duruma yazıp `kaydetGecikmeli()` çağırıyor.
 
+**Panel açıkken yeniden çizim:** alt sayfa açıkken `ciz()` çağrılırsa panel
+DOM'u yeniden kurulur — `kalk` animasyonu baştan oynar ve gövde kaydırması
+sıfırlanır, panel her dokunuşta zıplar. `ciz()` bu yüzden açık paneli hatırlıyor:
+yeniden bastıktan sonra `.sayfa`/`.perde` animasyonunu kapatıyor ve
+`.sayfa-govde` kaydırmasını geri yüklüyor. Panel İLK açılışta animasyonlu
+kalmalı — bu davranışı bozma, seçim panellerindeki her dokunuş ciz'den geçiyor.
+
 Kullanıcı girdisi ekrana basılıyorsa `esc()` ile kaçır.
 
 ---
 
 ## Sık istenecek değişiklikler
 
-**Haftalık programı değiştirmek** → `programDuzenle()` tek bileşen; hem kurulum
-sihirbazının 5. adımı hem Antrenman sekmesi onu basıyor. Seans ekleme
-`data-seans-ekle`, alan yazımı `data-seans="gün:sıra:alan"`, sıralama
+**Haftalık programı değiştirmek** → `programDuzenle()` tek bileşen; kurulum
+sihirbazının 5. adımı onu doğrudan basıyor. Antrenman sekmesinde ise varsayılan
+görünüm sıkışık bir yedi gün özeti (`.prog-ozet`, bugün vurgulu); düzenleyici
+"Programı düzenle" (`prog-duzen:1`) ile açılıp "Bitti" ile kapanıyor
+(`S.f.progDuzen`, kalıcı değil). Yedi günün tam düzenleyicisini her açılışta
+basmak sekmeyi duvara çeviriyordu — özet + istenince düzenleme kalsın. Seans
+ekleme `data-seans-ekle`, alan yazımı `data-seans="gün:sıra:alan"`, sıralama
 `seans-tasi:gün:sıra:yön`.
 
 **Spor eklemek** → `SPORLAR` dizisine bir satır. `log` alanları `LOG_ALAN` anahtarlarından
@@ -529,7 +540,10 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
       panelinde SVG basılıyor; yeni/değişen çizim `cizim.mjs` ızgarasında göze
       okunur (poz belirsizse ekleme, düzelt)
 - [ ] Spor/takviye seçicileri alt sayfada açılıyor, sihirbazda ve Ayarlar'da
-      aynı panel; ekranda yalnız seçilenler listeleniyor
+      aynı panel; ekranda yalnız seçilenler listeleniyor; panelde seçim
+      yapınca panel zıplamıyor ve kaydırma yerinde kalıyor
+- [ ] Antrenman sekmesinde program özeti çıkıyor (bugün vurgulu), düzenleyici
+      "Programı düzenle" ile açılıp "Bitti" ile kapanıyor
 - [ ] "Buradan başla" kartı yeni kullanıcıda çıkıyor, kapatınca kalıcı gidiyor
 - [ ] Setler ayrı ayrı giriliyor, set ekleniyor/siliniyor, seti işaretleyince dinlenme
       sayacı başlıyor; eski tek satırlı kayıtlar set listesine açılmış

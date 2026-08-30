@@ -469,6 +469,19 @@ nav{
 .seans-ok:active{color:var(--vurgu);border-color:var(--vurgu);}
 .seans .lbl{text-align:left;}
 
+/* Program özeti — düzenleyici kapalıyken yedi günün tek bakışta okunuşu. */
+.prog-ozet{display:flex;flex-direction:column;}
+.po{
+  display:flex;align-items:baseline;gap:10px;padding:8px 2px;
+  border-bottom:1px solid var(--cizgi);font-size:13px;
+}
+.po:last-child{border-bottom:none;}
+.po-gun{flex:none;width:78px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--soluk);}
+.po-ic{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--soluk);}
+.po-dk{flex:none;font-family:var(--mono);font-size:11px;color:var(--sonuk);}
+.po.bugun .po-gun,.po.bugun .po-dk{color:var(--vurgu);}
+.po.bugun .po-ic{color:var(--metin);}
+
 /* ---------- sıkışık başlık ----------
    Uzun dikey yığın yerine: başlık solda, gün yüzdesi sağda tek satırda. */
 .top.sik{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:22px 0 15px;margin-bottom:16px;}

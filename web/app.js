@@ -1162,7 +1162,7 @@ function panelHtml() {
         return satir({ ad: `${i + 1}. ${sp ? T(sp.ad) : s.spor}`, saat: s.sure ? s.sure + " " + T("dk") : "",
                        desc: T(s.sablon) || "", on: !!seansOku(k, s.sid).yapildi, act: "seans-tik:" + s.sid });
       }).join("") || `<p class="bos">${T("Bugün dinlenme günü.")}</p>`,
-      `<button class="btn gold blok" data-act="panel-git:antrenman:">${T("Detay gir")}</button>`);
+      `<button class="btn gold blok" data-act="panel-git:antrenman:">${T("Setleri ve süreyi gir")}</button>`);
   }
 
   if (S.panel === "sporSec") {
@@ -1399,12 +1399,29 @@ function vAntrenman() {
     }
   });
 
-  /* Haftalık program */
+  /* Haftalık program — varsayılan görünüm sıkışık özet, düzenleyici istenince
+     açılır. Yedi günün tam düzenleyicisi her açılışta basılınca ekran duvara
+     dönüyor ve günlük iş (set girmek) altında kayboluyordu. */
   h += `<p class="sec">${T("Haftalık program")}</p>`;
-  h += kart("", "", programDuzenle() +
-    `<div class="row" style="margin-top:14px">
-       <button class="btn ghost" data-act="spor-duzenle">${T("Sporları düzenle")}</button>
-       <button class="btn ghost" data-act="panel-git:daha:kutuphane">${T("Egzersizler")}</button></div>`);
+  const altDugmeler = `<div class="row" style="margin-top:12px">
+     <button class="btn ghost" data-act="spor-duzenle">${T("Sporları düzenle")}</button>
+     <button class="btn ghost" data-act="panel-git:daha:kutuphane">${T("Egzersizler")}</button></div>`;
+  if (S.f.progDuzen)
+    h += kart("", "", programDuzenle() +
+      `<button class="btn gold blok" data-act="prog-duzen:0" style="margin-top:14px">${T("Bitti")}</button>` + altDugmeler);
+  else {
+    const bugunGi = haftaninGunu(k);
+    h += kart("", "", `<div class="prog-ozet">${S.program.map((p, gi) => {
+      const list = p.seanslar || [];
+      const sure = list.reduce((a, s) => a + (+s.sure || 0), 0);
+      const gunAdlari = list.map(s => { const sp = sporBul(s.spor); return sp ? T(sp.ad) : s.spor; }).join(" + ");
+      return `<div class="po${gi === bugunGi ? " bugun" : ""}">
+        <span class="po-gun">${T(GUN_AD[gi])}</span>
+        <span class="po-ic">${list.length ? esc(gunAdlari) : T("Dinlenme")}</span>
+        <span class="po-dk">${list.length ? sure + " " + T("dk") : ""}</span></div>`;
+    }).join("")}</div>
+    <button class="btn ghost blok" data-act="prog-duzen:1" style="margin-top:12px">${T("Programı düzenle")}</button>` + altDugmeler);
+  }
 
   /* Haftalık hacim — progresif yükleme gerçekten oluyor mu, aylık ölçekte.
      Tek seansa bakınca göremezsin; hacim eğrisi yatay gidiyorsa ilerlemiyorsun. */
@@ -2018,16 +2035,32 @@ const ADLAR = { bugun: "Bugün", yemek: "Yemek", antrenman: "Antrenman", ilerlem
 
 function ciz() {
   const app = document.getElementById("app");
+  /* Panel zaten açıksa yeniden basmak "kalk" animasyonunu baştan oynatır ve
+     kaydırmayı sıfırlar — panel her dokunuşta zıplar. Açık paneli hatırla,
+     bastıktan sonra animasyonu kapat ve kaldığı yere kaydır. */
+  const panelVardi = !!app.querySelector(".sayfa");
+  const panelKaydirma = panelVardi ? (app.querySelector(".sayfa-govde") || { scrollTop: 0 }).scrollTop : 0;
   document.body.classList.toggle("kilit", !!(S.araHedef || S.panel));
-  if (kurulumGerek()) { app.innerHTML = `<div class="wrap solo">${vKurulum()}</div>${panelHtml()}`; return; }
-  const v = { bugun: vBugun, yemek: vYemek, antrenman: vAntrenman, ilerleme: vIlerleme, daha: vDaha }[S.tab]();
-  app.innerHTML = `<div class="wrap">${v}</div>
-   <nav><div class="nav-in">${Object.keys(ADLAR).map(id =>
-     `<button class="tab ${S.tab === id ? "on" : ""}" data-act="tab:${id}" aria-label="${T(ADLAR[id])}">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-       stroke-linecap="round" stroke-linejoin="round"><path d="${IKON[id]}"/></svg><span>${T(ADLAR[id])}</span></button>`).join("")}
-   </div></nav>
-   ${panelHtml()}${sayacBar()}`;
+  if (kurulumGerek()) app.innerHTML = `<div class="wrap solo">${vKurulum()}</div>${panelHtml()}`;
+  else {
+    const v = { bugun: vBugun, yemek: vYemek, antrenman: vAntrenman, ilerleme: vIlerleme, daha: vDaha }[S.tab]();
+    app.innerHTML = `<div class="wrap">${v}</div>
+     <nav><div class="nav-in">${Object.keys(ADLAR).map(id =>
+       `<button class="tab ${S.tab === id ? "on" : ""}" data-act="tab:${id}" aria-label="${T(ADLAR[id])}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round"><path d="${IKON[id]}"/></svg><span>${T(ADLAR[id])}</span></button>`).join("")}
+     </div></nav>
+     ${panelHtml()}${sayacBar()}`;
+  }
+  if (panelVardi) {
+    const sayfa = app.querySelector(".sayfa"), perde = app.querySelector(".perde");
+    if (sayfa) {
+      sayfa.style.animation = "none";
+      if (perde) perde.style.animation = "none";
+      const govde = app.querySelector(".sayfa-govde");
+      if (govde) govde.scrollTop = panelKaydirma;
+    }
+  }
 
   /* Panel yeni açıldıysa arama kutusuna odaklan — kullanıcı hemen yazmaya başlasın */
   if (S.odakAra) {
@@ -2475,6 +2508,7 @@ document.addEventListener("click", e => {
     if (hedef >= 0 && hedef < l.length) { const t = l[si]; l[si] = l[hedef]; l[hedef] = t; }
   }
   else if (a === "spor-duzenle") { S.tab = "daha"; S.daha = "ayar"; ayarFormDoldur(); window.scrollTo(0, 0); }
+  else if (a.startsWith("prog-duzen:")) { S.f.progDuzen = par(1) === "1"; }
 
   /* ---- ölçüm ---- */
   else if (a === "olcum") {

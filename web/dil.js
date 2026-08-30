@@ -216,6 +216,7 @@ const SOZLUK = {
 "Takviyeleri düzenle": "Edit supplements",
 "Bugünkü antrenman": "Today's training", "Bugün dinlenme günü.": "Rest day today.",
 "Detay gir": "Log details",
+"Setleri ve süreyi gir": "Log sets & time",
 "{h} · bu hafta en fazla {n} {b}": "{h} · at most {n} {b} this week",
 " — sınırı aştın, gelecek hafta sıfırdan başlıyorsun.": " — you're over the cap; next week starts fresh.",
 
@@ -236,6 +237,8 @@ const SOZLUK = {
 "Seti bitirince sağdaki kutuyu işaretle — dinlenme sayacı kendiliğinden başlar. Her hafta ya bir tekrar ya biraz kilo ekle; aynı ağırlıkla aynı tekrar gelişme değil bakımdır.":
   "Check the box on the right when you finish a set — the rest timer starts by itself. Add a rep or a little weight every week; same weight for the same reps is maintenance, not progress.",
 "Sporları düzenle": "Edit sports",
+"Programı düzenle": "Edit schedule",
+"Bitti": "Done",
 "Haftalık hacim": "Weekly volume", "son 8 hafta": "last 8 weeks",
 "Bu hafta tonaj": "This week tonnage",
 "Tonaj = tekrar × kg toplamı.": "Tonnage = total reps × kg.",
