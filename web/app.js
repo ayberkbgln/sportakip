@@ -1328,7 +1328,24 @@ function onizlemeYag() {
 }
 
 /* =================== SEKME: ANTRENMAN =================== */
+/* Haftalık program kendi sayfasında — Antrenman sekmesine yığılmıyor.
+   Günlük iş (set girmek) ile haftalık kurgu (programı değiştirmek) ayrı işler;
+   ikisini aynı ekrana basmak ikisini de boğuyordu. */
+function vProgram() {
+  const gunSay = S.program.filter(p => (p.seanslar || []).length).length;
+  const toplam = S.program.reduce((a, p) => a + (p.seanslar || []).reduce((x, s) => x + (+s.sure || 0), 0), 0);
+  return `<header class="top"><p class="eyebrow">${T("Antrenman")}</p><h1>${T("Haftalık program")}</h1>
+    <p class="sub">${Tf("{n} gün antrenman · {m} dk/hafta", { n: gunSay, m: toplam })}</p></header>
+   <button class="btn ghost blok" data-act="prog-duzen:0" style="margin-bottom:14px">‹ ${T("Antrenman")}</button>`
+   + kart("", "", programDuzenle() +
+     `<div class="row" style="margin-top:14px">
+        <button class="btn ghost" data-act="spor-duzenle">${T("Sporları düzenle")}</button>
+        <button class="btn ghost" data-act="panel-git:daha:kutuphane">${T("Egzersizler")}</button></div>`)
+   + `<button class="btn gold blok" data-act="prog-duzen:0">${T("Bitti")}</button>`;
+}
+
 function vAntrenman() {
+  if (S.f.progDuzen) return vProgram();
   const k = bugun(), seanslar = gunSeanslari(k), adlar = gunSporAdlari(k);
   let h = `<header class="top"><p class="eyebrow">${T(GUN_AD[haftaninGunu(k)])}</p>
    <h1>${seanslar.length ? esc(adlar.join(" + ")) : T("Dinlenme")}</h1>
@@ -1399,29 +1416,24 @@ function vAntrenman() {
     }
   });
 
-  /* Haftalık program — varsayılan görünüm sıkışık özet, düzenleyici istenince
-     açılır. Yedi günün tam düzenleyicisi her açılışta basılınca ekran duvara
-     dönüyor ve günlük iş (set girmek) altında kayboluyordu. */
+  /* Haftalık program — sekmede yalnız sıkışık özet durur; düzenleyici kendi
+     sayfasında açılır (vProgram). Yedi günün tam düzenleyicisi buraya basılınca
+     ekran duvara dönüyor ve günlük iş (set girmek) altında kayboluyordu. */
   h += `<p class="sec">${T("Haftalık program")}</p>`;
-  const altDugmeler = `<div class="row" style="margin-top:12px">
+  const bugunGi = haftaninGunu(k);
+  h += kart("", "", `<div class="prog-ozet">${S.program.map((p, gi) => {
+    const list = p.seanslar || [];
+    const sure = list.reduce((a, s) => a + (+s.sure || 0), 0);
+    const gunAdlari = list.map(s => { const sp = sporBul(s.spor); return sp ? T(sp.ad) : s.spor; }).join(" + ");
+    return `<div class="po${gi === bugunGi ? " bugun" : ""}">
+      <span class="po-gun">${T(GUN_AD[gi])}</span>
+      <span class="po-ic">${list.length ? esc(gunAdlari) : T("Dinlenme")}</span>
+      <span class="po-dk">${list.length ? sure + " " + T("dk") : ""}</span></div>`;
+  }).join("")}</div>
+  <button class="btn ghost blok" data-act="prog-duzen:1" style="margin-top:12px">${T("Programı düzenle")}</button>
+  <div class="row" style="margin-top:12px">
      <button class="btn ghost" data-act="spor-duzenle">${T("Sporları düzenle")}</button>
-     <button class="btn ghost" data-act="panel-git:daha:kutuphane">${T("Egzersizler")}</button></div>`;
-  if (S.f.progDuzen)
-    h += kart("", "", programDuzenle() +
-      `<button class="btn gold blok" data-act="prog-duzen:0" style="margin-top:14px">${T("Bitti")}</button>` + altDugmeler);
-  else {
-    const bugunGi = haftaninGunu(k);
-    h += kart("", "", `<div class="prog-ozet">${S.program.map((p, gi) => {
-      const list = p.seanslar || [];
-      const sure = list.reduce((a, s) => a + (+s.sure || 0), 0);
-      const gunAdlari = list.map(s => { const sp = sporBul(s.spor); return sp ? T(sp.ad) : s.spor; }).join(" + ");
-      return `<div class="po${gi === bugunGi ? " bugun" : ""}">
-        <span class="po-gun">${T(GUN_AD[gi])}</span>
-        <span class="po-ic">${list.length ? esc(gunAdlari) : T("Dinlenme")}</span>
-        <span class="po-dk">${list.length ? sure + " " + T("dk") : ""}</span></div>`;
-    }).join("")}</div>
-    <button class="btn ghost blok" data-act="prog-duzen:1" style="margin-top:12px">${T("Programı düzenle")}</button>` + altDugmeler);
-  }
+     <button class="btn ghost" data-act="panel-git:daha:kutuphane">${T("Egzersizler")}</button></div>`);
 
   /* Haftalık hacim — progresif yükleme gerçekten oluyor mu, aylık ölçekte.
      Tek seansa bakınca göremezsin; hacim eğrisi yatay gidiyorsa ilerlemiyorsun. */
@@ -2508,7 +2520,7 @@ document.addEventListener("click", e => {
     if (hedef >= 0 && hedef < l.length) { const t = l[si]; l[si] = l[hedef]; l[hedef] = t; }
   }
   else if (a === "spor-duzenle") { S.tab = "daha"; S.daha = "ayar"; ayarFormDoldur(); window.scrollTo(0, 0); }
-  else if (a.startsWith("prog-duzen:")) { S.f.progDuzen = par(1) === "1"; }
+  else if (a.startsWith("prog-duzen:")) { S.f.progDuzen = par(1) === "1"; window.scrollTo(0, 0); }
 
   /* ---- ölçüm ---- */
   else if (a === "olcum") {

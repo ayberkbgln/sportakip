@@ -372,13 +372,14 @@ Kullanıcı girdisi ekrana basılıyorsa `esc()` ile kaçır.
 ## Sık istenecek değişiklikler
 
 **Haftalık programı değiştirmek** → `programDuzenle()` tek bileşen; kurulum
-sihirbazının 5. adımı onu doğrudan basıyor. Antrenman sekmesinde ise varsayılan
-görünüm sıkışık bir yedi gün özeti (`.prog-ozet`, bugün vurgulu); düzenleyici
-"Programı düzenle" (`prog-duzen:1`) ile açılıp "Bitti" ile kapanıyor
-(`S.f.progDuzen`, kalıcı değil). Yedi günün tam düzenleyicisini her açılışta
-basmak sekmeyi duvara çeviriyordu — özet + istenince düzenleme kalsın. Seans
-ekleme `data-seans-ekle`, alan yazımı `data-seans="gün:sıra:alan"`, sıralama
-`seans-tasi:gün:sıra:yön`.
+sihirbazının 5. adımı onu doğrudan basıyor. Antrenman sekmesinde varsayılan
+görünüm sıkışık bir yedi gün özeti (`.prog-ozet`, bugün vurgulu); "Programı
+düzenle" (`prog-duzen:1`) düzenleyiciyi **kendi sayfasında** açıyor
+(`vProgram()`, geri düğmesi + "Bitti" ile `prog-duzen:0`; durum
+`S.f.progDuzen`, kalıcı değil — sekme değişince kapanır). Günlük iş (set
+girmek) ile haftalık kurguyu aynı ekrana basmak ikisini de boğuyordu; ayrı
+sayfa kalsın. Seans ekleme `data-seans-ekle`, alan yazımı
+`data-seans="gün:sıra:alan"`, sıralama `seans-tasi:gün:sıra:yön`.
 
 **Spor eklemek** → `SPORLAR` dizisine bir satır. `log` alanları `LOG_ALAN` anahtarlarından
 seçilir; `"set"` koyarsan egzersiz tablosu çıkar.
@@ -542,8 +543,9 @@ bir özellik `S` üzerinden okusun, sabit yazma. Test için gerçek değil uydur
 - [ ] Spor/takviye seçicileri alt sayfada açılıyor, sihirbazda ve Ayarlar'da
       aynı panel; ekranda yalnız seçilenler listeleniyor; panelde seçim
       yapınca panel zıplamıyor ve kaydırma yerinde kalıyor
-- [ ] Antrenman sekmesinde program özeti çıkıyor (bugün vurgulu), düzenleyici
-      "Programı düzenle" ile açılıp "Bitti" ile kapanıyor
+- [ ] Antrenman sekmesinde program özeti çıkıyor (bugün vurgulu); "Programı
+      düzenle" düzenleyiciyi kendi sayfasında açıyor, geri/"Bitti" sekmeye
+      dönüyor, sekme değişince sayfa kendiliğinden kapanıyor
 - [ ] "Buradan başla" kartı yeni kullanıcıda çıkıyor, kapatınca kalıcı gidiyor
 - [ ] Setler ayrı ayrı giriliyor, set ekleniyor/siliniyor, seti işaretleyince dinlenme
       sayacı başlıyor; eski tek satırlı kayıtlar set listesine açılmış

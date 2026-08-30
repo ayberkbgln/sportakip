@@ -239,6 +239,7 @@ const SOZLUK = {
 "Sporları düzenle": "Edit sports",
 "Programı düzenle": "Edit schedule",
 "Bitti": "Done",
+"{n} gün antrenman · {m} dk/hafta": "{n} training days · {m} min/week",
 "Haftalık hacim": "Weekly volume", "son 8 hafta": "last 8 weeks",
 "Bu hafta tonaj": "This week tonnage",
 "Tonaj = tekrar × kg toplamı.": "Tonnage = total reps × kg.",
